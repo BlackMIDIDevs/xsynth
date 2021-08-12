@@ -47,8 +47,8 @@ impl BufferedRenderer {
     pub fn new<F: 'static + AudioPipe + Send>(
         mut render: F,
         sample_rate: u32,
-        render_size: usize,
         channels: u16,
+        render_size: usize,
     ) -> Self {
         let (tx, rx) = unbounded();
 
