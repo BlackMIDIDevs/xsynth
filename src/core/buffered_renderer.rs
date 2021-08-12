@@ -8,9 +8,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use cpal::Sample;
-
 use crossbeam_channel::{unbounded, Receiver};
+
+use super::AudioPipe;
 
 /// The helper struct for deferred sample rendering.
 /// Helps avoid stutter when the render time is exceding the max time allowed by the audio driver.
@@ -18,7 +18,7 @@ use crossbeam_channel::{unbounded, Receiver};
 /// while allowing more time to render per sample.
 ///
 /// Designed to be used in realtime playback only.
-pub struct BufferedRenderer<T: 'static + Sample + Send> {
+pub struct BufferedRenderer {
     /// The number of samples currently buffered.
     /// Can be negative if the reader is waiting for more samples.
     samples: Arc<AtomicI64>,
@@ -34,14 +34,17 @@ pub struct BufferedRenderer<T: 'static + Sample + Send> {
     render_size: Arc<AtomicUsize>,
 
     /// The receiver for samples (the render thread has the sender).
-    receive: Receiver<Vec<T>>,
+    receive: Receiver<Vec<f32>>,
 
     /// Remainder of samples from the last received samples vec.
-    remainder: Vec<T>,
+    remainder: Vec<f32>,
+
+    sample_rate: u32,
+    channels: u16,
 }
 
-impl<T: 'static + Sample + Send + Default> BufferedRenderer<T> {
-    pub fn new<F: 'static + FnMut(&mut [T]) + Send>(
+impl BufferedRenderer {
+    pub fn new<F: 'static + AudioPipe + Send>(
         mut render: F,
         sample_rate: u32,
         render_size: usize,
@@ -83,15 +86,15 @@ impl<T: 'static + Sample + Send + Default> BufferedRenderer<T> {
 
                 // Create the vec and write the samples
                 let mut vec = vec![Default::default(); size * channels as usize];
-                render(&mut vec);
-                
+                render.read_samples(&mut vec);
+
                 // Send the samples, break if the pipe is broken
                 samples.fetch_add(vec.len() as i64, Ordering::SeqCst);
                 match tx.send(vec) {
                     Ok(_) => {}
                     Err(_) => break,
                 };
-                
+
                 // Write the elapsed render time percentage to the render_time queue
                 {
                     let mut queue = render_time.write().unwrap();
@@ -118,11 +121,13 @@ impl<T: 'static + Sample + Send + Default> BufferedRenderer<T> {
             receive: rx,
             render_size,
             remainder: Vec::new(),
+            channels,
+            sample_rate,
         }
     }
 
     /// Reads samples from the remainder and the output queue into the destination array.
-    pub fn read(&mut self, dest: &mut [T]) {
+    pub fn read(&mut self, dest: &mut [f32]) {
         let mut i: usize = 0;
         let len = dest.len().min(self.remainder.len());
         self.samples.fetch_sub(dest.len() as i64, Ordering::SeqCst);
@@ -163,5 +168,19 @@ impl<T: 'static + Sample + Send + Default> BufferedRenderer<T> {
     /// Sets the number of samples that should be rendered each iteration.
     pub fn set_render_size(&self, size: usize) {
         self.render_size.store(size, Ordering::SeqCst);
+    }
+}
+
+impl AudioPipe for BufferedRenderer {
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
+    fn channels(&self) -> u16 {
+        self.channels
+    }
+
+    fn read_samples_unchecked(&mut self, to: &mut [f32]) {
+        self.read(to)
     }
 }

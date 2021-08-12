@@ -1,5 +1,5 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use xsynth::core::BufferedRenderer;
+use xsynth::core::{BufferedRenderer, FunctionAudioPipe};
 
 fn main() {
     let host = cpal::default_host();
@@ -38,20 +38,27 @@ where
 
     let rate = config.sample_rate.0;
 
-    let mut buffered = BufferedRenderer::<T>::new(
-        move |data: &mut [T]| {
-            write_data(data, channels, &mut next_value);
-        },
-        rate,
-        48,
-        config.channels
-    );
+    let reader = FunctionAudioPipe::new(rate, config.channels, move |data: &mut [f32]| {
+        write_data(data, channels, &mut next_value);
+    });
 
+    let mut buffered = BufferedRenderer::new(reader, rate, 48, config.channels);
+
+    let mut float_data = Vec::new();
     let stream = device
         .build_output_stream(
             config,
             move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-                buffered.read(data);
+                float_data.reserve(data.len());
+                for _ in 0..data.len() {
+                    float_data.push(0.0);
+                }
+                buffered.read(&mut float_data);
+                let mut i = 0;
+                for s in float_data.drain(0..) {
+                    data[i] = cpal::Sample::from(&s);
+                    i += 1;
+                }
             },
             err_fn,
         )
@@ -63,12 +70,10 @@ where
     Ok(())
 }
 
-fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> f32)
-where
-    T: cpal::Sample,
+fn write_data(output: &mut [f32], channels: usize, next_sample: &mut dyn FnMut() -> f32)
 {
     for frame in output.chunks_mut(channels) {
-        let value: T = cpal::Sample::from::<f32>(&next_sample());
+        let value = next_sample();
         for sample in frame.iter_mut() {
             *sample = value;
         }
