@@ -91,11 +91,3 @@ where
     Ok(())
 }
 
-fn write_data(output: &mut [f32], channels: usize, next_sample: &mut dyn FnMut() -> f32) {
-    for frame in output.chunks_mut(channels) {
-        let value = next_sample();
-        for sample in frame.iter_mut() {
-            *sample = value;
-        }
-    }
-}

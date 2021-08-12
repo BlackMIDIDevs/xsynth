@@ -8,7 +8,7 @@ pub struct Voice {
     amp: f32,
     phase: f32,
 
-    vel: u8,
+    _vel: u8,
 }
 
 fn build_frequencies() -> [f32; 128] {
@@ -32,7 +32,7 @@ impl Voice {
             freq,
             amp,
             phase: 0.0,
-            vel,
+            _vel: vel,
         }
     }
 

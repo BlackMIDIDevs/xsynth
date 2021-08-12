@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, Mutex, RwLock},
-    time::Instant,
-};
+use std::sync::{Arc, Mutex, RwLock};
 
 use self::{
     event::{ChannelEvent, NoteEvent},
@@ -12,8 +9,7 @@ use self::{
 use super::AudioPipe;
 
 use atomic_refcell::AtomicRefCell;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use to_vec::ToVec;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 pub mod event;
 mod key;

@@ -5,7 +5,6 @@ use super::{event::NoteEvent, params::VoiceChannelParams, voice::Voice};
 pub struct KeyData {
     key: u8,
     voices: VecDeque<Voice>,
-    output_cache: Vec<f32>,
 }
 
 impl KeyData {
@@ -13,7 +12,6 @@ impl KeyData {
         KeyData {
             key,
             voices: VecDeque::new(),
-            output_cache: Vec::new(),
         }
     }
 
