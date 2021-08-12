@@ -6,11 +6,16 @@ pub struct VoiceChannelStats {
 }
 
 #[derive(Debug, Clone)]
+pub struct VoiceChannelConst {
+    pub sample_rate: u32,
+    pub channels: u16,
+}
+
+#[derive(Debug, Clone)]
 pub struct VoiceChannelParams {
     pub stats: VoiceChannelStats,
     pub layers: i32,
-    pub sample_rate: u32,
-    pub channels: u16,
+    pub constant: VoiceChannelConst,
 }
 
 impl VoiceChannelStats {
@@ -24,9 +29,11 @@ impl VoiceChannelParams {
     pub fn new(sample_rate: u32, channels: u16) -> Self {
         Self {
             stats: VoiceChannelStats::new(),
-            layers: 4,
-            sample_rate,
-            channels,
+            layers: 32,
+            constant: VoiceChannelConst {
+                sample_rate,
+                channels,
+            },
         }
     }
 }

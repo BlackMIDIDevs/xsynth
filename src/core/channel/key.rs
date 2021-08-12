@@ -18,7 +18,7 @@ impl KeyData {
     }
 
     pub fn send_event(&mut self, event: NoteEvent, params: &VoiceChannelParams) {
-        let mut change = 0;
+        let mut change = 0i32;
         match event {
             NoteEvent::On(vel) => {
                 while self.voices.len() >= params.layers as usize {
@@ -27,7 +27,7 @@ impl KeyData {
                 }
                 change += 1;
                 self.voices
-                    .push_front(Voice::spawn(self.key, vel, params.sample_rate))
+                    .push_front(Voice::spawn(self.key, vel, params.constant.sample_rate))
             }
             NoteEvent::Off => {
                 change -= 1;
@@ -37,10 +37,17 @@ impl KeyData {
                 // }
             }
         }
-        params
-            .stats
-            .voice_counter
-            .fetch_add(change, Ordering::SeqCst);
+        if change < 0 {
+            params
+                .stats
+                .voice_counter
+                .fetch_sub((-change) as u64, Ordering::SeqCst);
+        } else {
+            params
+                .stats
+                .voice_counter
+                .fetch_add(change as u64, Ordering::SeqCst);
+        }
     }
 
     pub fn render_to(&mut self, out: &mut [f32]) {
