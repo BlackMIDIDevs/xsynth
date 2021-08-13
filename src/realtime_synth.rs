@@ -1,10 +1,14 @@
-use std::{collections::VecDeque, sync::Arc, thread, time::Instant};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+    thread,
+};
 
 use cpal::{
     traits::{DeviceTrait, StreamTrait},
-    Device, Sample, Stream, StreamConfig, SupportedStreamConfig,
+    Device, Sample, Stream, SupportedStreamConfig,
 };
-use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
+use crossbeam_channel::{bounded, unbounded, Sender};
 
 use crate::{
     core::{event::ChannelEvent, AudioPipe, BufferedRenderer, FunctionAudioPipe, VoiceChannel},
@@ -32,6 +36,8 @@ pub struct RealtimeSynth {
     stream: Stream,
 
     event_senders: RealtimeEventSender,
+
+    buffered_renderer: Arc<Mutex<BufferedRenderer>>,
 }
 
 impl RealtimeSynth {
@@ -93,12 +99,17 @@ impl RealtimeSynth {
             }
         });
 
-        let buffered = BufferedRenderer::new(render, sample_rate, audio_channels, 48);
+        let buffered = Arc::new(Mutex::new(BufferedRenderer::new(
+            render,
+            sample_rate,
+            audio_channels,
+            48 * 10,
+        )));
 
         fn build_stream<T: Sample>(
             device: &Device,
             config: SupportedStreamConfig,
-            mut buffered: BufferedRenderer,
+            buffered: Arc<Mutex<BufferedRenderer>>,
         ) -> Stream {
             let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
             let mut output_vec = Vec::new();
@@ -111,7 +122,7 @@ impl RealtimeSynth {
                         for _ in 0..data.len() {
                             output_vec.push(0.0);
                         }
-                        buffered.read(&mut output_vec);
+                        buffered.lock().unwrap().read(&mut output_vec);
                         let mut i = 0;
                         for s in output_vec.drain(0..) {
                             data[i] = Sample::from(&s);
@@ -126,9 +137,9 @@ impl RealtimeSynth {
         }
 
         let stream = match config.sample_format() {
-            cpal::SampleFormat::F32 => build_stream::<f32>(&device, config, buffered),
-            cpal::SampleFormat::I16 => build_stream::<i16>(&device, config, buffered),
-            cpal::SampleFormat::U16 => build_stream::<u16>(&device, config, buffered),
+            cpal::SampleFormat::F32 => build_stream::<f32>(&device, config, buffered.clone()),
+            cpal::SampleFormat::I16 => build_stream::<i16>(&device, config, buffered.clone()),
+            cpal::SampleFormat::U16 => build_stream::<u16>(&device, config, buffered.clone()),
         };
 
         stream.play().unwrap();
@@ -137,6 +148,7 @@ impl RealtimeSynth {
             channels,
             event_senders: RealtimeEventSender::new(senders),
             stream,
+            buffered_renderer: buffered,
         }
     }
 

@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use xsynth::{
-    core::{event::ChannelEvent, AudioPipe, BufferedRenderer, FunctionAudioPipe, VoiceChannel},
-    RealtimeSynth, SynthEvent,
+    RealtimeSynth,
 };
 
 fn main() {
@@ -19,16 +18,25 @@ fn main() {
 
     let synth = RealtimeSynth::new(16, &device, config);
 
-    for i in 0..128 {
-        for _ in 0..64 {
-            synth.send_event(SynthEvent::new(
-                0,
-                ChannelEvent::NoteOn {
-                    key: i as u8,
-                    vel: 64,
-                },
-            ));
+    loop {
+        for i in 0..128 {
+            for chan in 0..1 {
+                for _ in 0..20 {
+                    // synth.send_event(SynthEvent::new(
+                    //     chan,
+                    //     ChannelEvent::NoteOff { key: i as u8 },
+                    // ));
+                    // synth.send_event(SynthEvent::new(
+                    //     chan,
+                    //     ChannelEvent::NoteOn {
+                    //         key: i as u8,
+                    //         vel: 64,
+                    //     },
+                    // ));
+                }
+            }
         }
+        std::thread::sleep(Duration::from_millis(10));
     }
 
     std::thread::sleep(Duration::from_secs(10000));

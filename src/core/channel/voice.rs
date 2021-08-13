@@ -1,12 +1,12 @@
-use std::f32::consts::PI;
+use std::f64::consts::PI;
 
 use lazy_static::lazy_static;
 
 pub struct Voice {
-    freq: f32,
+    freq: f64,
 
     amp: f32,
-    phase: f32,
+    phase: f64,
 
     _vel: u8,
 }
@@ -25,7 +25,7 @@ lazy_static! {
 
 impl Voice {
     pub fn spawn(key: u8, vel: u8, sample_rate: u32) -> Voice {
-        let freq = (FREQS[key as usize] / sample_rate as f32) * PI * 2.0;
+        let freq = (FREQS[key as usize] as f64 / sample_rate as f64) * PI;
         let amp = 1.04f32.powf(vel as f32 - 127.0);
 
         Voice {
@@ -38,7 +38,7 @@ impl Voice {
 
     pub fn render_to(&mut self, out: &mut [f32]) {
         for i in 0..out.len() {
-            let sample = self.amp * self.phase.cos();
+            let sample = self.amp * self.phase.cos() as f32;
             self.phase += self.freq;
             out[i] += sample;
         }

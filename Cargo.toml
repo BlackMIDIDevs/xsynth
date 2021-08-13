@@ -11,7 +11,7 @@ bytemuck = "1.7.2"
 cpal = "0.13.3"
 crossbeam-channel = "0.5.1"
 lazy_static = "1.4.0"
-midi-tools-rs = { git = "https://github.com/arduano/midi-tools-rs" }
+midi-tools-rs = { git = "https://github.com/arduano/midi-tools-rs", rev = "526df6c" }
 rayon = "1.5.1"
 simdeez = "1.0.7"
 soundfont = "0.0.0"

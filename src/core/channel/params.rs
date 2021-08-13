@@ -29,7 +29,7 @@ impl VoiceChannelParams {
     pub fn new(sample_rate: u32, channels: u16) -> Self {
         Self {
             stats: VoiceChannelStats::new(),
-            layers: 32,
+            layers: 4,
             constant: VoiceChannelConst {
                 sample_rate,
                 channels,
