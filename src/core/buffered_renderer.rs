@@ -10,6 +10,8 @@ use std::{
 
 use crossbeam_channel::{unbounded, Receiver};
 
+use crate::AudioStreamParams;
+
 use super::AudioPipe;
 
 /// The helper struct for deferred sample rendering.
@@ -39,8 +41,7 @@ pub struct BufferedRenderer {
     /// Remainder of samples from the last received samples vec.
     remainder: Vec<f32>,
 
-    sample_rate: u32,
-    channels: u16,
+    stream_params: AudioStreamParams,
 }
 
 impl BufferedRenderer {
@@ -121,8 +122,7 @@ impl BufferedRenderer {
             receive: rx,
             render_size,
             remainder: Vec::new(),
-            channels,
-            sample_rate,
+            stream_params: AudioStreamParams::new(sample_rate, channels),
         }
     }
 
@@ -172,15 +172,12 @@ impl BufferedRenderer {
 }
 
 impl AudioPipe for BufferedRenderer {
-    fn sample_rate(&self) -> u32 {
-        self.sample_rate
-    }
-
-    fn channels(&self) -> u16 {
-        self.channels
+    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+        &self.stream_params
     }
 
     fn read_samples_unchecked(&mut self, to: &mut [f32]) {
         self.read(to)
     }
+
 }

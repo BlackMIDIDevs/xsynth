@@ -1,13 +1,12 @@
-pub trait AudioPipe {
-    /// The sample rate of the audio pipe
-    fn sample_rate(&self) -> u32;
+use crate::AudioStreamParams;
 
-    /// The number of stereo channels of the audio pipe
-    fn channels(&self) -> u16;
+pub trait AudioPipe {
+    /// The stream parameters of the audio pipe
+    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams;
 
     /// Reads samples from the pipe
     fn read_samples(&mut self, to: &mut [f32]) {
-        assert!(to.len() as u32 % self.channels() as u32 == 0);
+        assert!(to.len() as u32 % self.stream_params().channels as u32 == 0);
         self.read_samples_unchecked(to);
     }
 
@@ -17,30 +16,25 @@ pub trait AudioPipe {
 
 pub struct FunctionAudioPipe<F: 'static + FnMut(&mut [f32]) + Send> {
     func: F,
-    sample_rate: u32,
-    channels: u16,
+    stream_params: AudioStreamParams,
 }
 
 impl<F: 'static + FnMut(&mut [f32]) + Send> AudioPipe for FunctionAudioPipe<F> {
-    fn sample_rate(&self) -> u32 {
-        self.sample_rate
-    }
-
-    fn channels(&self) -> u16 {
-        self.channels
+    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+        &self.stream_params
     }
 
     fn read_samples_unchecked(&mut self, to: &mut [f32]) {
         (self.func)(to);
     }
+
 }
 
 impl<F: 'static + FnMut(&mut [f32]) + Send> FunctionAudioPipe<F> {
     pub fn new(sample_rate: u32, channels: u16, func: F) -> Self {
         FunctionAudioPipe {
             func,
-            sample_rate,
-            channels,
+            stream_params: AudioStreamParams::new(sample_rate, channels),
         }
     }
 }

@@ -4,7 +4,7 @@
     {
       "type": "cargo",
       "command": "build",
-      "args": ["--example", "test"],
+      "args": ["--example", "sf"],
       "problemMatcher": ["$rustc"],
       "group": {
         "kind": "build",

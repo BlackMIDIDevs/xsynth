@@ -1,5 +1,9 @@
 use std::sync::{atomic::AtomicU64, Arc};
 
+use crate::AudioStreamParams;
+
+use super::channel_sf::ChannelSoundfont;
+
 #[derive(Debug, Clone)]
 pub struct VoiceChannelStats {
     pub voice_counter: Arc<AtomicU64>,
@@ -7,14 +11,13 @@ pub struct VoiceChannelStats {
 
 #[derive(Debug, Clone)]
 pub struct VoiceChannelConst {
-    pub sample_rate: u32,
-    pub channels: u16,
+    pub stream_params: AudioStreamParams,
 }
 
-#[derive(Debug, Clone)]
 pub struct VoiceChannelParams {
     pub stats: VoiceChannelStats,
     pub layers: i32,
+    pub channel_sf: ChannelSoundfont,
     pub constant: VoiceChannelConst,
 }
 
@@ -30,9 +33,9 @@ impl VoiceChannelParams {
         Self {
             stats: VoiceChannelStats::new(),
             layers: 4,
+            channel_sf: ChannelSoundfont::new(),
             constant: VoiceChannelConst {
-                sample_rate,
-                channels,
+                stream_params: AudioStreamParams::new(sample_rate, channels),
             },
         }
     }

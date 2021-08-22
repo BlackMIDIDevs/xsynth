@@ -10,11 +10,7 @@ use cpal::{
 };
 use crossbeam_channel::{bounded, unbounded, Sender};
 
-use crate::{
-    core::{event::ChannelEvent, AudioPipe, BufferedRenderer, FunctionAudioPipe, VoiceChannel},
-    helpers::sum_simd,
-    SynthEvent,
-};
+use crate::{SynthEvent, core::{event::ChannelEvent, AudioPipe, BufferedRenderer, FunctionAudioPipe, VoiceChannel}, helpers::{prepapre_cache_vec, sum_simd}};
 
 #[derive(Clone)]
 struct RealtimeEventSender {
@@ -81,11 +77,7 @@ impl RealtimeSynth {
             // let now = Instant::now();
             for i in 0..channel_count as usize {
                 let mut buf = vec_cache.pop_front().unwrap();
-                buf.clear();
-                buf.reserve(out.len());
-                for _ in 0..out.len() {
-                    buf.push(0.0);
-                }
+                prepapre_cache_vec(&mut buf, out.len(), 0.0);
 
                 let channel = &command_senders[i];
                 channel.send(buf).unwrap();
@@ -103,7 +95,7 @@ impl RealtimeSynth {
             render,
             sample_rate,
             audio_channels,
-            48 * 10,
+            48,
         )));
 
         fn build_stream<T: Sample>(

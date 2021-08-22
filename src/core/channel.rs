@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, RwLock};
 
-use crate::helpers::sum_simd;
+use crate::{AudioStreamParams, helpers::{prepapre_cache_vec, sum_simd}};
 
 use self::{
     event::{ChannelEvent, NoteEvent},
@@ -14,10 +14,13 @@ use atomic_refcell::AtomicRefCell;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use to_vec::ToVec;
 
+mod channel_sf;
 pub mod event;
 mod key;
 mod params;
-mod voice;
+pub mod voice;
+mod voice_buffer;
+mod voice_spawner;
 
 #[derive(Clone)]
 pub struct VoiceChannel {
@@ -93,11 +96,7 @@ impl VoiceChannelData {
                             data.send_event(e, &params);
                         }
 
-                        audio_cache.clear();
-                        audio_cache.reserve(len);
-                        for _ in 0..len {
-                            audio_cache.push(0.0);
-                        }
+                        prepapre_cache_vec(&mut audio_cache, len, 0.0);
 
                         data.render_to(&mut audio_cache);
                     });
@@ -175,16 +174,13 @@ impl VoiceChannel {
 }
 
 impl AudioPipe for VoiceChannel {
-    fn sample_rate(&self) -> u32 {
-        self.constants.sample_rate
+    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+        &self.constants.stream_params
     }
-
-    fn channels(&self) -> u16 {
-        self.constants.channels
-    }
-
+    
     fn read_samples_unchecked(&mut self, out: &mut [f32]) {
         let mut data = self.data.lock().unwrap();
         data.push_key_events_and_render(out);
     }
+
 }
