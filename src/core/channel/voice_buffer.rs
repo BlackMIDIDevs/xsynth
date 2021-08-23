@@ -86,9 +86,20 @@ impl VoiceBuffer {
         }
     }
 
-    pub fn iter_voices<'a>(&'a self) -> impl Iterator<Item = &Box<dyn Voice>> + 'a {
-        self.buffer.iter().map(|group| &group.voice)
+    pub fn remove_ended_voices(&mut self) {
+        let mut i = 0;
+        while i < self.buffer.len() {
+            if self.buffer[i].is_ended() {
+                self.buffer.remove(i);
+            } else {
+                i += 1;
+            }
+        }
     }
+
+    // pub fn iter_voices<'a>(&'a self) -> impl Iterator<Item = &Box<dyn Voice>> + 'a {
+    //     self.buffer.iter().map(|group| &group.voice)
+    // }
 
     pub fn iter_voices_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut Box<dyn Voice>> + 'a {
         self.buffer.iter_mut().map(|group| &mut group.voice)

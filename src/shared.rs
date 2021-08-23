@@ -1,3 +1,6 @@
+mod threaded_ref_cell;
+pub use self::threaded_ref_cell::*;
+
 #[derive(Debug, Clone)]
 pub struct AudioStreamParams {
     pub sample_rate: u32,

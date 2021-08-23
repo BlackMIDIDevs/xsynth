@@ -8,7 +8,8 @@ pub trait VoiceSpawner: Sync + Send {
 pub trait SoundfontBase: Sync + Send {
     fn stream_params<'a>(&'a self) -> &'a AudioStreamParams;
 
-    fn get_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
+    fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
+    fn get_release_voice_spawners_at(&self, key: u8) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
 pub struct SineVoice {
@@ -78,7 +79,11 @@ impl SineSoundfont {
 }
 
 impl SoundfontBase for SineSoundfont {
-    fn get_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>> {
+    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+        &self.stream_params
+    }
+
+    fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>> {
         vec![Box::new(SineVoiceSpawner {
             sample_rate: self.stream_params.sample_rate,
             key,
@@ -86,7 +91,7 @@ impl SoundfontBase for SineSoundfont {
         })]
     }
 
-    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
-        &self.stream_params
+    fn get_release_voice_spawners_at(&self, _key: u8) -> Vec<Box<dyn VoiceSpawner>> {
+        vec![]
     }
 }

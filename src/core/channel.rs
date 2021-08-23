@@ -1,16 +1,18 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{atomic::AtomicU64, Arc, Mutex, RwLock};
 
-use crate::{AudioStreamParams, helpers::{prepapre_cache_vec, sum_simd}};
+use crate::{
+    helpers::{prepapre_cache_vec, sum_simd},
+    AudioStreamParams, SingleBorrowRefCell,
+};
 
 use self::{
     event::{ChannelEvent, NoteEvent},
     key::KeyData,
-    params::{VoiceChannelConst, VoiceChannelParams},
+    params::{VoiceChannelConst, VoiceChannelParams, VoiceChannelStatsReader},
 };
 
 use super::AudioPipe;
 
-use atomic_refcell::AtomicRefCell;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use to_vec::ToVec;
 
@@ -30,17 +32,17 @@ pub struct VoiceChannel {
 }
 
 struct Key {
-    data: AtomicRefCell<KeyData>,
-    audio_cache: AtomicRefCell<Vec<f32>>,
-    event_cache: AtomicRefCell<Vec<NoteEvent>>,
+    data: SingleBorrowRefCell<KeyData>,
+    audio_cache: SingleBorrowRefCell<Vec<f32>>,
+    event_cache: SingleBorrowRefCell<Vec<NoteEvent>>,
 }
 
 impl Key {
-    pub fn new(key: u8) -> Self {
+    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>) -> Self {
         Key {
-            data: AtomicRefCell::new(KeyData::new(key)),
-            audio_cache: AtomicRefCell::new(Vec::new()),
-            event_cache: AtomicRefCell::new(Vec::new()),
+            data: SingleBorrowRefCell::new(KeyData::new(key, shared_voice_counter)),
+            audio_cache: SingleBorrowRefCell::new(Vec::new()),
+            event_cache: SingleBorrowRefCell::new(Vec::new()),
         }
     }
 }
@@ -66,17 +68,36 @@ impl VoiceChannelData {
             vec
         }
 
-        let params = Arc::new(RwLock::new(VoiceChannelParams::new(sample_rate, channels)));
+        let params = VoiceChannelParams::new(sample_rate, channels);
+        let shared_voice_counter = params.stats.voice_counter.clone();
 
         VoiceChannelData {
-            params,
-            key_voices: Arc::new(fill_key_array(|i| Key::new(i))),
+            params: Arc::new(RwLock::new(params)),
+            key_voices: Arc::new(fill_key_array(|i| {
+                Key::new(i, shared_voice_counter.clone())
+            })),
 
             threadpool,
         }
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
+        fn render_for_key(key: &Key, len: usize, params: &Arc<RwLock<VoiceChannelParams>>) {
+            let mut events = key.event_cache.borrow();
+
+            let mut audio_cache = key.audio_cache.borrow();
+            let mut data = key.data.borrow();
+
+            let params = params.read().unwrap();
+            for e in events.drain(..) {
+                data.send_event(e, &params.channel_sf, params.layers as usize);
+            }
+
+            prepapre_cache_vec(&mut audio_cache, len, 0.0);
+
+            data.render_to(&mut audio_cache);
+        }
+
         out.fill(0.0);
         match self.threadpool.as_ref() {
             Some(pool) => {
@@ -86,19 +107,7 @@ impl VoiceChannelData {
                 pool.install(|| {
                     let params = params.clone();
                     key_voices.par_iter().for_each(move |key| {
-                        let mut events = key.event_cache.borrow_mut();
-
-                        let mut audio_cache = key.audio_cache.borrow_mut();
-                        let mut data = key.data.borrow_mut();
-
-                        let params = params.read().unwrap();
-                        for e in events.drain(..) {
-                            data.send_event(e, &params);
-                        }
-
-                        prepapre_cache_vec(&mut audio_cache, len, 0.0);
-
-                        data.render_to(&mut audio_cache);
+                        render_for_key(key, len, &params);
                     });
                 });
 
@@ -108,13 +117,16 @@ impl VoiceChannelData {
                 }
             }
             None => {
-                //TODO: Make this one actually align to what the multithreaded one does
-                todo!();
-                // for i in 0..self.key_voices.len() {
-                //     let key_data = &self.key_voices[i];
-                //     let k = &mut key_data.data.borrow_mut();
-                //     k.render_to(out);
-                // }
+                let len = out.len();
+
+                for key in self.key_voices.iter() {
+                    render_for_key(key, len, &self.params);
+                }
+
+                for key in self.key_voices.iter() {
+                    let key = &key.audio_cache.borrow();
+                    sum_simd(&key, out);
+                }
             }
         }
     }
@@ -138,10 +150,12 @@ impl VoiceChannel {
 
     pub fn process_note_event(&self, key: u8, event: NoteEvent) {
         let data = self.data.lock().unwrap();
-        data.key_voices[key as usize]
-            .data
-            .borrow_mut()
-            .send_event(event, &data.params.read().unwrap());
+        let params = &data.params.read().unwrap();
+        data.key_voices[key as usize].data.borrow().send_event(
+            event,
+            &params.channel_sf,
+            params.layers as usize,
+        );
     }
 
     pub fn process_event(&self, event: ChannelEvent) {
@@ -157,7 +171,7 @@ impl VoiceChannel {
             let mut key_events = data
                 .key_voices
                 .iter()
-                .map(|k| k.event_cache.borrow_mut())
+                .map(|k| k.event_cache.borrow())
                 .to_vec();
             match e {
                 ChannelEvent::NoteOn { key, vel } => {
@@ -171,16 +185,21 @@ impl VoiceChannel {
             }
         }
     }
+
+    pub fn get_channel_stats(&self) -> VoiceChannelStatsReader {
+        let data = self.data.lock().unwrap();
+        let stats = data.params.read().unwrap().stats.clone();
+        VoiceChannelStatsReader::new(stats.clone())
+    }
 }
 
 impl AudioPipe for VoiceChannel {
     fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
         &self.constants.stream_params
     }
-    
+
     fn read_samples_unchecked(&mut self, out: &mut [f32]) {
         let mut data = self.data.lock().unwrap();
         data.push_key_events_and_render(out);
     }
-
 }
