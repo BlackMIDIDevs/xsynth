@@ -142,7 +142,7 @@ impl RealtimeSynth {
             render,
             sample_rate,
             audio_channels,
-            48,
+            48 * 10,
         )));
 
         fn build_stream<T: Sample>(

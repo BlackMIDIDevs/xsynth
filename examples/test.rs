@@ -1,9 +1,7 @@
-use std::time::Duration;
+use std::{thread, time::Duration};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use xsynth::{
-    RealtimeSynth,
-};
+use xsynth::{core::event::ChannelEvent, RealtimeSynth, SynthEvent};
 
 fn main() {
     let host = cpal::default_host();
@@ -15,28 +13,17 @@ fn main() {
 
     let config = device.default_output_config().unwrap();
     println!("Default output config: {:?}", config);
-
     let synth = RealtimeSynth::new(16, &device, config);
 
-    loop {
-        for i in 0..128 {
-            for chan in 0..1 {
-                for _ in 0..20 {
-                    // synth.send_event(SynthEvent::new(
-                    //     chan,
-                    //     ChannelEvent::NoteOff { key: i as u8 },
-                    // ));
-                    // synth.send_event(SynthEvent::new(
-                    //     chan,
-                    //     ChannelEvent::NoteOn {
-                    //         key: i as u8,
-                    //         vel: 64,
-                    //     },
-                    // ));
-                }
+    for k in 0..127 {
+        for c in 0..16 {
+            for _ in 0..16 {
+                synth.send_event(SynthEvent::new(
+                    c,
+                    ChannelEvent::NoteOn { key: k, vel: 5 },
+                ));
             }
         }
-        std::thread::sleep(Duration::from_millis(10));
     }
 
     std::thread::sleep(Duration::from_secs(10000));

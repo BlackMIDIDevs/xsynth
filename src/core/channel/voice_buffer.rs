@@ -2,7 +2,7 @@ use super::voice::Voice;
 use std::{collections::VecDeque, ops::{Deref, DerefMut}};
 
 struct GroupVoice {
-    pub id: u64,
+    pub id: usize,
     pub voice: Box<dyn Voice>,
 }
 
@@ -23,7 +23,7 @@ impl DerefMut for GroupVoice {
 }
 
 pub struct VoiceBuffer {
-    id_counter: u64,
+    id_counter: usize,
     buffer: VecDeque<GroupVoice>,
 }
 
@@ -35,7 +35,7 @@ impl VoiceBuffer {
         }
     }
 
-    fn get_id(&mut self) -> u64 {
+    fn get_id(&mut self) -> usize {
         self.id_counter += 1;
         self.id_counter
     }
@@ -66,7 +66,7 @@ impl VoiceBuffer {
     }
 
     pub fn release_next_voice(&mut self) {
-        let mut id: Option<u64> = None;
+        let mut id: Option<usize> = None;
 
         // Find the first non releasing voice, get its id and release all voices with that id
         for voice in self.buffer.iter_mut() {
@@ -89,7 +89,7 @@ impl VoiceBuffer {
     pub fn remove_ended_voices(&mut self) {
         let mut i = 0;
         while i < self.buffer.len() {
-            if self.buffer[i].is_ended() {
+            if self.buffer[i].ended() {
                 self.buffer.remove(i);
             } else {
                 i += 1;

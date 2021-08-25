@@ -1,6 +1,5 @@
-use std::ops::{Deref, DerefMut};
-
 use simdeez::*; // nuts
+
 use simdeez::avx2::*;
 use simdeez::scalar::*;
 use simdeez::sse2::*;
@@ -8,49 +7,7 @@ use simdeez::sse41::*;
 
 use lazy_static::lazy_static;
 
-pub struct Cache<T>(Option<T>);
-
-pub struct CacheGuard<'a, T> {
-    value: Option<T>,
-    cache: &'a mut Cache<T>,
-}
-
-impl<T> Cache<T> {
-    pub fn new(value: T) -> Cache<T> {
-        Cache(Some(value))
-    }
-
-    pub fn get<'a>(&'a mut self) -> CacheGuard<'a, T> {
-        match self.0.take() {
-            None => panic!("Tried to fetch cache twice"),
-            Some(v) => CacheGuard {
-                value: Some(v),
-                cache: self,
-            },
-        }
-    }
-}
-
-impl<'a, T> Drop for CacheGuard<'a, T> {
-    fn drop(&mut self) {
-        self.cache.0.insert(self.value.take().unwrap());
-    }
-}
-
-impl<'a, T> Deref for CacheGuard<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.value.as_ref().unwrap()
-    }
-}
-
-impl<'a, T> DerefMut for CacheGuard<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.value.as_mut().unwrap()
-    }
-}
-
+/// Create an array of key frequencies for keys 0-127
 fn build_frequencies() -> [f32; 128] {
     let mut freqs = [0.0f32; 128];
     for key in 0..freqs.len() {
@@ -63,6 +20,7 @@ lazy_static! {
     pub static ref FREQS: [f32; 128] = build_frequencies();
 }
 
+/// Take any f32 vec, set its length and fill it with the default value
 pub fn prepapre_cache_vec<T: Copy>(vec: &mut Vec<T>, len: usize, default: T) {
     if vec.len() < len {
         vec.reserve(len - vec.len());
@@ -73,6 +31,9 @@ pub fn prepapre_cache_vec<T: Copy>(vec: &mut Vec<T>, len: usize, default: T) {
     vec.fill(default);
 }
 
+/// Sum the values of `source` to the values of `target`, writing to `target`.
+///
+/// Uses runtime selected SIMD operations.
 pub fn sum_simd(source: &[f32], target: &mut [f32]) {
     simd_runtime_generate!(
         // Altered code from the SIMD example here https://github.com/jackmott/simdeez
@@ -101,29 +62,13 @@ pub fn sum_simd(source: &[f32], target: &mut [f32]) {
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::{Cache, sum_simd};
+    use crate::helpers::sum_simd;
 
-    #[test] 
+    #[test]
     fn test_simd_add() {
         let mut src = vec![1.0, 2.0, 3.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
         let mut dst = vec![0.0, 1.0, 3.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
         sum_simd(&mut src, &mut dst);
         assert_eq!(dst, vec![1.0, 3.0, 6.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]);
-    }
-
-    #[test]
-    fn test_cache() {
-        let mut cache = Cache::new(vec![1, 2, 3]);
-        {
-            let mut vec = cache.get();
-            assert_eq!(vec[0], 1);
-            vec[0] = 5;
-            assert_eq!(vec[0], 5);
-        }
-
-        {
-            let vec = cache.get();
-            assert_eq!(vec[0], 5);
-        }
     }
 }
