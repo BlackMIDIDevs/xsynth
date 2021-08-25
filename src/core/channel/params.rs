@@ -39,7 +39,7 @@ impl VoiceChannelParams {
 
         Self {
             stats: VoiceChannelStats::new(),
-            layers: 6,
+            layers: 4,
             channel_sf,
             constant: VoiceChannelConst {
                 stream_params: AudioStreamParams::new(sample_rate, channels),

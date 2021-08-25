@@ -15,7 +15,10 @@ use crossbeam_channel::{bounded, unbounded, Sender};
 use to_vec::ToVec;
 
 use crate::{
-    core::{event::ChannelEvent, AudioPipe, BufferedRenderer, FunctionAudioPipe, VoiceChannel},
+    core::{
+        effects::VolumeLimiter, event::ChannelEvent, AudioPipe, BufferedRenderer,
+        FunctionAudioPipe, VoiceChannel,
+    },
     helpers::{prepapre_cache_vec, sum_simd},
     SynthEvent,
 };
@@ -142,7 +145,7 @@ impl RealtimeSynth {
             render,
             sample_rate,
             audio_channels,
-            48 * 10,
+            48,
         )));
 
         fn build_stream<T: Sample>(
@@ -154,6 +157,8 @@ impl RealtimeSynth {
             let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
             let mut output_vec = Vec::new();
 
+            let mut limiter = VolumeLimiter::new(config.channels());
+
             let stream = device
                 .build_output_stream(
                     &config.into(),
@@ -164,10 +169,11 @@ impl RealtimeSynth {
                         }
                         buffered.lock().unwrap().read(&mut output_vec);
                         let mut i = 0;
-                        for s in output_vec.drain(0..) {
+                        for s in limiter.limit_iter(output_vec.drain(0..)) {
                             data[i] = Sample::from(&s);
                             i += 1;
                         }
+
                         render_callback();
                     },
                     err_fn,

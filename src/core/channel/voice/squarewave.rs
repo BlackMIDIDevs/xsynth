@@ -4,21 +4,23 @@ use simdeez::Simd;
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
-pub struct SIMDSquareWaveGenerator<S: Simd> {
-    base_step: f32,
-
+pub struct SIMDSquareWaveGenerator<S: Simd, Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>> {
     phase: f32,
+
+    pitch_gen: Pitch,
 
     _s: PhantomData<S>,
 }
 
-impl<S: Simd> SIMDSquareWaveGenerator<S> {
-    pub fn new(base_freq: f32, sample_rate: u32) -> Self {
-        let freq = base_freq / sample_rate as f32;
-
+impl<S, Pitch> SIMDSquareWaveGenerator<S, Pitch>
+where
+    S: Simd,
+    Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+{
+    pub fn new(pitch_gen: Pitch) -> Self {
         Self {
-            base_step: freq,
             phase: 0.0,
+            pitch_gen,
             _s: PhantomData,
         }
     }
@@ -30,19 +32,30 @@ impl<S: Simd> SIMDSquareWaveGenerator<S> {
     }
 }
 
-impl<S: Simd> VoiceGeneratorBase for SIMDSquareWaveGenerator<S> {
+impl<S, Pitch> VoiceGeneratorBase for SIMDSquareWaveGenerator<S, Pitch>
+where
+    S: Simd,
+    Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+{
     fn ended(&self) -> bool {
         false
     }
 
-    fn signal_release(&mut self) {}
+    fn signal_release(&mut self) {
+        self.pitch_gen.signal_release();
+    }
 }
 
-impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for SIMDSquareWaveGenerator<S> {
+impl<S, Pitch> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for SIMDSquareWaveGenerator<S, Pitch>
+where
+    S: Simd,
+    Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+{
     fn next_sample(&mut self) -> SIMDSampleMono<S> {
         let mut values = unsafe { S::set1_ps(0.0) };
+        let pitch_step = self.pitch_gen.next_sample().0;
         for i in 0..S::VF32_WIDTH {
-            let phase = self.next_phase(self.base_step);
+            let phase = self.next_phase(pitch_step[i]);
             let val = if phase > 0.5 { 1.0 } else { -1.0 };
             values[i] = val;
         }

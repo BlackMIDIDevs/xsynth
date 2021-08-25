@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use simdeez::Simd;
 
 use super::voice::{
-    EnvelopeParameters, SIMDConstant, SIMDSquareWaveGenerator, SIMDStereoVoice,
-    SIMDVoiceEnvelope, SIMDVoiceMonoToStereo, Voice, VoiceBase, VoiceCombineSIMD,
+    EnvelopeParameters, SIMDConstant, SIMDSquareWaveGenerator, SIMDStereoVoice, SIMDVoiceEnvelope,
+    SIMDVoiceMonoToStereo, Voice, VoiceBase, VoiceCombineSIMD,
 };
 use crate::{core::voice::EnvelopeDescriptor, helpers::FREQS, AudioStreamParams};
 
@@ -93,10 +93,11 @@ impl<S: Simd + Send + Sync> SquareVoiceSpawner<S> {
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SquareVoiceSpawner<S> {
     fn spawn_voice(&self) -> Box<dyn Voice> {
-        let square = SIMDSquareWaveGenerator::<S>::new(self.base_freq, self.sample_rate);
+        let pitch_fac = SIMDConstant::<S>::new(self.base_freq / self.sample_rate as f32);
+        let square = SIMDSquareWaveGenerator::new(pitch_fac);
         let square = SIMDVoiceMonoToStereo::new(square);
         let amp = SIMDConstant::<S>::new(self.amp);
-        let volume_envelope = SIMDVoiceEnvelope::<S>::new(self.volume_envelope_params);
+        let volume_envelope = SIMDVoiceEnvelope::new(self.volume_envelope_params);
 
         let modulated = VoiceCombineSIMD::mult(amp, square);
         let modulated = VoiceCombineSIMD::mult(volume_envelope, modulated);
@@ -142,7 +143,7 @@ impl SoundfontBase for SquareSoundfont {
                     hold: 0.0,
                     decay: 0.1,
                     sustain_percent: 1.0,
-                    release: 0.3,
+                    release: 0.0,
                 };
 
                 vec![Box::new(SquareVoiceSpawner::<S>::new(

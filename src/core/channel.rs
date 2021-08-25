@@ -11,7 +11,7 @@ use self::{
     params::{VoiceChannelConst, VoiceChannelParams, VoiceChannelStatsReader},
 };
 
-use super::AudioPipe;
+use super::{effects::VolumeLimiter, AudioPipe};
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use to_vec::ToVec;
@@ -52,6 +52,8 @@ struct VoiceChannelData {
     params: Arc<RwLock<VoiceChannelParams>>,
 
     threadpool: Option<Arc<rayon::ThreadPool>>,
+
+    limiter: VolumeLimiter,
 }
 
 impl VoiceChannelData {
@@ -78,6 +80,8 @@ impl VoiceChannelData {
             })),
 
             threadpool,
+
+            limiter: VolumeLimiter::new(channels),
         }
     }
 
@@ -129,6 +133,8 @@ impl VoiceChannelData {
                 }
             }
         }
+
+        self.limiter.limit(out);
     }
 }
 
