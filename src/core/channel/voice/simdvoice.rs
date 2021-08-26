@@ -52,9 +52,9 @@ where
                 self.remainder_pos = 0;
             }
 
-            buffer[i] = self.remainder.0[self.remainder_pos];
+            buffer[i] += self.remainder.0[self.remainder_pos];
             i += 1;
-            buffer[i] = self.remainder.1[self.remainder_pos];
+            buffer[i] += self.remainder.1[self.remainder_pos];
             i += 1;
 
             self.remainder_pos += 1;
@@ -108,7 +108,7 @@ where
                 self.remainder_pos = 0;
             }
 
-            buffer[i] = self.remainder.0[self.remainder_pos];
+            buffer[i] += self.remainder.0[self.remainder_pos];
             i += 1;
 
             self.remainder_pos += 1;

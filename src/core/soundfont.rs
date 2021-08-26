@@ -143,7 +143,7 @@ impl SoundfontBase for SquareSoundfont {
                     hold: 0.0,
                     decay: 0.1,
                     sustain_percent: 1.0,
-                    release: 0.0,
+                    release: 1.0,
                 };
 
                 vec![Box::new(SquareVoiceSpawner::<S>::new(
