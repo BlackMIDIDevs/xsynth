@@ -2,8 +2,8 @@ use simdeez::Simd;
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
-values: S::Vf32,
 pub struct SIMDConstant<S: Simd> {
+    values: S::Vf32,
 }
 
 impl<S: Simd> SIMDConstant<S> {
