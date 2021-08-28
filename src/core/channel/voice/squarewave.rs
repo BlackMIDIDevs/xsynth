@@ -44,6 +44,10 @@ where
     fn signal_release(&mut self) {
         self.pitch_gen.signal_release();
     }
+
+    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+        self.pitch_gen.process_controls(control);
+    }
 }
 
 impl<S, Pitch> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for SIMDSquareWaveGenerator<S, Pitch>

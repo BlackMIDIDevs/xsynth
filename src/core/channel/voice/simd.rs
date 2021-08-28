@@ -50,9 +50,7 @@ impl<T: Simd> Add<SIMDSampleStereo<T>> for SIMDSampleMono<T> {
 
 impl<T: Simd> SIMDSample<T> for SIMDSampleMono<T> {
     fn zero() -> Self {
-        unsafe {
-            SIMDSampleMono(T::set1_ps(0.0))
-        }
+        unsafe { SIMDSampleMono(T::set1_ps(0.0)) }
     }
 }
 
@@ -162,6 +160,11 @@ where
         self.v1.signal_release();
         self.v2.signal_release();
     }
+
+    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+        self.v1.process_controls(control);
+        self.v2.process_controls(control);
+    }
 }
 
 impl<T, TI, TO, V1, V2, F> SIMDVoiceGenerator<T, TO> for SIMDVoiceCombine<T, TI, TO, V1, V2, F>
@@ -182,10 +185,7 @@ where
 pub struct VoiceCombineSIMD<T: Simd>(PhantomData<T>);
 
 impl<T: Simd> VoiceCombineSIMD<T> {
-    pub fn mult<TI, TO, V1, V2>(
-        voice1: V1,
-        voice2: V2,
-    ) -> impl SIMDVoiceGenerator<T, TO>
+    pub fn mult<TI, TO, V1, V2>(voice1: V1, voice2: V2) -> impl SIMDVoiceGenerator<T, TO>
     where
         TI: SIMDSample<T> + Mul<TO, Output = TO>,
         TO: SIMDSample<T>,
@@ -205,10 +205,7 @@ impl<T: Simd> VoiceCombineSIMD<T> {
         SIMDVoiceCombine::new(voice1, voice2, mult)
     }
 
-    pub fn sum<TI, TO, V1, V2>(
-        voice1: V1,
-        voice2: V2,
-    ) -> impl SIMDVoiceGenerator<T, TO>
+    pub fn sum<TI, TO, V1, V2>(voice1: V1, voice2: V2) -> impl SIMDVoiceGenerator<T, TO>
     where
         TI: SIMDSample<T> + Add<TO, Output = TO>,
         TO: SIMDSample<T>,
@@ -231,6 +228,8 @@ impl<T: Simd> VoiceCombineSIMD<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::core::VoiceControlData;
+
     use super::*;
 
     use simdeez::*; // nuts
@@ -253,6 +252,8 @@ mod tests {
                     }
 
                     fn signal_release(&mut self) {}
+
+                    fn process_controls(&mut self, _control: &VoiceControlData) {}
                 }
 
                 impl VoiceGeneratorBase for MonoVoiceGenSIMD {
@@ -261,6 +262,8 @@ mod tests {
                     }
 
                     fn signal_release(&mut self) {}
+
+                    fn process_controls(&mut self, _control: &VoiceControlData) {}
                 }
 
                 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for StereoVoiceGenSIMD {

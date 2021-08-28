@@ -15,7 +15,7 @@ use midi_tools::{
 };
 use xsynth::{
     core::{
-        event::ChannelEvent,
+        event::{ChannelEvent, ControlEvent},
         soundfont::{SoundfontBase, SquareSoundfont},
     },
     RealtimeSynth, SynthEvent,
@@ -42,11 +42,7 @@ fn main() {
 
     synth.send_event(SynthEvent::SetSoundfonts(soundfonts));
 
-    let midi = MIDIFile::open(
-        "D:/Midis/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid",
-        None,
-    )
-    .unwrap();
+    let midi = MIDIFile::open("D:/Midis/Ouranos - HDSQ & The Romanticist [v1.6.6].mid", None).unwrap();
     let ppq = midi.ppq();
     let merged = pipe!(
         midi.iter_all_tracks()
@@ -81,6 +77,18 @@ fn main() {
                 synth.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelEvent::NoteOff { key: e.key },
+                ));
+            }
+            Event::ControlChange(e) => {
+                synth.send_event(SynthEvent::Channel(
+                    e.channel as u32,
+                    ChannelEvent::Control(ControlEvent::Raw(e.controller, e.value)),
+                ));
+            }
+            Event::PitchWheelChange(e) => {
+                synth.send_event(SynthEvent::Channel(
+                    e.channel as u32,
+                    ChannelEvent::Control(ControlEvent::PitchBendValue(e.pitch as f32 / 8_192.0)),
                 ));
             }
             _ => {}

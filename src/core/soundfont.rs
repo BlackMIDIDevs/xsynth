@@ -6,18 +6,17 @@ use to_vec::ToVec;
 
 use self::audio::AudioFileLoader;
 
-use super::voice::{
-    BufferSamplers, EnvelopeParameters, SIMDConstant,
-    SIMDNearestSampleGrabber, SIMDStereoVoice,
-    SIMDStereoVoiceSampler, SIMDVoiceEnvelope, SampleReader, Voice,
-    VoiceBase, VoiceCombineSIMD,
-};
+use super::{VoiceControlData, voice::{
+    BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber, SIMDStereoVoice,
+    SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase,
+    VoiceCombineSIMD,
+}};
 use crate::{core::voice::EnvelopeDescriptor, helpers::FREQS, AudioStreamParams};
 
 pub mod audio;
 
 pub trait VoiceSpawner: Sync + Send {
-    fn spawn_voice(&self) -> Box<dyn Voice>;
+    fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice>;
 }
 
 pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
@@ -72,7 +71,6 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
 // }
 
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
-    sample_rate: u32,
     base_freq: f32,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
@@ -84,7 +82,6 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
     pub fn new(
         key: u8,
         vel: u8,
-        sample_rate: u32,
         volume_envelope_params: Arc<EnvelopeParameters>,
         sf: &SquareSoundfont,
     ) -> Self {
@@ -105,7 +102,6 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         };
 
         Self {
-            sample_rate,
             base_freq,
             amp,
             volume_envelope_params,
@@ -116,8 +112,12 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 }
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
-    fn spawn_voice(&self) -> Box<dyn Voice> {
+    fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
         let pitch_fac = SIMDConstant::<S>::new(self.base_freq as f32);
+
+        let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
+
+        let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
 
         let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
             self.samples[0].clone(),
@@ -198,20 +198,18 @@ impl SoundfontBase for SquareSoundfont {
             fn get(
                 key: u8,
                 vel: u8,
-                sample_rate: u32,
                 sf: &SquareSoundfont,
             ) -> Vec<Box<dyn VoiceSpawner>> {
                 vec![Box::new(SampledVoiceSpawner::<S>::new(
                     key,
                     vel,
-                    sample_rate,
                     sf.volume_envelope_params.clone(),
                     sf,
                 ))]
             }
         );
 
-        get_runtime_select(key, vel, self.stream_params.sample_rate, &self)
+        get_runtime_select(key, vel, &self)
     }
 
     fn get_release_voice_spawners_at(&self, _key: u8) -> Vec<Box<dyn VoiceSpawner>> {

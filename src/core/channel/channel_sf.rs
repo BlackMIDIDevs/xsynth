@@ -2,7 +2,7 @@ use std::{ops::Deref, sync::Arc};
 
 use crate::core::soundfont::SoundfontBase;
 
-use super::{voice::Voice, voice_spawner::VoiceSpawnerMatrix};
+use super::{VoiceControlData, voice::Voice, voice_spawner::VoiceSpawnerMatrix};
 
 pub struct ChannelSoundfont {
     soundfonts: Vec<Arc<dyn SoundfontBase>>,
@@ -55,16 +55,18 @@ impl ChannelSoundfont {
 
     pub fn spawn_voices_attack<'a>(
         &'a self,
+        control: &'a VoiceControlData,
         key: u8,
         vel: u8,
     ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
-        self.matrix.spawn_voices_attack(key, vel)
+        self.matrix.spawn_voices_attack(control, key, vel)
     }
 
     pub fn spawn_voices_release<'a>(
         &'a self,
+        control: &'a VoiceControlData,
         key: u8,
     ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
-        self.matrix.spawn_voices_release(key)
+        self.matrix.spawn_voices_release(control, key)
     }
 }

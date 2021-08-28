@@ -1,3 +1,5 @@
+use crate::core::VoiceControlData;
+
 use super::{Voice, VoiceGeneratorBase, VoiceSampleGenerator};
 
 /// A struct that tracks the highest level voice functionality.
@@ -28,6 +30,10 @@ where
     fn signal_release(&mut self) {
         self.releasing = true;
         self.sample_generator.signal_release()
+    }
+
+    fn process_controls(&mut self, control: &VoiceControlData) {
+        self.sample_generator.process_controls(control)
     }
 }
 

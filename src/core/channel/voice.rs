@@ -22,9 +22,15 @@ pub use constant::*;
 mod sampler;
 pub use sampler::*;
 
+mod control;
+pub use control::*;
+
+use super::VoiceControlData;
+
 pub trait VoiceGeneratorBase: Sync + Send {
     fn ended(&self) -> bool;
     fn signal_release(&mut self);
+    fn process_controls(&mut self, control: &VoiceControlData);
 }
 
 pub trait VoiceSampleGenerator: VoiceGeneratorBase {

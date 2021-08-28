@@ -191,7 +191,13 @@ where
         self.grabber_left.is_past_end(self.time) || self.grabber_right.is_past_end(self.time)
     }
 
-    fn signal_release(&mut self) {}
+    fn signal_release(&mut self) {
+        self.pitch_gen.signal_release();
+    }
+
+    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+        self.pitch_gen.process_controls(control);
+    }
 }
 
 impl<S, Pitch, Grabber> SIMDVoiceGenerator<S, SIMDSampleStereo<S>>

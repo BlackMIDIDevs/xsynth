@@ -394,6 +394,8 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
         let amp = self.get_value_at_current_time();
         self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
     }
+
+    fn process_controls(&mut self, _control: &crate::core::VoiceControlData) {}
 }
 
 impl<T: Simd> SIMDVoiceGenerator<T, SIMDSampleMono<T>> for SIMDVoiceEnvelope<T> {

@@ -35,6 +35,10 @@ where
     fn signal_release(&mut self) {
         self.generator.signal_release()
     }
+
+    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+        self.generator.process_controls(control)
+    }
 }
 
 impl<S, G> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for SIMDVoiceMonoToStereo<S, G>

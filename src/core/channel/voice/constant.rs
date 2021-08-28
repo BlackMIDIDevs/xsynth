@@ -1,5 +1,7 @@
 use simdeez::Simd;
 
+use crate::core::VoiceControlData;
+
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
 pub struct SIMDConstant<S: Simd> {
@@ -22,6 +24,8 @@ impl<S: Simd> VoiceGeneratorBase for SIMDConstant<S> {
     }
 
     fn signal_release(&mut self) {}
+
+    fn process_controls(&mut self, _control: &VoiceControlData) {}
 }
 
 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for SIMDConstant<S> {

@@ -37,6 +37,10 @@ where
     fn signal_release(&mut self) {
         self.generator.signal_release()
     }
+
+    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+        self.generator.process_controls(control)
+    }
 }
 
 impl<S, T> VoiceSampleGenerator for SIMDStereoVoice<S, T>
@@ -92,6 +96,10 @@ where
 
     fn signal_release(&mut self) {
         self.generator.signal_release()
+    }
+
+    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+        self.generator.process_controls(control)
     }
 }
 

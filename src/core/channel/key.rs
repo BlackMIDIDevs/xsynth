@@ -3,7 +3,9 @@ use std::sync::{
     Arc,
 };
 
-use super::{channel_sf::ChannelSoundfont, event::NoteEvent, voice_buffer::VoiceBuffer};
+use super::{
+    channel_sf::ChannelSoundfont, event::NoteEvent, voice_buffer::VoiceBuffer, VoiceControlData,
+};
 
 pub struct KeyData {
     key: u8,
@@ -25,19 +27,26 @@ impl KeyData {
     pub fn send_event(
         &mut self,
         event: NoteEvent,
+        control: &VoiceControlData,
         channel_sf: &ChannelSoundfont,
         max_layers: usize,
     ) {
         match event {
             NoteEvent::On(vel) => {
-                let voices = channel_sf.spawn_voices_attack(self.key, vel);
+                let voices = channel_sf.spawn_voices_attack(control, self.key, vel);
                 self.voices.push_voices(voices, max_layers);
             }
             NoteEvent::Off => {
                 self.voices.release_next_voice();
-                let voices = channel_sf.spawn_voices_release(self.key);
+                let voices = channel_sf.spawn_voices_release(control, self.key);
                 self.voices.push_voices(voices, max_layers);
             }
+        }
+    }
+
+    pub fn process_controls(&mut self, control: &VoiceControlData) {
+        for voice in &mut self.voices.iter_voices_mut() {
+            voice.process_controls(control);
         }
     }
 

@@ -1,4 +1,7 @@
-use std::sync::{atomic::AtomicU64, Arc, Mutex, RwLock};
+use std::{
+    cell::RefCell,
+    sync::{atomic::AtomicU64, Arc, Mutex, RwLock},
+};
 
 use crate::{
     helpers::{prepapre_cache_vec, sum_simd},
@@ -6,13 +9,14 @@ use crate::{
 };
 
 use self::{
-    event::{ChannelEvent, NoteEvent},
+    event::{ChannelEvent, ControlEvent, NoteEvent},
     key::KeyData,
     params::{VoiceChannelConst, VoiceChannelParams, VoiceChannelStatsReader},
 };
 
 use super::{effects::VolumeLimiter, soundfont::SoundfontBase, AudioPipe};
 
+use atomic_refcell::AtomicRefCell;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use to_vec::ToVec;
 
@@ -47,11 +51,51 @@ impl Key {
     }
 }
 
+struct ControlEventData {
+    selected_lsb: i8,
+    selected_msb: i8,
+    pitch_bend_sensitivity_lsb: u8,
+    pitch_bend_sensitivity_msb: u8,
+    pitch_bend_sensitivity: f32,
+    pitch_bend_value: f32,
+}
+
+impl ControlEventData {
+    pub fn new_defaults() -> Self {
+        ControlEventData {
+            selected_lsb: -1,
+            selected_msb: -1,
+            pitch_bend_sensitivity_lsb: 0,
+            pitch_bend_sensitivity_msb: 2,
+            pitch_bend_sensitivity: 2.0,
+            pitch_bend_value: 0.0,
+        }
+    }
+}
+
+pub struct VoiceControlData {
+    pub voice_pitch_multiplier: f32,
+}
+
+impl VoiceControlData {
+    pub fn new_defaults() -> Self {
+        VoiceControlData {
+            voice_pitch_multiplier: 1.0,
+        }
+    }
+}
+
 struct VoiceChannelData {
     key_voices: Arc<Vec<Key>>,
     params: Arc<RwLock<VoiceChannelParams>>,
 
     threadpool: Option<Arc<rayon::ThreadPool>>,
+
+    /// The helper struct for keeping track of MIDI control event data
+    control_event_data: RefCell<ControlEventData>,
+
+    /// Processed control data, ready to feed to voices
+    voice_control_data: AtomicRefCell<VoiceControlData>,
 
     limiter: VolumeLimiter,
 }
@@ -81,12 +125,20 @@ impl VoiceChannelData {
 
             threadpool,
 
+            control_event_data: RefCell::new(ControlEventData::new_defaults()),
+            voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
+
             limiter: VolumeLimiter::new(channels),
         }
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
-        fn render_for_key(key: &Key, len: usize, params: &Arc<RwLock<VoiceChannelParams>>) {
+        fn render_for_key(
+            key: &Key,
+            len: usize,
+            control: &VoiceControlData,
+            params: &Arc<RwLock<VoiceChannelParams>>,
+        ) {
             let mut events = key.event_cache.borrow();
 
             let mut audio_cache = key.audio_cache.borrow();
@@ -94,7 +146,7 @@ impl VoiceChannelData {
 
             let params = params.read().unwrap();
             for e in events.drain(..) {
-                data.send_event(e, &params.channel_sf, params.layers as usize);
+                data.send_event(e, control, &params.channel_sf, params.layers as usize);
             }
 
             prepapre_cache_vec(&mut audio_cache, len, 0.0);
@@ -108,10 +160,11 @@ impl VoiceChannelData {
                 let len = out.len();
                 let params = self.params.clone();
                 let key_voices = self.key_voices.clone();
+                let control = self.voice_control_data.borrow();
                 pool.install(|| {
                     let params = params.clone();
                     key_voices.par_iter().for_each(move |key| {
-                        render_for_key(key, len, &params);
+                        render_for_key(key, len, &control, &params);
                     });
                 });
 
@@ -123,8 +176,9 @@ impl VoiceChannelData {
             None => {
                 let len = out.len();
 
+                let control = self.voice_control_data.borrow();
                 for key in self.key_voices.iter() {
-                    render_for_key(key, len, &self.params);
+                    render_for_key(key, len, &control, &self.params);
                 }
 
                 for key in self.key_voices.iter() {
@@ -137,12 +191,84 @@ impl VoiceChannelData {
         self.limiter.limit(out);
     }
 
+    fn propagate_voice_controls(&self) {
+        let controls = self.voice_control_data.borrow();
+        for key in self.key_voices.iter() {
+            let mut data = key.data.borrow();
+            data.process_controls(&controls);
+        }
+    }
+
     pub fn set_soundfonts(&self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
         self.params
             .write()
             .unwrap()
             .channel_sf
             .set_soundfonts(soundfonts)
+    }
+
+    pub fn process_control_event(&self, event: ControlEvent) {
+        match event {
+            ControlEvent::Raw(controller, value) => match controller {
+                0x64 => {
+                    self.control_event_data.borrow_mut().selected_lsb = value as i8;
+                }
+                0x65 => {
+                    self.control_event_data.borrow_mut().selected_msb = value as i8;
+                }
+                0x06 | 0x26 => {
+                    let (lsb, msb) = {
+                        let data = self.control_event_data.borrow();
+                        (data.selected_lsb, data.selected_msb)
+                    };
+                    if lsb == 0 && msb == 0 {
+                        match controller {
+                            0x06 => {
+                                self.control_event_data
+                                    .borrow_mut()
+                                    .pitch_bend_sensitivity_msb = value
+                            }
+                            0x26 => {
+                                self.control_event_data
+                                    .borrow_mut()
+                                    .pitch_bend_sensitivity_lsb = value
+                            }
+                            _ => (),
+                        }
+
+                        let sensitivity = {
+                            let data = self.control_event_data.borrow();
+                            (data.pitch_bend_sensitivity_msb as f32)
+                                + (data.pitch_bend_sensitivity_lsb as f32) / 100.0
+                        };
+
+                        self.process_control_event(ControlEvent::PitchBendSensitivity(sensitivity))
+                    }
+                }
+                _ => {}
+            },
+            ControlEvent::PitchBendSensitivity(sensitivity) => {
+                let pitch_bend = {
+                    let mut data = self.control_event_data.borrow_mut();
+                    data.pitch_bend_sensitivity = sensitivity;
+                    data.pitch_bend_sensitivity * data.pitch_bend_value
+                };
+                self.process_control_event(ControlEvent::PitchBend(pitch_bend));
+            }
+            ControlEvent::PitchBendValue(value) => {
+                let pitch_bend = {
+                    let mut data = self.control_event_data.borrow_mut();
+                    data.pitch_bend_value = value;
+                    data.pitch_bend_sensitivity * data.pitch_bend_value
+                };
+                self.process_control_event(ControlEvent::PitchBend(pitch_bend));
+            }
+            ControlEvent::PitchBend(value) => {
+                let multiplier = 2.0f32.powf(value / 12.0);
+                self.voice_control_data.borrow_mut().voice_pitch_multiplier = multiplier;
+                self.propagate_voice_controls();
+            }
+        }
     }
 }
 
@@ -162,34 +288,18 @@ impl VoiceChannel {
         }
     }
 
-    pub fn process_note_event(&self, key: u8, event: NoteEvent) {
-        let data = self.data.lock().unwrap();
-        let params = &data.params.read().unwrap();
-        data.key_voices[key as usize].data.borrow().send_event(
-            event,
-            &params.channel_sf,
-            params.layers as usize,
-        );
-    }
-
     pub fn process_event(&self, event: ChannelEvent) {
-        match event {
-            ChannelEvent::NoteOn { key, vel } => self.process_note_event(key, NoteEvent::On(vel)),
-            ChannelEvent::NoteOff { key } => self.process_note_event(key, NoteEvent::Off),
-            ChannelEvent::SetSoundfonts(soundfonts) => {
-                self.data.lock().unwrap().set_soundfonts(soundfonts)
-            }
-        }
+        self.push_events_iter(std::iter::once(event));
     }
 
     pub fn push_events_iter<T: Iterator<Item = ChannelEvent>>(&self, iter: T) {
         let data = self.data.lock().unwrap();
+        let mut key_events = data
+            .key_voices
+            .iter()
+            .map(|k| k.event_cache.borrow())
+            .to_vec();
         for e in iter {
-            let mut key_events = data
-                .key_voices
-                .iter()
-                .map(|k| k.event_cache.borrow())
-                .to_vec();
             match e {
                 ChannelEvent::NoteOn { key, vel } => {
                     let ev = NoteEvent::On(vel);
@@ -198,6 +308,9 @@ impl VoiceChannel {
                 ChannelEvent::NoteOff { key } => {
                     let ev = NoteEvent::Off;
                     key_events[key as usize].push(ev);
+                }
+                ChannelEvent::Control(control) => {
+                    data.process_control_event(control);
                 }
                 ChannelEvent::SetSoundfonts(soundfonts) => data.set_soundfonts(soundfonts),
             }

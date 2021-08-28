@@ -1,6 +1,6 @@
 use crate::core::soundfont::VoiceSpawner;
 
-use super::voice::Voice;
+use super::{voice::Voice, VoiceControlData};
 
 pub struct VoiceSpawnerMatrix {
     voice_spawners_attack: Vec<Vec<Box<dyn VoiceSpawner>>>,
@@ -9,8 +9,9 @@ pub struct VoiceSpawnerMatrix {
 
 fn voice_iter_from_vec<'a>(
     vec: &'a Vec<Box<dyn VoiceSpawner>>,
+    control: &'a VoiceControlData,
 ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
-    vec.iter().map(|voice| voice.spawn_voice())
+    vec.iter().map(move |voice| voice.spawn_voice(control))
 }
 
 impl VoiceSpawnerMatrix {
@@ -58,18 +59,20 @@ impl VoiceSpawnerMatrix {
     #[inline(always)]
     pub fn spawn_voices_attack<'a>(
         &'a self,
+        control: &'a VoiceControlData,
         key: u8,
         vel: u8,
     ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
-        voice_iter_from_vec(self.get_attack_spawners_vec_at(key, vel))
+        voice_iter_from_vec(self.get_attack_spawners_vec_at(key, vel), control)
     }
 
     #[inline(always)]
     pub fn spawn_voices_release<'a>(
         &'a self,
+        control: &'a VoiceControlData,
         key: u8,
     ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
-        voice_iter_from_vec(self.get_release_spawners_vec_at(key))
+        voice_iter_from_vec(self.get_release_spawners_vec_at(key), control)
     }
 
     #[inline(always)]
