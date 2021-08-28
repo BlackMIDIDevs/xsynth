@@ -19,6 +19,9 @@ pub use channels::*;
 mod constant;
 pub use constant::*;
 
+mod sampler;
+pub use sampler::*;
+
 pub trait VoiceGeneratorBase: Sync + Send {
     fn ended(&self) -> bool;
     fn signal_release(&mut self);

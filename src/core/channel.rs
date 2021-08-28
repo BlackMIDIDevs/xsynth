@@ -11,7 +11,7 @@ use self::{
     params::{VoiceChannelConst, VoiceChannelParams, VoiceChannelStatsReader},
 };
 
-use super::{effects::VolumeLimiter, AudioPipe};
+use super::{effects::VolumeLimiter, soundfont::SoundfontBase, AudioPipe};
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use to_vec::ToVec;
@@ -136,6 +136,14 @@ impl VoiceChannelData {
 
         self.limiter.limit(out);
     }
+
+    pub fn set_soundfonts(&self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
+        self.params
+            .write()
+            .unwrap()
+            .channel_sf
+            .set_soundfonts(soundfonts)
+    }
 }
 
 impl VoiceChannel {
@@ -168,6 +176,9 @@ impl VoiceChannel {
         match event {
             ChannelEvent::NoteOn { key, vel } => self.process_note_event(key, NoteEvent::On(vel)),
             ChannelEvent::NoteOff { key } => self.process_note_event(key, NoteEvent::Off),
+            ChannelEvent::SetSoundfonts(soundfonts) => {
+                self.data.lock().unwrap().set_soundfonts(soundfonts)
+            }
         }
     }
 
@@ -188,6 +199,7 @@ impl VoiceChannel {
                     let ev = NoteEvent::Off;
                     key_events[key as usize].push(ev);
                 }
+                ChannelEvent::SetSoundfonts(soundfonts) => data.set_soundfonts(soundfonts),
             }
         }
     }

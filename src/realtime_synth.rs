@@ -20,7 +20,7 @@ use crate::{
         FunctionAudioPipe, VoiceChannel,
     },
     helpers::{prepapre_cache_vec, sum_simd},
-    SynthEvent,
+    AudioStreamParams, SynthEvent,
 };
 
 #[derive(Clone)]
@@ -34,7 +34,18 @@ impl RealtimeEventSender {
     }
 
     pub fn send(&self, event: SynthEvent) {
-        self.senders[event.channel as usize].send(event.event).ok();
+        match event {
+            SynthEvent::Channel(channel, event) => {
+                self.senders[channel as usize].send(event).ok();
+            }
+            SynthEvent::SetSoundfonts(soundfonts) => {
+                for sender in self.senders.iter() {
+                    sender
+                        .send(ChannelEvent::SetSoundfonts(soundfonts.clone()))
+                        .ok();
+                }
+            }
+        }
     }
 }
 
@@ -74,6 +85,8 @@ pub struct RealtimeSynth {
     stats: RealtimeSynthStats,
 
     buffered_renderer: Arc<Mutex<BufferedRenderer>>,
+
+    stream_params: AudioStreamParams,
 }
 
 impl RealtimeSynth {
@@ -208,6 +221,7 @@ impl RealtimeSynth {
             stream,
             buffered_renderer: buffered,
             stats,
+            stream_params: AudioStreamParams::new(sample_rate, audio_channels),
         }
     }
 
@@ -217,5 +231,9 @@ impl RealtimeSynth {
 
     pub fn get_stats(&self) -> RealtimeSynthStatsReader {
         RealtimeSynthStatsReader::new(self.stats.clone())
+    }
+
+    pub fn stream_params(&self) -> &AudioStreamParams {
+        &self.stream_params
     }
 }

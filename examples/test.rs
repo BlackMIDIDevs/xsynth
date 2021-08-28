@@ -1,6 +1,6 @@
-use std::{thread, time::Duration};
+use std::{time::Duration};
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::traits::{DeviceTrait, HostTrait};
 use xsynth::{core::event::ChannelEvent, RealtimeSynth, SynthEvent};
 
 fn main() {
@@ -18,7 +18,7 @@ fn main() {
     for k in 0..127 {
         for c in 0..16 {
             for _ in 0..16 {
-                synth.send_event(SynthEvent::new(
+                synth.send_event(SynthEvent::Channel(
                     c,
                     ChannelEvent::NoteOn { key: k, vel: 5 },
                 ));

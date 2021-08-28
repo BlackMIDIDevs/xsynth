@@ -1,6 +1,6 @@
 use std::sync::{atomic::AtomicU64, Arc};
 
-use crate::{AudioStreamParams, core::soundfont::SquareSoundfont};
+use crate::{AudioStreamParams};
 
 use super::channel_sf::ChannelSoundfont;
 
@@ -34,8 +34,7 @@ impl VoiceChannelStats {
 
 impl VoiceChannelParams {
     pub fn new(sample_rate: u32, channels: u16) -> Self {
-        let mut channel_sf = ChannelSoundfont::new();
-        channel_sf.set_soundfonts(vec![Arc::new(SquareSoundfont::new(sample_rate, channels))]);
+        let channel_sf = ChannelSoundfont::new();
 
         Self {
             stats: VoiceChannelStats::new(),

@@ -1,15 +1,8 @@
-use crate::core::event::ChannelEvent;
+use std::sync::Arc;
 
-pub struct SynthEvent {
-    pub channel: u32,
-    pub event: ChannelEvent,
-}
+use crate::core::{event::ChannelEvent, soundfont::SoundfontBase};
 
-impl SynthEvent {
-    pub fn new(channel: u32, event: ChannelEvent) -> Self {
-        SynthEvent {
-            channel: channel,
-            event: event,
-        }
-    }
+pub enum SynthEvent {
+    Channel(u32, ChannelEvent),
+    SetSoundfonts(Vec<Arc<dyn SoundfontBase>>)
 }

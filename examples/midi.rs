@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use cpal::traits::{DeviceTrait, HostTrait};
 use midi_tools::{
@@ -10,7 +13,13 @@ use midi_tools::{
         to_vec, unwrap_items, TimeCaster,
     },
 };
-use xsynth::{core::event::ChannelEvent, RealtimeSynth, SynthEvent};
+use xsynth::{
+    core::{
+        event::ChannelEvent,
+        soundfont::{SoundfontBase, SquareSoundfont},
+    },
+    RealtimeSynth, SynthEvent,
+};
 
 fn main() {
     let host = cpal::default_host();
@@ -24,6 +33,14 @@ fn main() {
     println!("Default output config: {:?}", config);
 
     let synth = RealtimeSynth::new(16, &device, config);
+
+    let params = synth.stream_params();
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SquareSoundfont::new(
+        params.sample_rate,
+        params.channels,
+    ))];
+
+    synth.send_event(SynthEvent::SetSoundfonts(soundfonts));
 
     let midi = MIDIFile::open(
         "D:/Midis/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid",
@@ -52,7 +69,7 @@ fn main() {
 
         match e {
             Event::NoteOn(e) => {
-                synth.send_event(SynthEvent::new(
+                synth.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelEvent::NoteOn {
                         key: e.key,
@@ -61,7 +78,7 @@ fn main() {
                 ));
             }
             Event::NoteOff(e) => {
-                synth.send_event(SynthEvent::new(
+                synth.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelEvent::NoteOff { key: e.key },
                 ));
@@ -69,6 +86,6 @@ fn main() {
             _ => {}
         }
     }
-    
+
     std::thread::sleep(Duration::from_secs(10000));
 }
