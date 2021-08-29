@@ -14,13 +14,8 @@ use crate::AudioStreamParams;
 
 use super::AudioPipe;
 
-/// The helper struct for deferred sample rendering.
-/// Helps avoid stutter when the render time is exceding the max time allowed by the audio driver.
-/// Instead, it renders in a separate thread with much smaller sample sizes, causing a minimal impact on latency
-/// while allowing more time to render per sample.
-///
-/// Designed to be used in realtime playback only.
-pub struct BufferedRenderer {
+#[derive(Debug, Clone)]
+pub struct BufferedRendererStats {
     /// The number of samples currently buffered.
     /// Can be negative if the reader is waiting for more samples.
     samples: Arc<AtomicI64>,
@@ -34,6 +29,45 @@ pub struct BufferedRenderer {
 
     /// The number of samples to render each iteration
     render_size: Arc<AtomicUsize>,
+}
+
+pub struct BufferedRendererStatsReader {
+    stats: BufferedRendererStats,
+}
+
+impl BufferedRendererStatsReader {
+    pub fn samples(&self) -> i64 {
+        self.stats.samples.load(Ordering::Relaxed)
+    }
+
+    pub fn last_request_samples(&self) -> i64 {
+        self.stats.last_request_samples.load(Ordering::Relaxed)
+    }
+
+    pub fn render_size(&self) -> usize {
+        self.stats.render_size.load(Ordering::Relaxed)
+    }
+
+    pub fn average_renderer_load(&self) -> f64 {
+        let queue = self.stats.render_time.read().unwrap();
+        let total = queue.len();
+        queue.iter().sum::<f64>() / total as f64
+    }
+
+    pub fn last_renderer_load(&self) -> f64 {
+        let queue = self.stats.render_time.read().unwrap();
+        *queue.front().unwrap_or(&0.0)
+    }
+}
+
+/// The helper struct for deferred sample rendering.
+/// Helps avoid stutter when the render time is exceding the max time allowed by the audio driver.
+/// Instead, it renders in a separate thread with much smaller sample sizes, causing a minimal impact on latency
+/// while allowing more time to render per sample.
+///
+/// Designed to be used in realtime playback only.
+pub struct BufferedRenderer {
+    stats: BufferedRendererStats,
 
     /// The receiver for samples (the render thread has the sender).
     receive: Receiver<Vec<f32>>,
@@ -116,11 +150,13 @@ impl BufferedRenderer {
         }
 
         Self {
-            samples,
-            last_request_samples,
-            render_time,
+            stats: BufferedRendererStats {
+                samples,
+                last_request_samples,
+                render_time,
+                render_size,
+            },
             receive: rx,
-            render_size,
             remainder: Vec::new(),
             stream_params: AudioStreamParams::new(sample_rate, channels),
         }
@@ -130,13 +166,13 @@ impl BufferedRenderer {
     pub fn read(&mut self, dest: &mut [f32]) {
         let mut i: usize = 0;
         let len = dest.len().min(self.remainder.len());
-        self.samples.fetch_sub(dest.len() as i64, Ordering::SeqCst);
+        self.stats
+            .samples
+            .fetch_sub(dest.len() as i64, Ordering::SeqCst);
 
-        self.last_request_samples
+        self.stats
+            .last_request_samples
             .store(dest.len() as i64, Ordering::SeqCst);
-
-        let counted = self.samples.load(Ordering::Relaxed);
-        println!("Count: {},\t\t time: {}", counted, self.get_render_load());
 
         // Read from current remainder
         for r in self.remainder.drain(0..len) {
@@ -158,16 +194,15 @@ impl BufferedRenderer {
         }
     }
 
-    /// Gets the percentage of time (0 to 1) of the average time spent rendering audio
-    pub fn get_render_load(&self) -> f64 {
-        let queue = self.render_time.read().unwrap();
-        let total = queue.len();
-        queue.iter().sum::<f64>() / total as f64
-    }
-
     /// Sets the number of samples that should be rendered each iteration.
     pub fn set_render_size(&self, size: usize) {
-        self.render_size.store(size, Ordering::SeqCst);
+        self.stats.render_size.store(size, Ordering::SeqCst);
+    }
+
+    pub fn get_buffer_stats(&self) -> BufferedRendererStatsReader {
+        BufferedRendererStatsReader {
+            stats: self.stats.clone(),
+        }
     }
 }
 
@@ -179,5 +214,4 @@ impl AudioPipe for BufferedRenderer {
     fn read_samples_unchecked(&mut self, to: &mut [f32]) {
         self.read(to)
     }
-
 }

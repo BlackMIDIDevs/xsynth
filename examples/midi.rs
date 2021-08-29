@@ -42,7 +42,7 @@ fn main() {
 
     synth.send_event(SynthEvent::SetSoundfonts(soundfonts));
 
-    let midi = MIDIFile::open("D:/Midis/Ouranos - HDSQ & The Romanticist [v1.6.6].mid", None).unwrap();
+    let midi = MIDIFile::open("D:/Midis/Forgiveness_REBORN_FINAL.mid", None).unwrap();
     let ppq = midi.ppq();
     let merged = pipe!(
         midi.iter_all_tracks()

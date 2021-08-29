@@ -6,11 +6,14 @@ use to_vec::ToVec;
 
 use self::audio::AudioFileLoader;
 
-use super::{VoiceControlData, voice::{
-    BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber, SIMDStereoVoice,
-    SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase,
-    VoiceCombineSIMD,
-}};
+use super::{
+    voice::{
+        BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber,
+        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
+        Voice, VoiceBase, VoiceCombineSIMD,
+    },
+    VoiceControlData,
+};
 use crate::{core::voice::EnvelopeDescriptor, helpers::FREQS, AudioStreamParams};
 
 pub mod audio;
@@ -82,6 +85,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
     pub fn new(
         key: u8,
         vel: u8,
+        sample_rate_fac: f32,
         volume_envelope_params: Arc<EnvelopeParameters>,
         sf: &SquareSoundfont,
     ) -> Self {
@@ -90,15 +94,15 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let (samples, base_freq) = if key < 21 {
             let samples = sf.samples[0].clone();
             let base_freq = FREQS[key as usize] / FREQS[21];
-            (samples, base_freq)
+            (samples, base_freq * sample_rate_fac)
         } else if key > 108 {
             let samples = sf.samples.last().unwrap().clone();
             let base_freq = FREQS[key as usize] / FREQS[108];
-            (samples, base_freq)
+            (samples, base_freq * sample_rate_fac)
         } else {
             let samples = sf.samples[key as usize - 21].clone();
             let base_freq = 1.0;
-            (samples, base_freq)
+            (samples, base_freq * sample_rate_fac)
         };
 
         Self {
@@ -195,14 +199,13 @@ impl SoundfontBase for SquareSoundfont {
         use simdeez::sse41::*;
 
         simd_runtime_generate!(
-            fn get(
-                key: u8,
-                vel: u8,
-                sf: &SquareSoundfont,
-            ) -> Vec<Box<dyn VoiceSpawner>> {
+            fn get(key: u8, vel: u8, sf: &SquareSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
+                let sr = 44100.0 / sf.stream_params.sample_rate as f32;
+
                 vec![Box::new(SampledVoiceSpawner::<S>::new(
                     key,
                     vel,
+                    sr,
                     sf.volume_envelope_params.clone(),
                     sf,
                 ))]

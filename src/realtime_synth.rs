@@ -197,8 +197,14 @@ impl RealtimeSynth {
         }
 
         let total_voice_count = stats.voice_count.clone();
+        let buffered_stats = buffered.lock().unwrap().get_buffer_stats();
         let render_callback = Box::new(move || {
-            println!("Voice Count: {}", total_voice_count.load(Ordering::SeqCst));
+            println!(
+                "Voice Count: {}  \tBuffer: {}\tRender time: {}",
+                total_voice_count.load(Ordering::SeqCst),
+                buffered_stats.samples(),
+                buffered_stats.average_renderer_load()
+            );
         });
 
         let stream = match config.sample_format() {
