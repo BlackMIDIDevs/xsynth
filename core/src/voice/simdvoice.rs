@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use simdeez::Simd;
 
-use crate::VoiceControlData;
+use crate::voice::VoiceControlData;
 
 use super::{
     SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase,
@@ -67,7 +67,6 @@ where
         }
     }
 }
-
 
 pub struct SIMDMonoVoice<S: Simd, T: SIMDVoiceGenerator<S, SIMDSampleMono<S>>> {
     generator: T,

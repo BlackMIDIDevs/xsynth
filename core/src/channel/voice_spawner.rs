@@ -1,6 +1,6 @@
 use crate::soundfont::VoiceSpawner;
 
-use super::{voice::Voice, VoiceControlData};
+use crate::voice::{Voice, VoiceControlData};
 
 pub struct VoiceSpawnerMatrix {
     voice_spawners_attack: Vec<Vec<Box<dyn VoiceSpawner>>>,

@@ -1,6 +1,6 @@
 use simdeez::Simd;
 
-use crate::VoiceControlData;
+use crate::voice::VoiceControlData;
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
@@ -10,7 +10,10 @@ pub struct SIMDVoiceControl<S: Simd> {
 }
 
 impl<S: Simd> SIMDVoiceControl<S> {
-    pub fn new(control: &VoiceControlData, update: fn(&VoiceControlData) -> f32) -> SIMDVoiceControl<S> {
+    pub fn new(
+        control: &VoiceControlData,
+        update: fn(&VoiceControlData) -> f32,
+    ) -> SIMDVoiceControl<S> {
         unsafe {
             SIMDVoiceControl {
                 values: S::set1_ps((update)(control)),

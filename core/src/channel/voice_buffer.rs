@@ -1,4 +1,4 @@
-use super::voice::Voice;
+use crate::voice::Voice;
 use std::{
     collections::VecDeque,
     ops::{Deref, DerefMut},
@@ -80,9 +80,9 @@ impl VoiceBuffer {
             if self.buffer.len() < max_layers {
                 true
             } else {
-                self.buffer.iter().any(|voice| {
-                    voice.velocity() < vel || voice.is_releasing()
-                });
+                self.buffer
+                    .iter()
+                    .any(|voice| voice.velocity() < vel || voice.is_releasing());
                 true
             }
         } else {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use simdeez::Simd;
 
-use crate::VoiceControlData;
+use crate::voice::VoiceControlData;
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 

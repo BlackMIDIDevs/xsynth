@@ -25,7 +25,17 @@ pub use sampler::*;
 mod control;
 pub use control::*;
 
-use super::VoiceControlData;
+pub struct VoiceControlData {
+    pub voice_pitch_multiplier: f32,
+}
+
+impl VoiceControlData {
+    pub fn new_defaults() -> Self {
+        VoiceControlData {
+            voice_pitch_multiplier: 1.0,
+        }
+    }
+}
 
 pub trait VoiceGeneratorBase: Sync + Send {
     fn ended(&self) -> bool;

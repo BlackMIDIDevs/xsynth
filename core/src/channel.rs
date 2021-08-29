@@ -3,10 +3,7 @@ use std::{
     sync::{atomic::AtomicU64, Arc, Mutex, RwLock},
 };
 
-use crate::{
-    helpers::{prepapre_cache_vec, sum_simd},
-    AudioStreamParams, SingleBorrowRefCell,
-};
+use crate::{AudioStreamParams, SingleBorrowRefCell, helpers::{prepapre_cache_vec, sum_simd}, voice::VoiceControlData};
 
 use self::{
     event::{ChannelEvent, ControlEvent, NoteEvent},
@@ -24,7 +21,6 @@ mod channel_sf;
 pub mod event;
 mod key;
 mod params;
-pub mod voice;
 mod voice_buffer;
 mod voice_spawner;
 
@@ -69,18 +65,6 @@ impl ControlEventData {
             pitch_bend_sensitivity_msb: 2,
             pitch_bend_sensitivity: 2.0,
             pitch_bend_value: 0.0,
-        }
-    }
-}
-
-pub struct VoiceControlData {
-    pub voice_pitch_multiplier: f32,
-}
-
-impl VoiceControlData {
-    pub fn new_defaults() -> Self {
-        VoiceControlData {
-            voice_pitch_multiplier: 1.0,
         }
     }
 }

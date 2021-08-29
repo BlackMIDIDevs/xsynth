@@ -4,7 +4,7 @@ mod linear;
 pub use linear::*;
 use simdeez::Simd;
 
-use crate::VoiceControlData;
+use crate::voice::VoiceControlData;
 
 use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase};
 

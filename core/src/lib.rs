@@ -1,8 +1,9 @@
 mod buffered_renderer;
 pub use buffered_renderer::*;
 
-mod channel;
-pub use channel::*;
+pub mod channel;
+
+pub mod voice;
 
 mod audio_pipe;
 pub use audio_pipe::*;
@@ -17,4 +18,4 @@ pub mod effects;
 pub mod helpers;
 
 mod threaded_ref_cell;
-pub use self::threaded_ref_cell::*;
+use self::threaded_ref_cell::*;

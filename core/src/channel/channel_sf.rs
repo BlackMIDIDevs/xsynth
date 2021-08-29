@@ -1,8 +1,11 @@
 use std::{ops::Deref, sync::Arc};
 
-use crate::soundfont::SoundfontBase;
+use crate::{
+    soundfont::SoundfontBase,
+    voice::{Voice, VoiceControlData},
+};
 
-use super::{VoiceControlData, voice::Voice, voice_spawner::VoiceSpawnerMatrix};
+use super::voice_spawner::VoiceSpawnerMatrix;
 
 pub struct ChannelSoundfont {
     soundfonts: Vec<Arc<dyn SoundfontBase>>,

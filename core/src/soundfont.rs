@@ -7,14 +7,14 @@ use to_vec::ToVec;
 use self::audio::AudioFileLoader;
 
 use super::{
+    voice::VoiceControlData,
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber,
         SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
         Voice, VoiceBase, VoiceCombineSIMD,
     },
-    VoiceControlData,
 };
-use crate::{voice::EnvelopeDescriptor, helpers::FREQS, AudioStreamParams};
+use crate::{helpers::FREQS, voice::EnvelopeDescriptor, AudioStreamParams};
 
 pub mod audio;
 
