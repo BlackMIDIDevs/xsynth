@@ -77,7 +77,7 @@ impl VoiceBuffer {
             if self.buffer.len() < max_layers {
                 true
             } else {
-                self.buffer.iter().any(|voice| voice.velocity() < vel)
+                self.buffer.iter().any(|voice| voice.velocity() <= vel)
             }
         } else {
             true
