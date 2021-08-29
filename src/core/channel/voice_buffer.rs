@@ -52,14 +52,17 @@ impl VoiceBuffer {
         let mut quietest_index = 0;
         let mut quietest_id = 0;
         let mut count = 0;
+        let mut releasing = false;
         for i in 0..self.buffer.len() {
             let voice = &self.buffer[i];
             let vel = voice.velocity();
-            if vel < quietest {
+            let voice_releasing = voice.is_releasing();
+            if vel < quietest || (!releasing && voice_releasing) {
                 quietest = vel;
                 quietest_index = i;
                 quietest_id = voice.id;
                 count = 1;
+                releasing = voice_releasing;
             } else if quietest_id == voice.id {
                 count += 1;
             }
@@ -77,7 +80,10 @@ impl VoiceBuffer {
             if self.buffer.len() < max_layers {
                 true
             } else {
-                self.buffer.iter().any(|voice| voice.velocity() <= vel)
+                self.buffer.iter().any(|voice| {
+                    voice.velocity() < vel || voice.is_releasing()
+                });
+                true
             }
         } else {
             true
@@ -93,7 +99,7 @@ impl VoiceBuffer {
         if self.can_push_voices_with_velocity(vel, max_voices) {
             let id = self.get_id();
             for voice in voices {
-                self.buffer.push_front(GroupVoice { id, voice });
+                self.buffer.push_back(GroupVoice { id, voice });
             }
 
             if let Some(max_voices) = max_voices {
