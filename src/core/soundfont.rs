@@ -26,7 +26,7 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     fn stream_params<'a>(&'a self) -> &'a AudioStreamParams;
 
     fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
-    fn get_release_voice_spawners_at(&self, key: u8) -> Vec<Box<dyn VoiceSpawner>>;
+    fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
 // pub struct SineVoice {
@@ -78,6 +78,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Vec<Arc<[f32]>>,
+    vel: u8,
     _s: PhantomData<S>,
 }
 
@@ -110,6 +111,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             amp,
             volume_envelope_params,
             samples,
+            vel,
             _s: PhantomData,
         }
     }
@@ -139,7 +141,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let modulated = VoiceCombineSIMD::mult(volume_envelope, modulated);
 
         let flattened = SIMDStereoVoice::new(modulated);
-        let base = VoiceBase::new(flattened);
+        let base = VoiceBase::new(self.vel, flattened);
 
         Box::new(base)
     }
@@ -215,7 +217,7 @@ impl SoundfontBase for SquareSoundfont {
         get_runtime_select(key, vel, &self)
     }
 
-    fn get_release_voice_spawners_at(&self, _key: u8) -> Vec<Box<dyn VoiceSpawner>> {
+    fn get_release_voice_spawners_at(&self, _key: u8, _vel: u8) -> Vec<Box<dyn VoiceSpawner>> {
         vec![]
     }
 }

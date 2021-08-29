@@ -6,13 +6,15 @@ use super::{Voice, VoiceGeneratorBase, VoiceSampleGenerator};
 pub struct VoiceBase<T: Send + Sync + VoiceSampleGenerator> {
     sample_generator: T,
     releasing: bool,
+    velocity: u8,
 }
 
 impl<T: Send + Sync + VoiceSampleGenerator> VoiceBase<T> {
-    pub fn new(sample_generator: T) -> VoiceBase<T> {
+    pub fn new(velocity: u8, sample_generator: T) -> VoiceBase<T> {
         VoiceBase {
             sample_generator: sample_generator,
             releasing: false,
+            velocity,
         }
     }
 }
@@ -54,5 +56,10 @@ where
     #[inline(always)]
     fn is_releasing(&self) -> bool {
         self.releasing
+    }
+
+    #[inline(always)]
+    fn velocity(&self) -> u8 {
+        self.velocity
     }
 }

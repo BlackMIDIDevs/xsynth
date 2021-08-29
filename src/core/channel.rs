@@ -146,7 +146,7 @@ impl VoiceChannelData {
 
             let params = params.read().unwrap();
             for e in events.drain(..) {
-                data.send_event(e, control, &params.channel_sf, params.layers as usize);
+                data.send_event(e, control, &params.channel_sf, params.layers);
             }
 
             prepapre_cache_vec(&mut audio_cache, len, 0.0);

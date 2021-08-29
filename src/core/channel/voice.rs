@@ -39,4 +39,6 @@ pub trait VoiceSampleGenerator: VoiceGeneratorBase {
 
 pub trait Voice: VoiceSampleGenerator + Send + Sync {
     fn is_releasing(&self) -> bool;
+
+    fn velocity(&self) -> u8;
 }

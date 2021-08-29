@@ -41,15 +41,15 @@ impl ChannelSoundfont {
                     .find(|vec| vec.len() > 0)
                     .unwrap_or_else(|| vec![]);
                 self.matrix.set_spawners_attack(k, v, vec);
-            }
 
-            let vec = self
-                .soundfonts
-                .iter()
-                .map(|sf| sf.get_release_voice_spawners_at(k))
-                .find(|vec| vec.len() > 0)
-                .unwrap_or_else(|| vec![]);
-            self.matrix.set_spawners_release(k, vec);
+                let vec = self
+                    .soundfonts
+                    .iter()
+                    .map(|sf| sf.get_release_voice_spawners_at(k, v))
+                    .find(|vec| vec.len() > 0)
+                    .unwrap_or_else(|| vec![]);
+                self.matrix.set_spawners_release(k, v, vec);
+            }
         }
     }
 
@@ -66,7 +66,8 @@ impl ChannelSoundfont {
         &'a self,
         control: &'a VoiceControlData,
         key: u8,
+        vel: u8,
     ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
-        self.matrix.spawn_voices_release(control, key)
+        self.matrix.spawn_voices_release(control, key, vel)
     }
 }

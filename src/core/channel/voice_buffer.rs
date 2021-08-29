@@ -1,5 +1,8 @@
 use super::voice::Voice;
-use std::{collections::VecDeque, ops::{Deref, DerefMut}};
+use std::{
+    collections::VecDeque,
+    ops::{Deref, DerefMut},
+};
 
 struct GroupVoice {
     pub id: usize,
@@ -40,50 +43,94 @@ impl VoiceBuffer {
         self.id_counter
     }
 
-    fn pop_last_voice_group(&mut self) {
-        if let Some(voice) = self.buffer.back() {
-            let id = voice.id;
-            loop {
-                self.buffer.pop_back();
-                if let Some(voice) = self.buffer.back() {
-                    if voice.id != id {
-                        break;
-                    }
-                }
+    fn pop_quietest_voice_group(&mut self) {
+        if self.buffer.len() == 0 {
+            return;
+        }
+
+        let mut quietest = 255u8;
+        let mut quietest_index = 0;
+        let mut quietest_id = 0;
+        let mut count = 0;
+        for i in 0..self.buffer.len() {
+            let voice = &self.buffer[i];
+            let vel = voice.velocity();
+            if vel < quietest {
+                quietest = vel;
+                quietest_index = i;
+                quietest_id = voice.id;
+                count = 1;
+            } else if quietest_id == voice.id {
+                count += 1;
             }
         }
-    }
 
-    pub fn push_voices(&mut self, voices: impl Iterator<Item = Box<dyn Voice>>, max_voices: usize) {
-        let id = self.get_id();
-        for voice in voices {
-            self.buffer.push_front(GroupVoice { id, voice });
-        }
-
-        while self.buffer.len() > max_voices {
-            self.pop_last_voice_group();
+        if count > 0 {
+            self.buffer.drain(quietest_index..(quietest_index + count));
         }
     }
 
-    pub fn release_next_voice(&mut self) {
+    /// Whether there is spare room or there are any voices in this buffer
+    /// with a lower velocity that can be removed
+    fn can_push_voices_with_velocity(&self, vel: u8, max_voices: Option<usize>) -> bool {
+        if let Some(max_layers) = max_voices {
+            if self.buffer.len() < max_layers {
+                true
+            } else {
+                self.buffer.iter().any(|voice| voice.velocity() < vel)
+            }
+        } else {
+            true
+        }
+    }
+
+    pub fn push_voices(
+        &mut self,
+        vel: u8,
+        voices: impl Iterator<Item = Box<dyn Voice>>,
+        max_voices: Option<usize>,
+    ) -> bool {
+        if self.can_push_voices_with_velocity(vel, max_voices) {
+            let id = self.get_id();
+            for voice in voices {
+                self.buffer.push_front(GroupVoice { id, voice });
+            }
+
+            if let Some(max_voices) = max_voices {
+                while self.buffer.len() > max_voices {
+                    self.pop_quietest_voice_group();
+                }
+            }
+
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn release_next_voice(&mut self) -> Option<u8> {
         let mut id: Option<usize> = None;
+        let mut vel = None;
 
         // Find the first non releasing voice, get its id and release all voices with that id
         for voice in self.buffer.iter_mut() {
             if voice.is_releasing() {
                 continue;
             }
-            
+
             if id.is_none() {
                 id = Some(voice.id);
+                vel = Some(voice.velocity())
             }
-            
+
             if id != Some(voice.id) {
                 break;
             }
 
             voice.signal_release();
         }
+
+        vel
     }
 
     pub fn remove_ended_voices(&mut self) {

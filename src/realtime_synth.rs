@@ -98,12 +98,18 @@ impl RealtimeSynth {
         let sample_rate = config.sample_rate().0;
         let audio_channels = config.channels();
 
-        // let pool = Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap());
+        let use_threadpool = false;
+
+        let pool = if use_threadpool {
+            Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()))
+        } else {
+            None
+        };
 
         let (output_sender, output_receiver) = bounded::<Vec<f32>>(channel_count as usize);
 
         for _ in 0u32..channel_count {
-            let mut channel = VoiceChannel::new(sample_rate, audio_channels, None);
+            let mut channel = VoiceChannel::new(sample_rate, audio_channels, pool.clone());
             channels.push(channel.clone());
             let (event_sender, event_receiver) = unbounded();
             senders.push(event_sender);

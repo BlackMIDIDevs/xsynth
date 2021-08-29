@@ -20,7 +20,7 @@ pub struct VoiceChannelConst {
 
 pub struct VoiceChannelParams {
     pub stats: VoiceChannelStats,
-    pub layers: i32,
+    pub layers: Option<usize>,
     pub channel_sf: ChannelSoundfont,
     pub constant: VoiceChannelConst,
 }
@@ -38,7 +38,7 @@ impl VoiceChannelParams {
 
         Self {
             stats: VoiceChannelStats::new(),
-            layers: 4,
+            layers: Some(4),
             channel_sf,
             constant: VoiceChannelConst {
                 stream_params: AudioStreamParams::new(sample_rate, channels),
