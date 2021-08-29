@@ -8,7 +8,7 @@ pub enum NoteEvent {
     Off,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ChannelEvent {
     NoteOn { key: u8, vel: u8 },
     NoteOff { key: u8 },
@@ -17,7 +17,7 @@ pub enum ChannelEvent {
     SetSoundfonts(Vec<Arc<dyn SoundfontBase>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ControlEvent {
     Raw(u8, u8),
 

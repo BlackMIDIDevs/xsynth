@@ -11,7 +11,7 @@ bytemuck = "1.7.2"
 cpal = "0.13.3"
 crossbeam-channel = "0.5.1"
 lazy_static = "1.4.0"
-midi-tools-rs = { git = "https://github.com/arduano/midi-tools-rs", rev = "526df6c" }
+midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "51ff0dc" }
 rayon = "1.5.1"
 simdeez = { git = "https://github.com/arduano/simdeez", rev = "d72e9a1" }
 sofiza = { git = "https://github.com/arduano/sofiza", rev = "4a013a6" }

@@ -1,10 +1,11 @@
 use std::{
     sync::Arc,
+    thread,
     time::{Duration, Instant},
 };
 
 use cpal::traits::{DeviceTrait, HostTrait};
-use midi_tools::{
+use midi_toolkit::{
     events::{Event, MIDIEvent},
     io::MIDIFile,
     pipe,
@@ -33,6 +34,7 @@ fn main() {
     println!("Default output config: {:?}", config);
 
     let synth = RealtimeSynth::new(16, &device, config);
+    let mut sender = synth.get_senders();
 
     let params = synth.stream_params();
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SquareSoundfont::new(
@@ -40,9 +42,15 @@ fn main() {
         params.channels,
     ))];
 
-    synth.send_event(SynthEvent::SetSoundfonts(soundfonts));
+    sender.send_event(SynthEvent::AllChannels(ChannelEvent::SetSoundfonts(
+        soundfonts,
+    )));
 
-    let midi = MIDIFile::open("D:/Midis/The Quarantine Project.mid", None).unwrap();
+    let midi = MIDIFile::open(
+        "D:/Midis/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid",
+        None,
+    )
+    .unwrap();
     let ppq = midi.ppq();
     let merged = pipe!(
         midi.iter_all_tracks()
@@ -54,18 +62,28 @@ fn main() {
         |>unwrap_items()
     );
 
+    let (tx, rx) = crossbeam_channel::bounded(16777216);
+
+    thread::spawn(move || {
+        for e in merged {
+            tx.send(e).unwrap();
+        }
+    });
+
     let now = Instant::now();
     let mut time = 0.0;
-    for e in merged {
-        time += e.delta();
-        let diff = time - now.elapsed().as_secs_f64();
-        if diff > 0.0 {
-            spin_sleep::sleep(Duration::from_secs_f64(diff));
+    for e in rx.iter() {
+        if e.delta() != 0.0 {
+            time += e.delta();
+            let diff = time - now.elapsed().as_secs_f64();
+            if diff > 0.0 {
+                spin_sleep::sleep(Duration::from_secs_f64(diff));
+            }
         }
 
         match e {
             Event::NoteOn(e) => {
-                synth.send_event(SynthEvent::Channel(
+                sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelEvent::NoteOn {
                         key: e.key,
@@ -74,19 +92,19 @@ fn main() {
                 ));
             }
             Event::NoteOff(e) => {
-                synth.send_event(SynthEvent::Channel(
+                sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelEvent::NoteOff { key: e.key },
                 ));
             }
             Event::ControlChange(e) => {
-                synth.send_event(SynthEvent::Channel(
+                sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelEvent::Control(ControlEvent::Raw(e.controller, e.value)),
                 ));
             }
             Event::PitchWheelChange(e) => {
-                synth.send_event(SynthEvent::Channel(
+                sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelEvent::Control(ControlEvent::PitchBendValue(e.pitch as f32 / 8_192.0)),
                 ));

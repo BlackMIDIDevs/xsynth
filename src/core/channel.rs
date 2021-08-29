@@ -188,7 +188,7 @@ impl VoiceChannelData {
             }
         }
 
-        self.limiter.limit(out);
+        // self.limiter.limit(out);
     }
 
     fn propagate_voice_controls(&self) {
