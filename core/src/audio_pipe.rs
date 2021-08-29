@@ -27,7 +27,6 @@ impl<F: 'static + FnMut(&mut [f32]) + Send> AudioPipe for FunctionAudioPipe<F> {
     fn read_samples_unchecked(&mut self, to: &mut [f32]) {
         (self.func)(to);
     }
-
 }
 
 impl<F: 'static + FnMut(&mut [f32]) + Send> FunctionAudioPipe<F> {

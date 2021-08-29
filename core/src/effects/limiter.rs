@@ -77,7 +77,8 @@ impl VolumeLimiter {
             fn next(&mut self) -> Option<Self::Item> {
                 let next = self.samples.next();
                 if let Some(next) = next {
-                    let val = self.limiter.channels[self.pos % self.limiter.channel_count].limit(next);
+                    let val =
+                        self.limiter.channels[self.pos % self.limiter.channel_count].limit(next);
                     self.pos += 1;
                     Some(val)
                 } else {

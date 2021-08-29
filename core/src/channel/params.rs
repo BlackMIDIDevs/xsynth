@@ -1,6 +1,6 @@
 use std::sync::{atomic::AtomicU64, Arc};
 
-use crate::{AudioStreamParams};
+use crate::AudioStreamParams;
 
 use super::channel_sf::ChannelSoundfont;
 
@@ -10,7 +10,7 @@ pub struct VoiceChannelStats {
 }
 
 pub struct VoiceChannelStatsReader {
-    stats: VoiceChannelStats
+    stats: VoiceChannelStats,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +53,8 @@ impl VoiceChannelStatsReader {
     }
 
     pub fn voice_count(&self) -> u64 {
-        self.stats.voice_counter.load(std::sync::atomic::Ordering::Relaxed)
+        self.stats
+            .voice_counter
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
