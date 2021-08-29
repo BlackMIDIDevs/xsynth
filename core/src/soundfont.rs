@@ -14,7 +14,7 @@ use super::{
     },
     VoiceControlData,
 };
-use crate::{core::voice::EnvelopeDescriptor, helpers::FREQS, AudioStreamParams};
+use crate::{voice::EnvelopeDescriptor, helpers::FREQS, AudioStreamParams};
 
 pub mod audio;
 

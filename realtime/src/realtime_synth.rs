@@ -16,14 +16,14 @@ use cpal::{
 use crossbeam_channel::{bounded, unbounded, Sender};
 use to_vec::ToVec;
 
-use crate::{
-    core::{
-        effects::VolumeLimiter, event::ChannelEvent, AudioPipe, BufferedRenderer,
-        FunctionAudioPipe, VoiceChannel,
-    },
+use core::{
+    effects::VolumeLimiter,
+    event::ChannelEvent,
     helpers::{prepapre_cache_vec, sum_simd},
-    AudioStreamParams, SynthEvent,
+    AudioPipe, AudioStreamParams, BufferedRenderer, FunctionAudioPipe, VoiceChannel,
 };
+
+use crate::SynthEvent;
 
 struct ReadWriteAtomicU64(UnsafeCell<u64>);
 
@@ -208,9 +208,15 @@ pub struct RealtimeEventSender {
 }
 
 impl RealtimeEventSender {
-    fn new(senders: Vec<Sender<ChannelEvent>>, max_nps: Arc<ReadWriteAtomicU64>) -> RealtimeEventSender {
+    fn new(
+        senders: Vec<Sender<ChannelEvent>>,
+        max_nps: Arc<ReadWriteAtomicU64>,
+    ) -> RealtimeEventSender {
         RealtimeEventSender {
-            senders: senders.into_iter().map(|s| EventSender::new(max_nps.clone(), s)).collect(),
+            senders: senders
+                .into_iter()
+                .map(|s| EventSender::new(max_nps.clone(), s))
+                .collect(),
         }
     }
 
@@ -406,7 +412,7 @@ impl RealtimeSynth {
 
         stream.play().unwrap();
 
-        let max_nps = Arc::new(ReadWriteAtomicU64::new(100000));
+        let max_nps = Arc::new(ReadWriteAtomicU64::new(10000));
 
         Self {
             channels,

@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use simdeez::Simd;
 
+use crate::VoiceControlData;
+
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
 /// The stages in envelopes as a numbered enum
@@ -395,7 +397,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
         self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
     }
 
-    fn process_controls(&mut self, _control: &crate::core::VoiceControlData) {}
+    fn process_controls(&mut self, _control: &VoiceControlData) {}
 }
 
 impl<T: Simd> SIMDVoiceGenerator<T, SIMDSampleMono<T>> for SIMDVoiceEnvelope<T> {

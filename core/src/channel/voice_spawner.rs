@@ -1,4 +1,4 @@
-use crate::core::soundfont::VoiceSpawner;
+use crate::soundfont::VoiceSpawner;
 
 use super::{voice::Voice, VoiceControlData};
 

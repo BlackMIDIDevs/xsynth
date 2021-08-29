@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::core::soundfont::SoundfontBase;
+use crate::soundfont::SoundfontBase;
 
 #[derive(Debug)]
 pub enum NoteEvent {

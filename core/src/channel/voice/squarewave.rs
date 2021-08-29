@@ -2,6 +2,8 @@ use std::marker::PhantomData;
 
 use simdeez::Simd;
 
+use crate::VoiceControlData;
+
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
 pub struct SIMDSquareWaveGenerator<S: Simd, Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>> {
@@ -45,7 +47,7 @@ where
         self.pitch_gen.signal_release();
     }
 
-    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+    fn process_controls(&mut self, control: &VoiceControlData) {
         self.pitch_gen.process_controls(control);
     }
 }

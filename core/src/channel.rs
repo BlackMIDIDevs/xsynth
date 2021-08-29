@@ -14,7 +14,7 @@ use self::{
     params::{VoiceChannelConst, VoiceChannelParams, VoiceChannelStatsReader},
 };
 
-use super::{effects::VolumeLimiter, soundfont::SoundfontBase, AudioPipe};
+use super::{soundfont::SoundfontBase, AudioPipe};
 
 use atomic_refcell::AtomicRefCell;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -96,8 +96,6 @@ struct VoiceChannelData {
 
     /// Processed control data, ready to feed to voices
     voice_control_data: AtomicRefCell<VoiceControlData>,
-
-    limiter: VolumeLimiter,
 }
 
 impl VoiceChannelData {
@@ -127,8 +125,6 @@ impl VoiceChannelData {
 
             control_event_data: RefCell::new(ControlEventData::new_defaults()),
             voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
-
-            limiter: VolumeLimiter::new(channels),
         }
     }
 
@@ -187,8 +183,6 @@ impl VoiceChannelData {
                 }
             }
         }
-
-        // self.limiter.limit(out);
     }
 
     fn propagate_voice_controls(&self) {

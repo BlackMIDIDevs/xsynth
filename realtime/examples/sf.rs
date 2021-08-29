@@ -1,7 +1,6 @@
 use std::{fs::File, path::Path};
 
-use sofiza::{Instrument, Opcode};
-use soundfont::{data::SFData, SoundFont2};
+use sofiza::Opcode;
 use wav::BitDepth;
 
 fn main() {

@@ -4,6 +4,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+use core::{
+    event::{ChannelEvent, ControlEvent},
+    soundfont::{SoundfontBase, SquareSoundfont},
+};
 use cpal::traits::{DeviceTrait, HostTrait};
 use midi_toolkit::{
     events::{Event, MIDIEvent},
@@ -14,13 +18,7 @@ use midi_toolkit::{
         to_vec, unwrap_items, TimeCaster,
     },
 };
-use xsynth::{
-    core::{
-        event::{ChannelEvent, ControlEvent},
-        soundfont::{SoundfontBase, SquareSoundfont},
-    },
-    RealtimeSynth, SynthEvent,
-};
+use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
     let host = cpal::default_host();

@@ -5,6 +5,8 @@ use std::{
 
 use simdeez::Simd;
 
+use crate::VoiceControlData;
+
 use super::VoiceGeneratorBase;
 
 /// The base SIMD voice sample trait, generally either mono or stereo
@@ -161,7 +163,7 @@ where
         self.v2.signal_release();
     }
 
-    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+    fn process_controls(&mut self, control: &VoiceControlData) {
         self.v1.process_controls(control);
         self.v2.process_controls(control);
     }
@@ -228,7 +230,7 @@ impl<T: Simd> VoiceCombineSIMD<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::VoiceControlData;
+    use VoiceControlData;
 
     use super::*;
 

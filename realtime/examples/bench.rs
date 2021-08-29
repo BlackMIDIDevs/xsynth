@@ -1,7 +1,8 @@
 use std::time::{Duration, Instant};
 
+use core::event::ChannelEvent;
 use cpal::traits::{DeviceTrait, HostTrait};
-use xsynth::{core::event::ChannelEvent, RealtimeSynth, SynthEvent};
+use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
     let host = cpal::default_host();

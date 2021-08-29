@@ -2,6 +2,8 @@ use std::marker::PhantomData;
 
 use simdeez::Simd;
 
+use crate::VoiceControlData;
+
 use super::{
     SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase,
     VoiceSampleGenerator,
@@ -38,7 +40,7 @@ where
         self.generator.signal_release()
     }
 
-    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+    fn process_controls(&mut self, control: &VoiceControlData) {
         self.generator.process_controls(control)
     }
 }
@@ -98,7 +100,7 @@ where
         self.generator.signal_release()
     }
 
-    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+    fn process_controls(&mut self, control: &VoiceControlData) {
         self.generator.process_controls(control)
     }
 }

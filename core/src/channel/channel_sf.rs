@@ -1,6 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
-use crate::core::soundfont::SoundfontBase;
+use crate::soundfont::SoundfontBase;
 
 use super::{VoiceControlData, voice::Voice, voice_spawner::VoiceSpawnerMatrix};
 

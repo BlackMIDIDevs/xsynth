@@ -4,6 +4,8 @@ mod linear;
 pub use linear::*;
 use simdeez::Simd;
 
+use crate::VoiceControlData;
+
 use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase};
 
 // I believe some terminology reference is relevant for this one.
@@ -195,7 +197,7 @@ where
         self.pitch_gen.signal_release();
     }
 
-    fn process_controls(&mut self, control: &crate::core::VoiceControlData) {
+    fn process_controls(&mut self, control: &VoiceControlData) {
         self.pitch_gen.process_controls(control);
     }
 }
