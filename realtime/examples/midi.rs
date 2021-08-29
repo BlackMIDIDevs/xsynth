@@ -5,7 +5,7 @@ use std::{
 };
 
 use core::{
-    event::{ChannelEvent, ControlEvent},
+    channel::{ChannelEvent, ControlEvent},
     soundfont::{SoundfontBase, SquareSoundfont},
 };
 use cpal::traits::{DeviceTrait, HostTrait};

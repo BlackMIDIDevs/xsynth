@@ -1,4 +1,4 @@
-use core::event::ChannelEvent;
+use core::channel::ChannelEvent;
 
 pub enum SynthEvent {
     Channel(u32, ChannelEvent),

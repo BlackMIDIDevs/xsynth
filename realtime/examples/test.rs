@@ -1,6 +1,6 @@
+use core::channel::ChannelEvent;
 use std::time::Duration;
 
-use core::event::ChannelEvent;
 use cpal::traits::{DeviceTrait, HostTrait};
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 

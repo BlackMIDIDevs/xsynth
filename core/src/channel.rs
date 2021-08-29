@@ -3,10 +3,13 @@ use std::{
     sync::{atomic::AtomicU64, Arc, Mutex, RwLock},
 };
 
-use crate::{AudioStreamParams, SingleBorrowRefCell, helpers::{prepapre_cache_vec, sum_simd}, voice::VoiceControlData};
+use crate::{
+    helpers::{prepapre_cache_vec, sum_simd},
+    voice::VoiceControlData,
+    AudioStreamParams, SingleBorrowRefCell,
+};
 
 use self::{
-    event::{ChannelEvent, ControlEvent, NoteEvent},
     key::KeyData,
     params::{VoiceChannelConst, VoiceChannelParams, VoiceChannelStatsReader},
 };
@@ -18,11 +21,13 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use to_vec::ToVec;
 
 mod channel_sf;
-pub mod event;
 mod key;
 mod params;
 mod voice_buffer;
 mod voice_spawner;
+
+mod event;
+pub use event::*;
 
 #[derive(Clone)]
 pub struct VoiceChannel {

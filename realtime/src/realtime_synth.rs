@@ -17,10 +17,10 @@ use crossbeam_channel::{bounded, unbounded, Sender};
 use to_vec::ToVec;
 
 use core::{
+    channel::{ChannelEvent, VoiceChannel},
     effects::VolumeLimiter,
-    event::ChannelEvent,
     helpers::{prepapre_cache_vec, sum_simd},
-    AudioPipe, AudioStreamParams, BufferedRenderer, FunctionAudioPipe, VoiceChannel,
+    AudioPipe, AudioStreamParams, BufferedRenderer, FunctionAudioPipe,
 };
 
 use crate::SynthEvent;
