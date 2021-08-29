@@ -11,7 +11,7 @@ use std::{
 
 use cpal::{
     traits::{DeviceTrait, StreamTrait},
-    Device, Sample, Stream, SupportedStreamConfig,
+    Device, PauseStreamError, PlayStreamError, Sample, Stream, SupportedStreamConfig,
 };
 use crossbeam_channel::{bounded, unbounded, Sender};
 use to_vec::ToVec;
@@ -262,14 +262,15 @@ impl RealtimeSynthStatsReader {
 }
 
 pub struct RealtimeSynth {
-    channels: Vec<VoiceChannel>,
+    // Kept for ownership
+    _channels: Vec<VoiceChannel>,
+    _buffered_renderer: Arc<Mutex<BufferedRenderer>>,
+
     stream: Stream,
 
     event_senders: RealtimeEventSender,
 
     stats: RealtimeSynthStats,
-
-    buffered_renderer: Arc<Mutex<BufferedRenderer>>,
 
     stream_params: AudioStreamParams,
 }
@@ -415,10 +416,11 @@ impl RealtimeSynth {
         let max_nps = Arc::new(ReadWriteAtomicU64::new(10000));
 
         Self {
-            channels,
+            _channels: channels,
+            _buffered_renderer: buffered,
+
             event_senders: RealtimeEventSender::new(senders, max_nps),
             stream,
-            buffered_renderer: buffered,
             stats,
             stream_params: AudioStreamParams::new(sample_rate, audio_channels),
         }
@@ -438,5 +440,13 @@ impl RealtimeSynth {
 
     pub fn stream_params(&self) -> &AudioStreamParams {
         &self.stream_params
+    }
+
+    pub fn pause(&mut self) -> Result<(), PauseStreamError> {
+        self.stream.pause()
+    }
+
+    pub fn resume(&mut self) -> Result<(), PlayStreamError> {
+        self.stream.play()
     }
 }
