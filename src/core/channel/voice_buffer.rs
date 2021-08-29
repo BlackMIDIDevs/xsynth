@@ -57,7 +57,7 @@ impl VoiceBuffer {
             let voice = &self.buffer[i];
             let vel = voice.velocity();
             let voice_releasing = voice.is_releasing();
-            if vel < quietest || (!releasing && voice_releasing) {
+            if (releasing && voice_releasing && vel < quietest) || (!releasing && vel < quietest) {
                 quietest = vel;
                 quietest_index = i;
                 quietest_id = voice.id;
