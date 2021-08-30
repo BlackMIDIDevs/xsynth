@@ -55,13 +55,17 @@ impl VoiceBuffer {
         for i in 0..self.buffer.len() {
             let voice = &self.buffer[i];
             let vel = voice.velocity();
-            if vel < quietest || i == 0 {
+            if quietest_id == voice.id {
+                count += 1;
+            } else if vel < quietest {
                 quietest = vel;
                 quietest_index = i;
                 quietest_id = voice.id;
                 count = 1;
-            } else if quietest_id == voice.id {
-                count += 1;
+            } else if i == 0  {
+                quietest_index = i;
+                quietest_id = voice.id;
+                count = 1;
             }
         }
 
