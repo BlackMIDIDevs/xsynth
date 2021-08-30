@@ -43,7 +43,7 @@ impl VoiceBuffer {
         self.id_counter
     }
 
-    fn pop_quietest_voice_group(&mut self, reference_vel: u8) {
+    fn pop_quietest_voice_group(&mut self, reference_vel: u8, ignored_id: usize) {
         if self.buffer.len() == 0 {
             return;
         }
@@ -54,15 +54,14 @@ impl VoiceBuffer {
         let mut count = 0;
         for i in 0..self.buffer.len() {
             let voice = &self.buffer[i];
+            if voice.id == ignored_id {
+                continue;
+            }
             let vel = voice.velocity();
             if quietest_id == voice.id {
                 count += 1;
-            } else if vel < quietest {
+            } else if vel < quietest || i == 0 {
                 quietest = vel;
-                quietest_index = i;
-                quietest_id = voice.id;
-                count = 1;
-            } else if i == 0  {
                 quietest_index = i;
                 quietest_id = voice.id;
                 count = 1;
@@ -87,7 +86,7 @@ impl VoiceBuffer {
 
         if let Some(max_voices) = max_voices {
             while self.buffer.len() > max_voices {
-                self.pop_quietest_voice_group(vel);
+                self.pop_quietest_voice_group(vel, id);
             }
         }
     }
