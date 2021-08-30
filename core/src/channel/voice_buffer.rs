@@ -43,26 +43,23 @@ impl VoiceBuffer {
         self.id_counter
     }
 
-    fn pop_quietest_voice_group(&mut self) {
+    fn pop_quietest_voice_group(&mut self, reference_vel: u8) {
         if self.buffer.len() == 0 {
             return;
         }
 
-        let mut quietest = 255u8;
+        let mut quietest = reference_vel;
         let mut quietest_index = 0;
         let mut quietest_id = 0;
         let mut count = 0;
-        let mut releasing = false;
         for i in 0..self.buffer.len() {
             let voice = &self.buffer[i];
             let vel = voice.velocity();
-            let voice_releasing = voice.is_releasing();
-            if (releasing && voice_releasing && vel < quietest) || (!releasing && vel < quietest) {
+            if vel < quietest || i == 0 {
                 quietest = vel;
                 quietest_index = i;
                 quietest_id = voice.id;
                 count = 1;
-                releasing = voice_releasing;
             } else if quietest_id == voice.id {
                 count += 1;
             }
@@ -73,44 +70,21 @@ impl VoiceBuffer {
         }
     }
 
-    /// Whether there is spare room or there are any voices in this buffer
-    /// with a lower velocity that can be removed
-    fn can_push_voices_with_velocity(&self, vel: u8, max_voices: Option<usize>) -> bool {
-        if let Some(max_layers) = max_voices {
-            if self.buffer.len() < max_layers {
-                true
-            } else {
-                self.buffer
-                    .iter()
-                    .any(|voice| voice.velocity() < vel || voice.is_releasing());
-                true
-            }
-        } else {
-            true
-        }
-    }
-
     pub fn push_voices(
         &mut self,
         vel: u8,
         voices: impl Iterator<Item = Box<dyn Voice>>,
         max_voices: Option<usize>,
-    ) -> bool {
-        if self.can_push_voices_with_velocity(vel, max_voices) {
-            let id = self.get_id();
-            for voice in voices {
-                self.buffer.push_back(GroupVoice { id, voice });
-            }
+    ) {
+        let id = self.get_id();
+        for voice in voices {
+            self.buffer.push_back(GroupVoice { id, voice });
+        }
 
-            if let Some(max_voices) = max_voices {
-                while self.buffer.len() > max_voices {
-                    self.pop_quietest_voice_group();
-                }
+        if let Some(max_voices) = max_voices {
+            while self.buffer.len() > max_voices {
+                self.pop_quietest_voice_group(vel);
             }
-
-            true
-        } else {
-            false
         }
     }
 

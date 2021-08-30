@@ -1,9 +1,6 @@
-use std::{
-    collections::VecDeque,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
 };
 
 use super::{
@@ -13,10 +10,6 @@ use super::{
 pub struct KeyData {
     key: u8,
     voices: VoiceBuffer,
-
-    /// If a note on was skipped, then this helps track the note offs that should be ignored
-    skipped_ons: VecDeque<bool>,
-
     last_voice_count: usize,
     shared_voice_counter: Arc<AtomicU64>,
 }
@@ -27,7 +20,6 @@ impl KeyData {
             key,
             voices: VoiceBuffer::new(),
             last_voice_count: 0,
-            skipped_ons: VecDeque::new(),
             shared_voice_counter,
         }
     }
@@ -42,17 +34,13 @@ impl KeyData {
         match event {
             NoteEvent::On(vel) => {
                 let voices = channel_sf.spawn_voices_attack(control, self.key, vel);
-                let pushed = self.voices.push_voices(vel, voices, max_layers);
-                self.skipped_ons.push_front(!pushed);
+                self.voices.push_voices(vel, voices, max_layers);
             }
             NoteEvent::Off => {
-                let is_skipped = self.skipped_ons.pop_back();
-                if is_skipped != Some(true) {
-                    let vel = self.voices.release_next_voice();
-                    if let Some(vel) = vel {
-                        let voices = channel_sf.spawn_voices_release(control, self.key, vel);
-                        self.voices.push_voices(vel, voices, max_layers);
-                    }
+                let vel = self.voices.release_next_voice();
+                if let Some(vel) = vel {
+                    let voices = channel_sf.spawn_voices_release(control, self.key, vel);
+                    self.voices.push_voices(vel, voices, max_layers);
                 }
             }
         }
