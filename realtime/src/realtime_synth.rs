@@ -44,7 +44,7 @@ impl ReadWriteAtomicU64 {
 unsafe impl Send for ReadWriteAtomicU64 {}
 unsafe impl Sync for ReadWriteAtomicU64 {}
 
-static NPS_WINDOW_MILLISECONDS: u64 = 50;
+static NPS_WINDOW_MILLISECONDS: u64 = 20;
 
 struct NpsWindow {
     time: u64,
