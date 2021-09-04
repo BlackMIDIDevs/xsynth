@@ -202,7 +202,7 @@ impl SoundfontBase for SquareSoundfont {
 
         simd_runtime_generate!(
             fn get(key: u8, vel: u8, sf: &SquareSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
-                let sr = 44100.0 / sf.stream_params.sample_rate as f32;
+                let sr = 96000.0 / sf.stream_params.sample_rate as f32;
 
                 vec![Box::new(SampledVoiceSpawner::<S>::new(
                     key,
