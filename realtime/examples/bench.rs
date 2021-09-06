@@ -15,7 +15,7 @@ fn main() {
     let config = device.default_output_config().unwrap();
     println!("Default output config: {:?}", config);
     let elapsed = {
-        let mut synth = RealtimeSynth::new(16, &device, config);
+        let mut synth = RealtimeSynth::open(16, &device, config);
 
         let start = Instant::now();
         for _ in 0..100000 {

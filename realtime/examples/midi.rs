@@ -31,7 +31,7 @@ fn main() {
     let config = device.default_output_config().unwrap();
     println!("Default output config: {:?}", config);
 
-    let synth = RealtimeSynth::new(16, &device, config);
+    let synth = RealtimeSynth::open(16, &device, config);
     let mut sender = synth.get_senders();
 
     let params = synth.stream_params();

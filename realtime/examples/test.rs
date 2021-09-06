@@ -14,7 +14,7 @@ fn main() {
 
     let config = device.default_output_config().unwrap();
     println!("Default output config: {:?}", config);
-    let mut synth = RealtimeSynth::new(16, &device, config);
+    let mut synth = RealtimeSynth::open(16, &device, config);
 
     for k in 0..127 {
         for c in 0..16 {

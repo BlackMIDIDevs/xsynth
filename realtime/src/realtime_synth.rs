@@ -10,7 +10,7 @@ use std::{
 };
 
 use cpal::{
-    traits::{DeviceTrait, StreamTrait},
+    traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, PauseStreamError, PlayStreamError, Sample, Stream, SupportedStreamConfig,
 };
 use crossbeam_channel::{bounded, unbounded, Sender};
@@ -287,7 +287,20 @@ pub struct RealtimeSynth {
 }
 
 impl RealtimeSynth {
-    pub fn new(channel_count: u32, device: &Device, config: SupportedStreamConfig) -> Self {
+    pub fn open_with_default_output(channel_count: u32) -> Self {
+        let host = cpal::default_host();
+
+        let device = host
+            .default_output_device()
+            .expect("failed to find output device");
+        println!("Output device: {}", device.name().unwrap());
+
+        let config = device.default_output_config().unwrap();
+
+        RealtimeSynth::open(channel_count, &device, config)
+    }
+
+    pub fn open(channel_count: u32, device: &Device, config: SupportedStreamConfig) -> Self {
         let mut channels = Vec::new();
         let mut senders = Vec::new();
         let mut command_senders = Vec::new();
