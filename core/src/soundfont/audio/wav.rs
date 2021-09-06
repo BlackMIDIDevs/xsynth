@@ -4,21 +4,6 @@ use wav::BitDepth;
 
 use super::AudioFileLoader;
 
-fn resample(x: f32, indata: &[f32], fmax: f32, fsr: f32, wnwidth: i32) -> f32 {
-    let r_g = 2.0 * fmax / fsr;
-    let mut r_y = 0.0;
-    for i in (-wnwidth / 2)..(wnwidth / 2 - 1) {
-        let j = x as i32 + i;
-        let r_w = 0.5 - 0.5 * (2.0 * PI * (0.5 + (j as f32 - x) / wnwidth as f32)).cos();
-        let r_a = 2.0 * PI * (j as f32 - x) * fmax / fsr;
-        let r_snc = if r_a != 0.0 { (r_a).sin() / r_a } else { 1.0 };
-        if j >= 0 && j < indata.len() as i32 {
-            r_y += r_g * r_w * r_snc * indata[j as usize];
-        }
-    }
-    r_y
-}
-
 fn gen_resample_lookup_table(resolution: usize, fmax: f32, fsr: f32, wnwidth: i32) -> Vec<f32> {
     let r_g = 2.0 * fmax / fsr;
     let mut lookup_table = Vec::new();
@@ -71,7 +56,7 @@ impl SincResampler {
 
                 if j >= 0 && j < indata.len() as i32 {
                     let res_index = ((x % 1.0) * self.resolution) as usize;
-                    let index = res_index + p;
+                    let index = res_index * self.stride + p;
                     r_y += self.lookup_table[index] * indata[j as usize];
                 }
             }
@@ -80,21 +65,6 @@ impl SincResampler {
 
         outdata
     }
-}
-
-fn resample_vec(input: &[f32], in_rate: u32, out_rate: u32) -> Vec<f32> {
-    let in_rate = in_rate as f32;
-    let out_rate = out_rate as f32;
-    let mut output = vec![];
-    let new_length = (input.len() as f32 / in_rate * out_rate) as usize;
-
-    for i in 0..new_length {
-        let pos = i as f32 / out_rate * in_rate;
-        let input = resample(pos, &input, 10000.0, in_rate, 32);
-        output.push(input);
-    }
-
-    output
 }
 
 impl AudioFileLoader {
@@ -152,7 +122,7 @@ impl AudioFileLoader {
 
         let vecs = extract_samples(data, header.channel_count);
 
-        let resampler = SincResampler::new(1000000, header.sampling_rate, 32);
+        let resampler = SincResampler::new(10000, header.sampling_rate, 32);
 
         Ok(vecs
             .into_iter()

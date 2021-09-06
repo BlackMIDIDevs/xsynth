@@ -20,6 +20,9 @@ pub struct BufferedRendererStats {
     /// Can be negative if the reader is waiting for more samples.
     samples: Arc<AtomicI64>,
 
+    /// The number of samples that were in the buffer after the last read.
+    last_samples_after_read: Arc<AtomicI64>,
+
     /// The last number of samples last requested by the read command.
     last_request_samples: Arc<AtomicI64>,
 
@@ -38,6 +41,10 @@ pub struct BufferedRendererStatsReader {
 impl BufferedRendererStatsReader {
     pub fn samples(&self) -> i64 {
         self.stats.samples.load(Ordering::Relaxed)
+    }
+
+    pub fn last_samples_after_read(&self) -> i64 {
+        self.stats.last_samples_after_read.load(Ordering::Relaxed)
     }
 
     pub fn last_request_samples(&self) -> i64 {
@@ -90,6 +97,8 @@ impl BufferedRenderer {
         let samples = Arc::new(AtomicI64::new(0));
         let last_request_samples = Arc::new(AtomicI64::new(0));
         let render_size = Arc::new(AtomicUsize::new(render_size));
+
+        let last_samples_after_read = Arc::new(AtomicI64::new(0));
 
         let render_time = Arc::new(RwLock::new(VecDeque::new()));
 
@@ -155,6 +164,7 @@ impl BufferedRenderer {
                 last_request_samples,
                 render_time,
                 render_size,
+                last_samples_after_read,
             },
             receive: rx,
             remainder: Vec::new(),
@@ -166,7 +176,8 @@ impl BufferedRenderer {
     pub fn read(&mut self, dest: &mut [f32]) {
         let mut i: usize = 0;
         let len = dest.len().min(self.remainder.len());
-        self.stats
+        let samples = self
+            .stats
             .samples
             .fetch_sub(dest.len() as i64, Ordering::SeqCst);
 
@@ -192,6 +203,10 @@ impl BufferedRenderer {
 
             self.remainder = buf;
         }
+
+        self.stats
+            .last_samples_after_read
+            .store(samples, Ordering::Relaxed);
     }
 
     /// Sets the number of samples that should be rendered each iteration.

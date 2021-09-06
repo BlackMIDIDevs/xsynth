@@ -35,6 +35,7 @@ fn main() {
     let mut sender = synth.get_senders();
 
     let params = synth.stream_params();
+    
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SquareSoundfont::new(
         params.sample_rate,
         params.channels,
@@ -50,7 +51,7 @@ fn main() {
             println!(
                 "Voice Count: {}  \tBuffer: {}\tRender time: {}",
                 stats.voice_count(),
-                stats.buffer().samples(),
+                stats.buffer().last_samples_after_read(),
                 stats.buffer().average_renderer_load()
             );
             thread::sleep(Duration::from_millis(10));
