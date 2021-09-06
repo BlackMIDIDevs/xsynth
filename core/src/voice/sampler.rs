@@ -1,12 +1,16 @@
 use std::{marker::PhantomData, sync::Arc};
 
-mod linear;
-pub use linear::*;
 use simdeez::Simd;
 
 use crate::voice::VoiceControlData;
 
 use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase};
+
+mod linear;
+pub use linear::*;
+
+mod nearest;
+pub use nearest::*;
 
 // I believe some terminology reference is relevant for this one.
 //

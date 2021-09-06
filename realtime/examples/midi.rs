@@ -8,7 +8,7 @@ use core::{
     channel::{ChannelEvent, ControlEvent},
     soundfont::{SoundfontBase, SquareSoundfont},
 };
-use cpal::traits::{DeviceTrait, HostTrait};
+use cpal::{traits::{DeviceTrait, HostTrait}};
 use midi_toolkit::{
     events::{Event, MIDIEvent},
     io::MIDIFile,
@@ -44,8 +44,21 @@ fn main() {
         soundfonts,
     )));
 
+    let stats = synth.get_stats();
+    thread::spawn(move || {
+        loop {
+            println!(
+                "Voice Count: {}  \tBuffer: {}\tRender time: {}",
+                stats.voice_count(),
+                stats.buffer().samples(),
+                stats.buffer().average_renderer_load()
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+    });
+
     let midi = MIDIFile::open(
-        "D:/Midis/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid",
+        "D:/Midis/Forgiveness_REBORN_FINAL.mid",
         None,
     )
     .unwrap();
@@ -68,7 +81,7 @@ fn main() {
         }
     });
 
-    let now = Instant::now();
+    let now = Instant::now() - Duration::from_secs_f64(0.0);
     let mut time = 0.0;
     for e in rx.iter() {
         if e.delta() != 0.0 {
@@ -104,7 +117,7 @@ fn main() {
             Event::PitchWheelChange(e) => {
                 sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
-                    ChannelEvent::Control(ControlEvent::PitchBendValue(e.pitch as f32 / 8_192.0)),
+                    ChannelEvent::Control(ControlEvent::PitchBendValue(e.pitch as f32 / 8192.0)),
                 ));
             }
             _ => {}

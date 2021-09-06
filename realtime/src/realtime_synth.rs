@@ -20,7 +20,7 @@ use core::{
     channel::{ChannelEvent, VoiceChannel},
     effects::VolumeLimiter,
     helpers::{prepapre_cache_vec, sum_simd},
-    AudioPipe, AudioStreamParams, BufferedRenderer, FunctionAudioPipe,
+    AudioPipe, AudioStreamParams, BufferedRenderer, BufferedRendererStatsReader, FunctionAudioPipe,
 };
 
 use crate::SynthEvent;
@@ -248,23 +248,34 @@ impl RealtimeSynthStats {
 }
 
 pub struct RealtimeSynthStatsReader {
+    buffered_stats: BufferedRendererStatsReader,
     stats: RealtimeSynthStats,
 }
 
 impl RealtimeSynthStatsReader {
-    pub(self) fn new(stats: RealtimeSynthStats) -> RealtimeSynthStatsReader {
-        RealtimeSynthStatsReader { stats }
+    pub(self) fn new(
+        stats: RealtimeSynthStats,
+        buffered_stats: BufferedRendererStatsReader,
+    ) -> RealtimeSynthStatsReader {
+        RealtimeSynthStatsReader {
+            stats,
+            buffered_stats,
+        }
     }
 
     pub fn voice_count(&self) -> u64 {
         self.stats.voice_count.load(Ordering::Relaxed)
+    }
+
+    pub fn buffer(&self) -> &BufferedRendererStatsReader {
+        &self.buffered_stats
     }
 }
 
 pub struct RealtimeSynth {
     // Kept for ownership
     _channels: Vec<VoiceChannel>,
-    _buffered_renderer: Arc<Mutex<BufferedRenderer>>,
+    buffered_renderer: Arc<Mutex<BufferedRenderer>>,
 
     stream: Stream,
 
@@ -357,7 +368,6 @@ impl RealtimeSynth {
             device: &Device,
             config: SupportedStreamConfig,
             buffered: Arc<Mutex<BufferedRenderer>>,
-            render_callback: Box<dyn Fn() + Send + 'static>,
         ) -> Stream {
             let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
             let mut output_vec = Vec::new();
@@ -378,8 +388,6 @@ impl RealtimeSynth {
                             data[i] = Sample::from(&s);
                             i += 1;
                         }
-
-                        render_callback();
                     },
                     err_fn,
                 )
@@ -388,27 +396,10 @@ impl RealtimeSynth {
             stream
         }
 
-        let total_voice_count = stats.voice_count.clone();
-        let buffered_stats = buffered.lock().unwrap().get_buffer_stats();
-        let render_callback = Box::new(move || {
-            println!(
-                "Voice Count: {}  \tBuffer: {}\tRender time: {}",
-                total_voice_count.load(Ordering::SeqCst),
-                buffered_stats.samples(),
-                buffered_stats.average_renderer_load()
-            );
-        });
-
         let stream = match config.sample_format() {
-            cpal::SampleFormat::F32 => {
-                build_stream::<f32>(&device, config, buffered.clone(), render_callback)
-            }
-            cpal::SampleFormat::I16 => {
-                build_stream::<i16>(&device, config, buffered.clone(), render_callback)
-            }
-            cpal::SampleFormat::U16 => {
-                build_stream::<u16>(&device, config, buffered.clone(), render_callback)
-            }
+            cpal::SampleFormat::F32 => build_stream::<f32>(&device, config, buffered.clone()),
+            cpal::SampleFormat::I16 => build_stream::<i16>(&device, config, buffered.clone()),
+            cpal::SampleFormat::U16 => build_stream::<u16>(&device, config, buffered.clone()),
         };
 
         stream.play().unwrap();
@@ -417,7 +408,7 @@ impl RealtimeSynth {
 
         Self {
             _channels: channels,
-            _buffered_renderer: buffered,
+            buffered_renderer: buffered,
 
             event_senders: RealtimeEventSender::new(senders, max_nps),
             stream,
@@ -435,7 +426,9 @@ impl RealtimeSynth {
     }
 
     pub fn get_stats(&self) -> RealtimeSynthStatsReader {
-        RealtimeSynthStatsReader::new(self.stats.clone())
+        let buffered_stats = self.buffered_renderer.lock().unwrap().get_buffer_stats();
+
+        RealtimeSynthStatsReader::new(self.stats.clone(), buffered_stats)
     }
 
     pub fn stream_params(&self) -> &AudioStreamParams {
