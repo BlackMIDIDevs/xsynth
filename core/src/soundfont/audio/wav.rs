@@ -4,8 +4,7 @@ use wav::BitDepth;
 
 use super::AudioFileLoader;
 
-fn resample(x: f32, indata: &[f32], fmax: f32, fsr: f32, wnwidth: i32) -> f32
-{
+fn resample(x: f32, indata: &[f32], fmax: f32, fsr: f32, wnwidth: i32) -> f32 {
     let r_g = 2.0 * fmax / fsr;
     let mut r_y = 0.0;
     for i in (-wnwidth / 2)..(wnwidth / 2 - 1) {
@@ -20,8 +19,70 @@ fn resample(x: f32, indata: &[f32], fmax: f32, fsr: f32, wnwidth: i32) -> f32
     r_y
 }
 
-fn resample_vec(input: &[f32], in_rate: u32, out_rate: u32) -> Vec<f32>
-{
+fn gen_resample_lookup_table(resolution: usize, fmax: f32, fsr: f32, wnwidth: i32) -> Vec<f32> {
+    let r_g = 2.0 * fmax / fsr;
+    let mut lookup_table = Vec::new();
+    for x in 0..resolution {
+        let x = x as f32 / resolution as f32;
+        for i in (-wnwidth / 2)..(wnwidth / 2 - 1) {
+            let j_x = i as f32 - x;
+            let r_a = 2.0 * PI * j_x * fmax / fsr;
+            let r_w = 0.5 - 0.5 * (2.0 * PI * (0.5 + j_x / wnwidth as f32)).cos();
+            let r_snc = if r_a != 0.0 { (r_a).sin() / r_a } else { 1.0 };
+            lookup_table.push(r_g * r_w * r_snc);
+        }
+    }
+    lookup_table
+}
+
+struct SincResampler {
+    sample_rate: u32,
+    resolution: f32,
+    offset: i32,
+    stride: usize,
+    lookup_table: Vec<f32>,
+}
+
+impl SincResampler {
+    fn new(resolution: usize, sample_rate: u32, wnwidth: i32) -> Self {
+        let lookup_table =
+            gen_resample_lookup_table(resolution, 20000.0, sample_rate as f32, wnwidth);
+        SincResampler {
+            sample_rate,
+            resolution: resolution as f32,
+            offset: wnwidth / 2,
+            stride: ((wnwidth / 2 - 1) - (-wnwidth / 2)) as usize,
+            lookup_table,
+        }
+    }
+
+    fn resample_vec(&self, indata: &[f32], sample_rate: u32) -> Vec<f32> {
+        let new_len = indata.len() * sample_rate as usize / self.sample_rate as usize;
+        let mut outdata = Vec::with_capacity(new_len);
+
+        let rate_fac = self.sample_rate as f32 / sample_rate as f32;
+        for s in 0..new_len {
+            let x = s as f32 * rate_fac;
+
+            let mut r_y = 0.0;
+            for p in 0..self.stride {
+                let i = p as i32 - self.offset;
+                let j = x as i32 + i;
+
+                if j >= 0 && j < indata.len() as i32 {
+                    let res_index = ((x % 1.0) * self.resolution) as usize;
+                    let index = res_index + p;
+                    r_y += self.lookup_table[index] * indata[j as usize];
+                }
+            }
+            outdata.push(r_y);
+        }
+
+        outdata
+    }
+}
+
+fn resample_vec(input: &[f32], in_rate: u32, out_rate: u32) -> Vec<f32> {
     let in_rate = in_rate as f32;
     let out_rate = out_rate as f32;
     let mut output = vec![];
@@ -91,6 +152,12 @@ impl AudioFileLoader {
 
         let vecs = extract_samples(data, header.channel_count);
 
-        Ok(vecs.into_iter().map(|samples| resample_vec(&samples, header.sampling_rate, 96000).into()).collect())
+        let resampler = SincResampler::new(1000000, header.sampling_rate, 32);
+
+        Ok(vecs
+            .into_iter()
+            .map(|samples| resampler.resample_vec(&samples, 96000).into())
+            // .map(|samples| resample_vec(&samples, header.sampling_rate, 96000).into())
+            .collect())
     }
 }
