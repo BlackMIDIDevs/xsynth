@@ -17,7 +17,7 @@ use crossbeam_channel::{bounded, unbounded, Sender};
 use to_vec::ToVec;
 
 use core::{
-    channel::{ChannelEvent, VoiceChannel},
+    channel::{ChannelEvent, ControlEvent, VoiceChannel},
     effects::VolumeLimiter,
     helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams, BufferedRenderer, BufferedRendererStatsReader, FunctionAudioPipe,
@@ -230,6 +230,58 @@ impl RealtimeEventSender {
                     sender.send(event.clone());
                 }
             }
+        }
+    }
+
+    pub fn send_event_u32(&mut self, event: u32) {
+        let head = event & 0xFF;
+        let channel = head & 0xF;
+        let code = head >> 4;
+
+        macro_rules! val1 {
+            () => {
+                (event >> 8) as u8
+            };
+        }
+
+        macro_rules! val2 {
+            () => {
+                (event >> 16) as u8
+            };
+        }
+
+        match code {
+            0x8 => {
+                self.send_event(SynthEvent::Channel(
+                    channel,
+                    ChannelEvent::NoteOff { key: val1!() },
+                ));
+            }
+            0x9 => {
+                self.send_event(SynthEvent::Channel(
+                    channel,
+                    ChannelEvent::NoteOn {
+                        key: val1!(),
+                        vel: val2!(),
+                    },
+                ));
+            }
+            0xB => {
+                self.send_event(SynthEvent::Channel(
+                    channel,
+                    ChannelEvent::Control(ControlEvent::Raw(val1!(), val2!())),
+                ));
+            }
+            0xE => {
+                let value = (((val2!() as i16) << 7) | val1!() as i16) - 8192;
+                let value = value as f32 / 8192.0;
+                self.send_event(SynthEvent::Channel(
+                    channel,
+                    ChannelEvent::Control(ControlEvent::PitchBendValue(value)),
+                ));
+            }
+
+            _ => {}
         }
     }
 }
