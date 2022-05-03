@@ -1,0 +1,3 @@
+brace_style = "AlwaysNextLine"
+control_brace_style = "AlwaysNextLine"
+tab_spaces = 2

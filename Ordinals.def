@@ -1,0 +1,21 @@
+LIBRARY  OmniMIDI
+EXPORTS
+  GetVoiceCount
+  modMessage
+  ReturnKDMAPIVer
+  IsKDMAPIAvailable
+  InitializeKDMAPIStream
+  TerminateKDMAPIStream
+  ResetKDMAPIStream
+  SendCustomEvent
+  SendDirectData
+  SendDirectDataNoBuf
+  SendDirectLongData
+  SendDirectLongDataNoBuf
+  PrepareLongData
+  UnprepareLongData
+  DriverSettings
+  LoadCustomSoundFontsList
+  InitializeCallbackFeatures @ 51 NONAME
+  RunCallbackFunction @ 67 NONAME
+  timeGetTime64

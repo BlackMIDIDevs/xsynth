@@ -2,7 +2,8 @@
 
 members = [
     "core",
-    "realtime"
+    "realtime",
+    "kdmapi"
 ]
 
 [profile.release]
