@@ -15,7 +15,7 @@ use core::{
 
 use realtime::{RealtimeEventSender, RealtimeSynth, SynthEvent};
 use winapi::{
-  shared::{basetsd::DWORD_PTR, minwindef::DWORD, windef::HWND},
+  shared::{basetsd::DWORD_PTR, minwindef::DWORD, windef::HWND, ntdef::LPWSTR},
   um::{
     mmsystem::{
       CALLBACK_EVENT, CALLBACK_FUNCTION, CALLBACK_THREAD, CALLBACK_WINDOW, HMIDI, HMIDIOUT,
@@ -213,7 +213,7 @@ pub extern "C" fn DriverSettings(
 }
 
 #[no_mangle]
-pub extern "C" fn LoadCustomSoundFontsList(_Directory: String)
+pub extern "C" fn LoadCustomSoundFontsList(_Directory: LPWSTR)
 {
   println!("LoadCustomSoundFontsList");
 }
