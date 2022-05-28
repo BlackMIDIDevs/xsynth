@@ -1,4 +1,12 @@
-use std::{ffi::c_void, os::raw::c_ulong, sync::Arc, thread, time::Duration};
+#![allow(non_snake_case)]
+
+use std::{
+  ffi::c_void,
+  os::raw::c_ulong,
+  sync::{Arc, Mutex},
+  thread,
+  time::Duration,
+};
 
 use core::{
   channel::ChannelEvent,
@@ -20,12 +28,17 @@ use winapi::{
 
 struct Synth
 {
+  killed: Arc<Mutex<bool>>,
+  stats_join_handle: thread::JoinHandle<()>,
+
   senders: RealtimeEventSender,
-  synth: RealtimeSynth,
+
+  // This field is necessary to keep the synth loaded
+  _synth: RealtimeSynth,
 }
 
-static mut synth: Option<Synth> = None;
-static mut voice_count: u64 = 0;
+static mut GLOBAL_SYNTH: Option<Synth> = None;
+static mut CURRENT_VOICE_COUNT: u64 = 0;
 
 //-------------------------------------------------------------------------------------------------
 // Custom xsynth KDMAPI functions
@@ -36,7 +49,7 @@ pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsy
 {
   unsafe {
     //println!("Voice Count: {}", voice_count);
-    voice_count
+    CURRENT_VOICE_COUNT
   }
 }
 
@@ -61,21 +74,27 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32
     soundfonts,
   )));
 
+  let killed = Arc::new(Mutex::new(false));
+
   let stats = realtime_synth.get_stats();
-  unsafe {
-    thread::spawn(move || {
-      loop
-      {
-        voice_count = stats.voice_count();
-        thread::sleep(Duration::from_millis(10));
+
+  let killed_thread = killed.clone();
+  let stats_join_handle = thread::spawn(move || {
+    while !*killed_thread.lock().unwrap()
+    {
+      unsafe {
+        CURRENT_VOICE_COUNT = stats.voice_count();
       }
-    });
-  }
+      thread::sleep(Duration::from_millis(10));
+    }
+  });
 
   unsafe {
-    synth = Some(Synth {
+    GLOBAL_SYNTH = Some(Synth {
+      killed,
       senders: sender,
-      synth: realtime_synth,
+      stats_join_handle,
+      _synth: realtime_synth,
     });
   }
   1
@@ -85,7 +104,11 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32
 pub extern "C" fn TerminateKDMAPIStream() -> i32
 {
   unsafe {
-    synth = None;
+    if let Some(synth) = GLOBAL_SYNTH.take()
+    {
+      *synth.killed.lock().unwrap() = true;
+      synth.stats_join_handle.join().ok();
+    }
   }
   println!("TerminateKDMAPIStream");
   //std::process::exit(0) //Currently a workaround for chikara not closing
@@ -105,7 +128,7 @@ pub extern "C" fn ResetKDMAPIStream()
 pub extern "C" fn SendDirectData(dwMsg: u32) -> u32
 {
   unsafe {
-    match synth.as_mut()
+    match GLOBAL_SYNTH.as_mut()
     {
       Some(sender) =>
       {
