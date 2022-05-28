@@ -4,7 +4,7 @@ use core::{
   channel::ChannelEvent,
   soundfont::{SoundfontBase, SquareSoundfont},
 };
-use cpal::traits::{DeviceTrait, HostTrait};
+
 use realtime::{RealtimeEventSender, RealtimeSynth, SynthEvent};
 use winapi::{
   shared::{basetsd::DWORD_PTR, minwindef::DWORD, windef::HWND},
@@ -143,7 +143,7 @@ pub extern "C" fn DisableFeedbackMode()
 }
 
 #[no_mangle]
-pub extern "C" fn SendCustomEvent(eventtype: u32, chan: u32, param: u32) -> u32
+pub extern "C" fn SendCustomEvent(_eventtype: u32, _chan: u32, _param: u32) -> u32
 {
   println!("SendCustomEvent");
   1
@@ -179,10 +179,10 @@ pub extern "C" fn UnprepareLongData() -> u32
 
 #[no_mangle]
 pub extern "C" fn DriverSettings(
-  dwParam: c_ulong,
-  dwCmd: c_ulong,
-  lpValue: *mut c_void,
-  cbSize: c_ulong,
+  _dwParam: c_ulong,
+  _dwCmd: c_ulong,
+  _lpValue: *mut c_void,
+  _cbSize: c_ulong,
 ) -> u32
 {
   println!("DriverSettings");
@@ -190,7 +190,7 @@ pub extern "C" fn DriverSettings(
 }
 
 #[no_mangle]
-pub extern "C" fn LoadCustomSoundFontsList(Directory: String)
+pub extern "C" fn LoadCustomSoundFontsList(_Directory: String)
 {
   println!("LoadCustomSoundFontsList");
 }
@@ -253,7 +253,7 @@ pub unsafe extern "C" fn InitializeCallbackFeatures(
   OMHM: HMIDI,
   OMCB: CallbackFunction,
   OMI: DWORD_PTR,
-  OMU: DWORD_PTR,
+  _OMU: DWORD_PTR,
   OMCM: DWORD,
 ) -> u32
 {

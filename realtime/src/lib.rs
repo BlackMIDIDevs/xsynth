@@ -1,5 +1,5 @@
-mod event;
 mod config;
+mod event;
 pub use event::*;
 
 mod realtime_synth;

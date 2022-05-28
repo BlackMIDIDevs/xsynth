@@ -4,11 +4,10 @@ use core::{
 };
 use std::{sync::Arc, time::Duration};
 
-use cpal::traits::{DeviceTrait, HostTrait};
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
-    let mut synth = RealtimeSynth::open_with_all_defaults();
+    let synth = RealtimeSynth::open_with_all_defaults();
     let mut sender = synth.get_senders();
 
     let params = synth.stream_params();

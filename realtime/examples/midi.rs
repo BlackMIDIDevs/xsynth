@@ -8,22 +8,20 @@ use core::{
     channel::{ChannelEvent, ControlEvent},
     soundfont::{SoundfontBase, SquareSoundfont},
 };
-use cpal::traits::{DeviceTrait, HostTrait};
+
 use midi_toolkit::{
     events::{Event, MIDIEvent},
     io::MIDIFile,
     pipe,
     sequence::{
-        event::{
-            cancel_tempo_events, flatten_batches_to_events, merge_events_array, scale_event_time,
-        },
-        threaded_buffer, to_vec, unwrap_items, TimeCaster,
+        event::{cancel_tempo_events, flatten_batches_to_events, scale_event_time},
+        unwrap_items, TimeCaster,
     },
 };
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
-    let mut synth = RealtimeSynth::open_with_all_defaults();
+    let synth = RealtimeSynth::open_with_all_defaults();
     let mut sender = synth.get_senders();
 
     let params = synth.stream_params();
