@@ -23,7 +23,7 @@ use core::{
     AudioPipe, AudioStreamParams, BufferedRenderer, BufferedRendererStatsReader, FunctionAudioPipe,
 };
 
-use crate::SynthEvent;
+use crate::{config::XSynthRealtimeConfig, SynthEvent};
 
 struct ReadWriteAtomicU64(UnsafeCell<u64>);
 
@@ -339,7 +339,7 @@ pub struct RealtimeSynth {
 }
 
 impl RealtimeSynth {
-    pub fn open_with_default_output(channel_count: u32) -> Self {
+    pub fn open_with_all_defaults() -> Self {
         let host = cpal::default_host();
 
         let device = host
@@ -347,18 +347,35 @@ impl RealtimeSynth {
             .expect("failed to find output device");
         println!("Output device: {}", device.name().unwrap());
 
-        let config = device.default_output_config().unwrap();
+        let stream_config = device.default_output_config().unwrap();
 
-        RealtimeSynth::open(channel_count, &device, config)
+        RealtimeSynth::open(Default::default(), &device, stream_config)
     }
 
-    pub fn open(channel_count: u32, device: &Device, config: SupportedStreamConfig) -> Self {
+    pub fn open_with_default_output(config: XSynthRealtimeConfig) -> Self {
+        let host = cpal::default_host();
+
+        let device = host
+            .default_output_device()
+            .expect("failed to find output device");
+        println!("Output device: {}", device.name().unwrap());
+
+        let stream_config = device.default_output_config().unwrap();
+
+        RealtimeSynth::open(config, &device, stream_config)
+    }
+
+    pub fn open(
+        config: XSynthRealtimeConfig,
+        device: &Device,
+        stream_config: SupportedStreamConfig,
+    ) -> Self {
         let mut channels = Vec::new();
         let mut senders = Vec::new();
         let mut command_senders = Vec::new();
 
-        let sample_rate = config.sample_rate().0;
-        let audio_channels = config.channels();
+        let sample_rate = stream_config.sample_rate().0;
+        let audio_channels = stream_config.channels();
 
         let use_threadpool = false;
 
@@ -368,9 +385,9 @@ impl RealtimeSynth {
             None
         };
 
-        let (output_sender, output_receiver) = bounded::<Vec<f32>>(channel_count as usize);
+        let (output_sender, output_receiver) = bounded::<Vec<f32>>(config.channel_count as usize);
 
-        for _ in 0u32..channel_count {
+        for _ in 0u32..(config.channel_count) {
             let mut channel = VoiceChannel::new(sample_rate, audio_channels, pool.clone());
             channels.push(channel.clone());
             let (event_sender, event_receiver) = unbounded();
@@ -394,7 +411,7 @@ impl RealtimeSynth {
         }
 
         let mut vec_cache: VecDeque<Vec<f32>> = VecDeque::new();
-        for _ in 0..channel_count {
+        for _ in 0..(config.channel_count) {
             vec_cache.push_front(Vec::new());
         }
 
@@ -403,6 +420,7 @@ impl RealtimeSynth {
         let total_voice_count = stats.voice_count.clone();
         let channel_stats = channels.iter().map(|c| c.get_channel_stats()).to_vec();
 
+        let channel_count = config.channel_count;
         let render = FunctionAudioPipe::new(sample_rate, audio_channels, move |out| {
             for i in 0..channel_count as usize {
                 let mut buf = vec_cache.pop_front().unwrap();
@@ -426,22 +444,22 @@ impl RealtimeSynth {
             render,
             sample_rate,
             audio_channels,
-            48,
+            (sample_rate as f64 * config.render_window_ms / 1000.0) as usize,
         )));
 
         fn build_stream<T: Sample>(
             device: &Device,
-            config: SupportedStreamConfig,
+            stream_config: SupportedStreamConfig,
             buffered: Arc<Mutex<BufferedRenderer>>,
         ) -> Stream {
             let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
             let mut output_vec = Vec::new();
 
-            let mut limiter = VolumeLimiter::new(config.channels());
+            let mut limiter = VolumeLimiter::new(stream_config.channels());
 
             let stream = device
                 .build_output_stream(
-                    &config.into(),
+                    &stream_config.into(),
                     move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
                         output_vec.reserve(data.len());
                         for _ in 0..data.len() {
@@ -461,10 +479,16 @@ impl RealtimeSynth {
             stream
         }
 
-        let stream = match config.sample_format() {
-            cpal::SampleFormat::F32 => build_stream::<f32>(&device, config, buffered.clone()),
-            cpal::SampleFormat::I16 => build_stream::<i16>(&device, config, buffered.clone()),
-            cpal::SampleFormat::U16 => build_stream::<u16>(&device, config, buffered.clone()),
+        let stream = match stream_config.sample_format() {
+            cpal::SampleFormat::F32 => {
+                build_stream::<f32>(&device, stream_config, buffered.clone())
+            }
+            cpal::SampleFormat::I16 => {
+                build_stream::<i16>(&device, stream_config, buffered.clone())
+            }
+            cpal::SampleFormat::U16 => {
+                build_stream::<u16>(&device, stream_config, buffered.clone())
+            }
         };
 
         stream.play().unwrap();

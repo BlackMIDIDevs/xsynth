@@ -19,7 +19,3 @@ soundfont = "0.0.0"
 spin_sleep = "1.0.0"
 to_vec = "0.1.0"
 wav = "1.0.0"
-
-[profile.release]
-codegen-units = 1
-lto = true

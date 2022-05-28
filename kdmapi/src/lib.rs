@@ -47,17 +47,7 @@ pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsy
 #[no_mangle]
 pub extern "C" fn InitializeKDMAPIStream() -> i32
 {
-  let host = cpal::default_host();
-
-  let device = host
-    .default_output_device()
-    .expect("failed to find output device");
-  //println!("Output device: {}", device.name().unwrap());
-
-  let config = device.default_output_config().unwrap();
-  //println!("Default output config: {:?}", config);
-
-  let realtime_synth = RealtimeSynth::open(16, &device, config);
+  let realtime_synth = RealtimeSynth::open_with_all_defaults();
   let mut sender = realtime_synth.get_senders();
 
   let params = realtime_synth.stream_params();
@@ -216,7 +206,9 @@ pub extern "C" fn GetDriverDebugInfo()
 //-------------------------------------------------------------------------------------------------
 
 type CallbackFunction = unsafe extern "C" fn(HMIDIOUT, DWORD, DWORD_PTR, DWORD_PTR, DWORD_PTR);
-unsafe extern "C" fn def_callback(_: HMIDIOUT, _: DWORD, _: DWORD_PTR, _: DWORD_PTR, _: DWORD_PTR) {}
+unsafe extern "C" fn def_callback(_: HMIDIOUT, _: DWORD, _: DWORD_PTR, _: DWORD_PTR, _: DWORD_PTR)
+{
+}
 static mut DUMMY_DEVICE: HMIDI = std::ptr::null_mut();
 static mut CALLBACK_INSTANCE: DWORD_PTR = 0;
 static mut CALLBACK: CallbackFunction = def_callback;
