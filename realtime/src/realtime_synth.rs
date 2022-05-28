@@ -141,7 +141,7 @@ impl Drop for RoughNpsTracker {
 }
 
 fn should_send_for_vel_and_nps(vel: u8, nps: u64, max: u64) -> bool {
-    vel as u64 * 100 + max > nps
+    (vel as u64) * max / 127 > nps
 }
 
 struct EventSender {
