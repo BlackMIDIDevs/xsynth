@@ -8,7 +8,6 @@ use core::{
     channel::{ChannelEvent, ControlEvent},
     soundfont::{SoundfontBase, SquareSoundfont},
 };
-
 use midi_toolkit::{
     events::{Event, MIDIEvent},
     io::MIDIFile,

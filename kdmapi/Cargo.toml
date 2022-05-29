@@ -14,4 +14,4 @@ cpal = "0.13.3"
 core = { path = "../core", package = "xsynth-core" }
 realtime = { path = "../realtime", package = "xsynth-realtime" }
 winapi = "0.3.9"
-native-dialog = "0.6.3"
+cfg-if = "1.0.0"

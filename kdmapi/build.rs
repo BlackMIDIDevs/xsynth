@@ -1,4 +1,7 @@
 fn main()
 {
-  println!("cargo:rustc-cdylib-link-arg=/DEF:Ordinals.def")
+  if cfg!(windows)
+  {
+    println!("cargo:rustc-cdylib-link-arg=/DEF:Ordinals.def")
+  }
 }

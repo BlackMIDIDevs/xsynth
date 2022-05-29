@@ -14,6 +14,8 @@ use core::{
 };
 
 use realtime::{RealtimeEventSender, RealtimeSynth, SynthEvent};
+
+#[cfg(windows)]
 use winapi::{
   shared::{basetsd::DWORD_PTR, minwindef::DWORD, windef::HWND, ntdef::LPWSTR},
   um::{
@@ -225,103 +227,106 @@ pub extern "C" fn GetDriverDebugInfo()
 }
 
 //-------------------------------------------------------------------------------------------------
-//  Callback functions for WINMM Wrapper
+//  Callback functions for WINMM Wrapper (Windows Only)
 //-------------------------------------------------------------------------------------------------
 
-type CallbackFunction = unsafe extern "C" fn(HMIDIOUT, DWORD, DWORD_PTR, DWORD_PTR, DWORD_PTR);
-unsafe extern "C" fn def_callback(_: HMIDIOUT, _: DWORD, _: DWORD_PTR, _: DWORD_PTR, _: DWORD_PTR)
-{
-}
-static mut DUMMY_DEVICE: HMIDI = std::ptr::null_mut();
-static mut CALLBACK_INSTANCE: DWORD_PTR = 0;
-static mut CALLBACK: CallbackFunction = def_callback;
-static mut CALLBACK_TYPE: DWORD = 0;
-
-#[no_mangle]
-pub extern "C" fn ReturnKDMAPIVer(
-  Major: *mut c_ulong,
-  Minor: *mut c_ulong,
-  Build: *mut c_ulong,
-  Revision: *mut c_ulong,
-) -> u32
-{
-  println!("ReturnKDMAPIVer");
-  unsafe {
-    *Major = 4;
-    *Minor = 1;
-    *Build = 0;
-    *Revision = 5;
-  }
-  1
-}
-
-#[no_mangle]
-pub extern "C" fn timeGetTime64() -> u64
-{
-  std::time::SystemTime::now()
-    .duration_since(std::time::SystemTime::UNIX_EPOCH)
-    .unwrap()
-    .as_millis() as u64
-}
-
-#[no_mangle]
-pub extern "C" fn modMessage() -> u32
-{
-  println!("modMessage");
-  1
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn InitializeCallbackFeatures(
-  OMHM: HMIDI,
-  OMCB: CallbackFunction,
-  OMI: DWORD_PTR,
-  _OMU: DWORD_PTR,
-  OMCM: DWORD,
-) -> u32
-{
-  println!("InitializeCallbackFeatures");
-
-  DUMMY_DEVICE = OMHM;
-  CALLBACK = OMCB;
-  CALLBACK_INSTANCE = OMI;
-  CALLBACK_TYPE = OMCM;
-
-  if OMCM == CALLBACK_WINDOW
+cfg_if::cfg_if! {
+  if #[cfg(windows)]
   {
-    if CALLBACK != def_callback && IsWindow(CALLBACK as HWND) != 0
+    type CallbackFunction = unsafe extern "C" fn(HMIDIOUT, DWORD, DWORD_PTR, DWORD_PTR, DWORD_PTR);
+    unsafe extern "C" fn def_callback(_: HMIDIOUT, _: DWORD, _: DWORD_PTR, _: DWORD_PTR, _: DWORD_PTR) {}
+    static mut DUMMY_DEVICE: HMIDI = std::ptr::null_mut();
+    static mut CALLBACK_INSTANCE: DWORD_PTR = 0;
+    static mut CALLBACK: CallbackFunction = def_callback;
+    static mut CALLBACK_TYPE: DWORD = 0;
+    
+    #[no_mangle]
+    pub extern "C" fn ReturnKDMAPIVer(
+      Major: *mut c_ulong,
+      Minor: *mut c_ulong,
+      Build: *mut c_ulong,
+      Revision: *mut c_ulong,
+    ) -> u32
     {
-      return 0;
+      println!("ReturnKDMAPIVer");
+      unsafe {
+        *Major = 4;
+        *Minor = 1;
+        *Build = 0;
+        *Revision = 5;
+      }
+      1
     }
-  }
-
-  1
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn RunCallbackFunction(Msg: DWORD, P1: DWORD_PTR, P2: DWORD_PTR)
-{
-  println!("RunCallbackFunction");
-
-  //We do a match case just to support stuff if needed
-  match CALLBACK_TYPE
-  {
-    CALLBACK_FUNCTION =>
+    
+    #[no_mangle]
+    pub extern "C" fn timeGetTime64() -> u64
     {
-      CALLBACK(DUMMY_DEVICE as HMIDIOUT, Msg, P1, P2, CALLBACK_INSTANCE);
+      std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
     }
-    CALLBACK_EVENT =>
+    
+    #[no_mangle]
+    pub extern "C" fn modMessage() -> u32
     {
-      SetEvent(CALLBACK as HANDLE);
+      println!("modMessage");
+      1
     }
-    CALLBACK_THREAD =>
+    
+    #[no_mangle]
+    pub unsafe extern "C" fn InitializeCallbackFeatures(
+      OMHM: HMIDI,
+      OMCB: CallbackFunction,
+      OMI: DWORD_PTR,
+      OMU: DWORD_PTR,
+      OMCM: DWORD,
+    ) -> u32
     {
-      PostThreadMessageW(CALLBACK as DWORD, Msg, P1, P2.try_into().unwrap());
+      println!("InitializeCallbackFeatures");
+    
+      DUMMY_DEVICE = OMHM;
+      CALLBACK = OMCB;
+      CALLBACK_INSTANCE = OMI;
+      CALLBACK_TYPE = OMCM;
+    
+      if OMCM == CALLBACK_WINDOW
+      {
+        if CALLBACK != def_callback && IsWindow(CALLBACK as HWND) != 0
+        {
+          return 0;
+        }
+      }
+    
+      1
     }
-    CALLBACK_WINDOW =>
+    
+    #[no_mangle]
+    pub unsafe extern "C" fn RunCallbackFunction(Msg: DWORD, P1: DWORD_PTR, P2: DWORD_PTR)
     {
-      PostMessageW(CALLBACK as HWND, Msg, P1, P2.try_into().unwrap());
+      println!("RunCallbackFunction");
+    
+      //We do a match case just to support stuff if needed
+      match CALLBACK_TYPE
+      {
+        CALLBACK_FUNCTION =>
+        {
+          CALLBACK(DUMMY_DEVICE as HMIDIOUT, Msg, P1, P2, CALLBACK_INSTANCE);
+        }
+        CALLBACK_EVENT =>
+        {
+          SetEvent(CALLBACK as HANDLE);
+        }
+        CALLBACK_THREAD =>
+        {
+          PostThreadMessageW(CALLBACK as DWORD, Msg, P1, P2.try_into().unwrap());
+        }
+        CALLBACK_WINDOW =>
+        {
+          PostMessageW(CALLBACK as HWND, Msg, P1, P2.try_into().unwrap());
+        }
+        _ => println!("Type was NULL, Do Nothing"),
+      }
     }
-    _ => println!("Type was NULL, Do Nothing"),
   }
 }
