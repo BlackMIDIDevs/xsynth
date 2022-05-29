@@ -14,10 +14,7 @@ use midi_toolkit::{
     io::MIDIFile,
     pipe,
     sequence::{
-        event::{
-            cancel_tempo_events, convert_events_into_batches, flatten_batches_to_events,
-            scale_event_time,
-        },
+        event::{cancel_tempo_events, convert_events_into_batches, scale_event_time},
         unwrap_items, TimeCaster,
     },
 };
@@ -53,9 +50,7 @@ fn main() {
 
     let ppq = midi.ppq();
     let merged = pipe!(
-        midi.iter_all_events_merged_batches()
-        // |>threaded_buffer(200000)
-        |>flatten_batches_to_events()
+        midi.iter_all_events_merged()
         |>TimeCaster::<f64>::cast_event_delta()
         |>cancel_tempo_events(250000)
         |>convert_events_into_batches()
