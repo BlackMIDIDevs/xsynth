@@ -17,7 +17,7 @@ use realtime::{RealtimeEventSender, RealtimeSynth, SynthEvent};
 
 #[cfg(windows)]
 use winapi::{
-  shared::{basetsd::DWORD_PTR, minwindef::DWORD, windef::HWND, ntdef::LPWSTR},
+  shared::{basetsd::DWORD_PTR, minwindef::DWORD, windef::HWND},
   um::{
     mmsystem::{
       CALLBACK_EVENT, CALLBACK_FUNCTION, CALLBACK_THREAD, CALLBACK_WINDOW, HMIDI, HMIDIOUT,
@@ -42,9 +42,7 @@ struct Synth
 static mut GLOBAL_SYNTH: Option<Synth> = None;
 static mut CURRENT_VOICE_COUNT: u64 = 0;
 
-//-------------------------------------------------------------------------------------------------
-// Custom xsynth KDMAPI functions
-//-------------------------------------------------------------------------------------------------
+// region: Custom xsynth KDMAPI functions
 
 #[no_mangle]
 pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsynth and is not part of the kdmapi standard. Its basically just for testing
@@ -55,9 +53,9 @@ pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsy
   }
 }
 
-//-------------------------------------------------------------------------------------------------
-// KDMAPI functions
-//-------------------------------------------------------------------------------------------------
+// endregion
+
+// region: KDMAPI functions
 
 #[no_mangle]
 pub extern "C" fn InitializeKDMAPIStream() -> i32
@@ -157,9 +155,9 @@ pub extern "C" fn IsKDMAPIAvailable() -> u32
   1 //Yes, we are available
 }
 
-//-------------------------------------------------------------------------------------------------
-// Unimplemented functions
-//-------------------------------------------------------------------------------------------------
+// endregion
+
+// region: Unimplemented functions
 
 #[no_mangle]
 pub extern "C" fn DisableFeedbackMode()
@@ -215,7 +213,7 @@ pub extern "C" fn DriverSettings(
 }
 
 #[no_mangle]
-pub extern "C" fn LoadCustomSoundFontsList(_Directory: LPWSTR)
+pub extern "C" fn LoadCustomSoundFontsList(_Directory: u16)
 {
   println!("LoadCustomSoundFontsList");
 }
@@ -226,9 +224,9 @@ pub extern "C" fn GetDriverDebugInfo()
   println!("GetDriverDebugInfo");
 }
 
-//-------------------------------------------------------------------------------------------------
-//  Callback functions for WINMM Wrapper (Windows Only)
-//-------------------------------------------------------------------------------------------------
+// endregion
+
+// region: Callback functions for WINMM Wrapper (Windows Only)
 
 cfg_if::cfg_if! {
   if #[cfg(windows)]
@@ -330,3 +328,5 @@ cfg_if::cfg_if! {
     }
   }
 }
+
+// endregion
