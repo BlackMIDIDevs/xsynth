@@ -15,13 +15,15 @@ use crossbeam_channel::{bounded, unbounded};
 use to_vec::ToVec;
 
 use core::{
-    channel::{VoiceChannel},
+    channel::VoiceChannel,
     effects::VolumeLimiter,
     helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams, BufferedRenderer, BufferedRendererStatsReader, FunctionAudioPipe,
 };
 
-use crate::{config::XSynthRealtimeConfig, SynthEvent, RealtimeEventSender, util::ReadWriteAtomicU64};
+use crate::{
+    config::XSynthRealtimeConfig, util::ReadWriteAtomicU64, RealtimeEventSender, SynthEvent,
+};
 
 #[derive(Debug, Clone)]
 struct RealtimeSynthStats {
