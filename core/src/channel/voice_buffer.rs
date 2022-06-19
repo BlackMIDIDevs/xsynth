@@ -43,6 +43,8 @@ impl VoiceBuffer {
         self.id_counter
     }
 
+    /// Pops the quietest voice group. Multiple voices can be part of the same group
+    /// based on their ID (e.g. a note and a hammer playing at the same time for a note on event)
     fn pop_quietest_voice_group(&mut self, reference_vel: u8, ignored_id: usize) {
         if self.buffer.len() == 0 {
             return;
@@ -73,6 +75,13 @@ impl VoiceBuffer {
         }
     }
 
+    pub fn kill_all_voices(&mut self) {
+        self.buffer.clear();
+        self.id_counter = 0;
+    }
+
+    /// Pushes a new set of voices for a single note on event. Multiple voices can be part of the same group
+    /// based on their ID (e.g. a note and a hammer playing at the same time for a note on event)
     pub fn push_voices(
         &mut self,
         vel: u8,
@@ -91,6 +100,7 @@ impl VoiceBuffer {
         }
     }
 
+    /// Releases the next voice, and all subsequent voices that have the same ID.
     pub fn release_next_voice(&mut self) -> Option<u8> {
         let mut id: Option<usize> = None;
         let mut vel = None;

@@ -88,7 +88,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         vel: u8,
         sample_rate_fac: f32,
         volume_envelope_params: Arc<EnvelopeParameters>,
-        sf: &SquareSoundfont,
+        sf: &SampleSoundfont,
     ) -> Self {
         let amp = 1.04f32.powf(vel as f32 - 127.0);
 
@@ -148,13 +148,13 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 }
 
 #[derive(Debug)]
-pub struct SquareSoundfont {
+pub struct SampleSoundfont {
     samples: Vec<Vec<Arc<[f32]>>>,
     volume_envelope_params: Arc<EnvelopeParameters>,
     stream_params: AudioStreamParams,
 }
 
-impl SquareSoundfont {
+impl SampleSoundfont {
     pub fn new(sample_rate: u32, channels: u16) -> Self {
         let samples = (21..109).to_vec().par_iter()
             .map(|i| {
@@ -187,7 +187,7 @@ impl SquareSoundfont {
     }
 }
 
-impl SoundfontBase for SquareSoundfont {
+impl SoundfontBase for SampleSoundfont {
     fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
         &self.stream_params
     }
@@ -201,7 +201,7 @@ impl SoundfontBase for SquareSoundfont {
         use simdeez::sse41::*;
 
         simd_runtime_generate!(
-            fn get(key: u8, vel: u8, sf: &SquareSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
+            fn get(key: u8, vel: u8, sf: &SampleSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
                 let sr = 96000.0 / sf.stream_params.sample_rate as f32;
 
                 vec![Box::new(SampledVoiceSpawner::<S>::new(

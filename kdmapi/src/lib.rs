@@ -10,7 +10,7 @@ use std::{
 
 use core::{
   channel::ChannelEvent,
-  soundfont::{SoundfontBase, SquareSoundfont},
+  soundfont::{SampleSoundfont, SoundfontBase},
 };
 
 use realtime::{RealtimeEventSender, RealtimeSynth, SynthEvent};
@@ -65,7 +65,7 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32
 
   let params = realtime_synth.stream_params();
 
-  let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SquareSoundfont::new(
+  let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SampleSoundfont::new(
     params.sample_rate,
     params.channels,
   ))];
@@ -237,7 +237,7 @@ cfg_if::cfg_if! {
     static mut CALLBACK_INSTANCE: DWORD_PTR = 0;
     static mut CALLBACK: CallbackFunction = def_callback;
     static mut CALLBACK_TYPE: DWORD = 0;
-    
+
     #[no_mangle]
     pub extern "C" fn ReturnKDMAPIVer(
       Major: *mut c_ulong,
@@ -255,7 +255,7 @@ cfg_if::cfg_if! {
       }
       1
     }
-    
+
     #[no_mangle]
     pub extern "C" fn timeGetTime64() -> u64
     {
@@ -264,30 +264,30 @@ cfg_if::cfg_if! {
         .unwrap()
         .as_millis() as u64
     }
-    
+
     #[no_mangle]
     pub extern "C" fn modMessage() -> u32
     {
       println!("modMessage");
       1
     }
-    
+
     #[no_mangle]
     pub unsafe extern "C" fn InitializeCallbackFeatures(
       OMHM: HMIDI,
       OMCB: CallbackFunction,
       OMI: DWORD_PTR,
-      OMU: DWORD_PTR,
+      _OMU: DWORD_PTR,
       OMCM: DWORD,
     ) -> u32
     {
       println!("InitializeCallbackFeatures");
-    
+
       DUMMY_DEVICE = OMHM;
       CALLBACK = OMCB;
       CALLBACK_INSTANCE = OMI;
       CALLBACK_TYPE = OMCM;
-    
+
       if OMCM == CALLBACK_WINDOW
       {
         if CALLBACK != def_callback && IsWindow(CALLBACK as HWND) != 0
@@ -295,15 +295,15 @@ cfg_if::cfg_if! {
           return 0;
         }
       }
-    
+
       1
     }
-    
+
     #[no_mangle]
     pub unsafe extern "C" fn RunCallbackFunction(Msg: DWORD, P1: DWORD_PTR, P2: DWORD_PTR)
     {
       println!("RunCallbackFunction");
-    
+
       //We do a match case just to support stuff if needed
       match CALLBACK_TYPE
       {

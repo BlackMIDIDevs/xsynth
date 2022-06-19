@@ -39,7 +39,7 @@ pub struct VoiceChannel {
 struct Key {
     data: SingleBorrowRefCell<KeyData>,
     audio_cache: SingleBorrowRefCell<Vec<f32>>,
-    event_cache: SingleBorrowRefCell<Vec<NoteEvent>>,
+    event_cache: SingleBorrowRefCell<Vec<KeyNoteEvent>>,
 }
 
 impl Key {
@@ -285,12 +285,24 @@ impl VoiceChannel {
         for e in iter {
             match e {
                 ChannelEvent::NoteOn { key, vel } => {
-                    let ev = NoteEvent::On(vel);
+                    let ev = KeyNoteEvent::On(vel);
                     key_events[key as usize].push(ev);
                 }
                 ChannelEvent::NoteOff { key } => {
-                    let ev = NoteEvent::Off;
+                    let ev = KeyNoteEvent::Off;
                     key_events[key as usize].push(ev);
+                }
+                ChannelEvent::AllNotesOff => {
+                    let ev = KeyNoteEvent::AllOff;
+                    for key in key_events.iter_mut() {
+                        key.push(ev.clone());
+                    }
+                }
+                ChannelEvent::AllNotesKilled => {
+                    let ev = KeyNoteEvent::AllKilled;
+                    for key in key_events.iter_mut() {
+                        key.push(ev.clone());
+                    }
                 }
                 ChannelEvent::Control(control) => {
                     data.process_control_event(control);

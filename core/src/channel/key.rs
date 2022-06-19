@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use super::{
-    channel_sf::ChannelSoundfont, event::NoteEvent, voice_buffer::VoiceBuffer, VoiceControlData,
+    channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer, VoiceControlData,
 };
 
 pub struct KeyData {
@@ -26,22 +26,31 @@ impl KeyData {
 
     pub fn send_event(
         &mut self,
-        event: NoteEvent,
+        event: KeyNoteEvent,
         control: &VoiceControlData,
         channel_sf: &ChannelSoundfont,
         max_layers: Option<usize>,
     ) {
         match event {
-            NoteEvent::On(vel) => {
+            KeyNoteEvent::On(vel) => {
                 let voices = channel_sf.spawn_voices_attack(control, self.key, vel);
                 self.voices.push_voices(vel, voices, max_layers);
             }
-            NoteEvent::Off => {
+            KeyNoteEvent::Off => {
                 let vel = self.voices.release_next_voice();
                 if let Some(vel) = vel {
                     let voices = channel_sf.spawn_voices_release(control, self.key, vel);
                     self.voices.push_voices(vel, voices, max_layers);
                 }
+            }
+            KeyNoteEvent::AllOff => {
+                while let Some(vel) = self.voices.release_next_voice() {
+                    let voices = channel_sf.spawn_voices_release(control, self.key, vel);
+                    self.voices.push_voices(vel, voices, max_layers);
+                }
+            }
+            KeyNoteEvent::AllKilled => {
+                self.voices.kill_all_voices();
             }
         }
     }

@@ -2,18 +2,32 @@ use std::sync::Arc;
 
 use crate::soundfont::SoundfontBase;
 
-#[derive(Debug)]
-pub enum NoteEvent {
+#[derive(Debug, Clone)]
+pub enum KeyNoteEvent {
+    /// Starts a new note voice with a velocity
     On(u8),
+    /// Signals off to a note voice
     Off,
+    /// Signals off to all note voices
+    AllOff,
+    /// Kills all note voices without decay
+    AllKilled,
 }
 
 #[derive(Debug, Clone)]
 pub enum ChannelEvent {
+    /// Starts a new note vocice
     NoteOn { key: u8, vel: u8 },
+    /// Signals off to a note voice
     NoteOff { key: u8 },
+    /// Signal off to all voices
+    AllNotesOff,
+    /// Kill all voices without decay
+    AllNotesKilled,
+    /// Control event for the channel
     Control(ControlEvent),
 
+    /// Sets the soundfonts for the channel
     SetSoundfonts(Vec<Arc<dyn SoundfontBase>>),
 }
 

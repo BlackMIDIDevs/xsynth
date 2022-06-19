@@ -1,6 +1,6 @@
 use core::{
     channel::ChannelEvent,
-    soundfont::{SoundfontBase, SquareSoundfont},
+    soundfont::{SampleSoundfont, SoundfontBase},
 };
 use std::{sync::Arc, time::Duration};
 
@@ -12,7 +12,7 @@ fn main() {
 
     let params = synth.stream_params();
 
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SquareSoundfont::new(
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SampleSoundfont::new(
         params.sample_rate,
         params.channels,
     ))];
