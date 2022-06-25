@@ -1,8 +1,14 @@
-use std::{marker::PhantomData, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    io,
+    marker::PhantomData,
+    path::PathBuf,
+    sync::Arc,
+};
 
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
-use to_vec::ToVec;
+use soundfonts::sfz::RegionParams;
 
 use self::audio::AudioFileLoader;
 
@@ -29,52 +35,31 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
-// pub struct SineVoice {
-//     freq: f64,
+struct SampleVoiceSpawnerParams {
+    speed_mult: f32,
+    envelope: Arc<EnvelopeParameters>,
+    sample: Vec<Arc<[f32]>>,
+}
 
-//     amp: f32,
-//     phase: f64,
-// }
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct SampleCache {
+    path: PathBuf,
+}
 
-// impl SineVoice {
-//     pub fn spawn(key: u8, vel: u8, sample_rate: u32) -> Self {
-//         let freq = (FREQS[key as usize] as f64 / sample_rate as f64) * std::f64::consts::PI;
-//         let amp = 1.04f32.powf(vel as f32 - 127.0);
+fn get_speed_mult_from_keys(key: u8, base_key: u8) -> f32 {
+    let base_freq = FREQS[base_key as usize];
+    let freq = FREQS[key as usize];
+    freq / base_freq
+}
 
-//         Self {
-//             freq,
-//             amp,
-//             phase: 0.0,
-//         }
-//     }
-// }
-
-// impl Voice for SineVoice {
-//     fn is_ended(&self) -> bool {
-//         self.amp == 0.0
-//     }
-
-//     fn is_releasing(&self) -> bool {
-//         self.is_ended()
-//     }
-
-//     fn signal_release(&mut self) {
-//         self.amp = 0.0;
-//     }
-
-//     fn render_to(&mut self, out: &mut [f32]) {
-//         for i in 0..out.len() {
-//             let sample = self.phase.cos() as f32;
-//             let sample = if sample > 0.0 { 1.0 } else { -1.0 };
-//             let sample = self.amp * sample;
-//             self.phase += self.freq;
-//             out[i] += sample;
-//         }
-//     }
-// }
+impl SampleCache {
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+}
 
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
-    base_freq: f32,
+    speed_mult: f32,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Vec<Arc<[f32]>>,
@@ -83,34 +68,14 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
 }
 
 impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
-    pub fn new(
-        key: u8,
-        vel: u8,
-        sample_rate_fac: f32,
-        volume_envelope_params: Arc<EnvelopeParameters>,
-        sf: &SampleSoundfont,
-    ) -> Self {
+    pub fn new(params: &SampleVoiceSpawnerParams, vel: u8) -> Self {
         let amp = 1.04f32.powf(vel as f32 - 127.0);
 
-        let (samples, base_freq) = if key < 21 {
-            let samples = sf.samples[0].clone();
-            let base_freq = FREQS[key as usize] / FREQS[21];
-            (samples, base_freq * sample_rate_fac)
-        } else if key > 108 {
-            let samples = sf.samples.last().unwrap().clone();
-            let base_freq = FREQS[key as usize] / FREQS[108];
-            (samples, base_freq * sample_rate_fac)
-        } else {
-            let samples = sf.samples[key as usize - 21].clone();
-            let base_freq = 1.0;
-            (samples, base_freq * sample_rate_fac)
-        };
-
         Self {
-            base_freq,
+            speed_mult: params.speed_mult,
             amp,
-            volume_envelope_params,
-            samples,
+            volume_envelope_params: params.envelope.clone(),
+            samples: params.sample.clone(),
             vel,
             _s: PhantomData,
         }
@@ -119,7 +84,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        let pitch_fac = SIMDConstant::<S>::new(self.base_freq as f32);
+        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult as f32);
 
         let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
 
@@ -147,43 +112,113 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     }
 }
 
-#[derive(Debug)]
+fn key_vel_to_index(key: u8, vel: u8) -> usize {
+    (key as usize) * 128 + (vel as usize)
+}
+
 pub struct SampleSoundfont {
-    samples: Vec<Vec<Arc<[f32]>>>,
-    volume_envelope_params: Arc<EnvelopeParameters>,
+    spawner_params_list: Vec<Option<Arc<SampleVoiceSpawnerParams>>>,
     stream_params: AudioStreamParams,
 }
 
+fn sample_cache_from_region_params(region_params: &RegionParams) -> SampleCache {
+    SampleCache::new(region_params.sample_path.clone())
+}
+
+fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> EnvelopeDescriptor {
+    let env = &region_params.ampeg_envelope;
+    EnvelopeDescriptor {
+        start_percent: env.ampeg_start / 100.0,
+        delay: env.ampeg_delay,
+        attack: env.ampeg_attack,
+        hold: env.ampeg_hold,
+        decay: env.ampeg_decay,
+        sustain_percent: env.ampeg_sustain / 100.0,
+        release: env.ampeg_release.min(0.3),
+    }
+}
+
 impl SampleSoundfont {
-    pub fn new(sample_rate: u32, channels: u16) -> Self {
-        let samples = (21..109).to_vec().par_iter()
-            .map(|i| {
-                println!("Loading {}", i);
-                AudioFileLoader::load_wav(&PathBuf::from(format!(
-                    "D:/Midis/Steinway-B-211-master/Steinway-B-211-master/Samples/KEPSREC{:0>3}.wav",
-                    i
-                )))
-                .unwrap()
-            })
+    pub fn new(sfz_path: impl Into<PathBuf>, stream_params: AudioStreamParams) -> io::Result<Self> {
+        let regions = soundfonts::sfz::parse_soundfont(sfz_path.into())?;
+
+        // Find the unique samples that we need to parse and convert
+        let unique_sample_params: HashSet<_> = regions
+            .iter()
+            .map(sample_cache_from_region_params)
             .collect();
 
-        let envelope_descriptor = EnvelopeDescriptor {
-            start_percent: 0.0,
-            delay: 0.0,
-            attack: 0.0,
-            hold: 0.0,
-            decay: 0.1,
-            sustain_percent: 0.7,
-            release: 0.2,
-        };
+        // Parse and convert them in parallel
+        let samples: Result<HashMap<_, _>, _> = unique_sample_params
+            .into_par_iter()
+            .map(|params| -> Result<(_, _), io::Error> {
+                let sample =
+                    AudioFileLoader::load_wav(&params.path, stream_params.sample_rate as f32)?;
+                Ok((params, sample))
+            })
+            .collect();
+        let samples = samples?;
 
-        let volume_envelope_params = Arc::new(envelope_descriptor.to_envelope_params(sample_rate));
-
-        Self {
-            samples,
-            volume_envelope_params,
-            stream_params: AudioStreamParams::new(sample_rate, channels),
+        // Find the unique envelope params
+        let mut unique_envelope_params =
+            Vec::<(EnvelopeDescriptor, Arc<EnvelopeParameters>)>::new();
+        for region in regions.iter() {
+            let envelope_descriptor = envelope_descriptor_from_region_params(&region);
+            let exists = unique_envelope_params
+                .iter()
+                .find(|e| &e.0 == &envelope_descriptor)
+                .is_some();
+            if !exists {
+                unique_envelope_params.push((
+                    envelope_descriptor,
+                    Arc::new(envelope_descriptor.to_envelope_params(stream_params.sample_rate)),
+                ));
+            }
         }
+
+        // Generate region params
+        let mut spawner_params_list = Vec::<Option<Arc<SampleVoiceSpawnerParams>>>::new();
+        for _ in 0..(128 * 128) {
+            spawner_params_list.push(None);
+        }
+
+        // Write region params
+        for region in regions {
+            let params = sample_cache_from_region_params(&region);
+            let envelope = envelope_descriptor_from_region_params(&region);
+
+            let speed_mult =
+                get_speed_mult_from_keys(region.key, region.pitch_keycenter.unwrap_or(region.key));
+
+            let envelope_params = unique_envelope_params
+                .iter()
+                .find(|e| &e.0 == &envelope)
+                .unwrap()
+                .1
+                .clone();
+
+            let spawner_params = Arc::new(SampleVoiceSpawnerParams {
+                envelope: envelope_params,
+                speed_mult,
+                sample: samples[&params].clone(),
+            });
+
+            for vel in region.lovel..=region.hivel {
+                let index = key_vel_to_index(region.key, vel);
+                spawner_params_list[index] = Some(spawner_params.clone());
+            }
+        }
+
+        Ok(SampleSoundfont {
+            spawner_params_list,
+            stream_params,
+        })
+    }
+}
+
+impl std::fmt::Debug for SampleSoundfont {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "SampleSoundfont")
     }
 }
 
@@ -202,15 +237,13 @@ impl SoundfontBase for SampleSoundfont {
 
         simd_runtime_generate!(
             fn get(key: u8, vel: u8, sf: &SampleSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
-                let sr = 96000.0 / sf.stream_params.sample_rate as f32;
-
-                vec![Box::new(SampledVoiceSpawner::<S>::new(
-                    key,
-                    vel,
-                    sr,
-                    sf.volume_envelope_params.clone(),
-                    sf,
-                ))]
+                let index = key_vel_to_index(key, vel);
+                let spawner_params = sf.spawner_params_list[index].as_ref();
+                if let Some(spawner_params) = spawner_params {
+                    vec![Box::new(SampledVoiceSpawner::<S>::new(spawner_params, vel))]
+                } else {
+                    vec![]
+                }
             }
         );
 

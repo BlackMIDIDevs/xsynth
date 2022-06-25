@@ -26,10 +26,13 @@ fn main() {
 
     let params = synth.stream_params();
 
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SampleSoundfont::new(
-        params.sample_rate,
-        params.channels,
-    ))];
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
+        SampleSoundfont::new(
+            "D:/Midis/Loud and Proud Remastered/Axley Presets/Loud and Proud Remastered.sfz",
+            params.clone(),
+        )
+        .unwrap(),
+    )];
 
     sender.send_event(SynthEvent::AllChannels(ChannelEvent::SetSoundfonts(
         soundfonts,

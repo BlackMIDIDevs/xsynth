@@ -3,7 +3,8 @@
 members = [
     "core",
     "realtime",
-    "kdmapi"
+    "kdmapi",
+    "soundfonts"
 ]
 
 [profile.release]

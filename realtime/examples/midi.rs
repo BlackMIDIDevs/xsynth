@@ -25,10 +25,15 @@ fn main() {
 
     let params = synth.stream_params();
 
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(SampleSoundfont::new(
-        params.sample_rate,
-        params.channels,
-    ))];
+    println!("Loading Soundfont");
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
+        SampleSoundfont::new(
+            "D:/Midis/Steinway-B-211-master/Steinway-B-211-master/Presets/1960 Steinway B-211.sfz",
+            params.clone(),
+        )
+        .unwrap(),
+    )];
+    println!("Loaded");
 
     sender.send_event(SynthEvent::AllChannels(ChannelEvent::SetSoundfonts(
         soundfonts,
@@ -45,7 +50,7 @@ fn main() {
         thread::sleep(Duration::from_millis(10));
     });
 
-    let midi = MIDIFile::open("F:/Fast MIDIs/The Nuker 4 F2.mid", None).unwrap();
+    let midi = MIDIFile::open("D:/Midis/The Quarantine Project.mid", None).unwrap();
 
     let ppq = midi.ppq();
     let merged = pipe!(

@@ -145,7 +145,7 @@ impl<T: Simd> StageTime<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EnvelopePart {
     Lerp {
         target: f32,   // Target value by the end of the envelope part
@@ -170,7 +170,7 @@ impl EnvelopePart {
 }
 
 /// The original envelope descriptor
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EnvelopeDescriptor {
     pub start_percent: f32,   // % (0-1)
     pub delay: f32,           // Seconds
@@ -235,7 +235,7 @@ impl EnvelopeDescriptor {
 /// The raw envelope parameters used to generate the envelope.
 /// Is a separate struct to EnvelopeDescriptor for performance reasons.
 /// Use EnvelopeDescriptor to generate the EnvelopeParameters struct.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnvelopeParameters {
     start: f32,
     parts: [EnvelopePart; 7],
