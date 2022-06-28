@@ -5,7 +5,7 @@ use std::{
 };
 
 use core::{
-    channel::{ChannelAudioEvent, ControlEvent, ChannelConfigEvent},
+    channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 
