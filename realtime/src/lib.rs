@@ -1,4 +1,4 @@
-mod config;
+pub mod config;
 mod event;
 mod util;
 pub use event::*;
