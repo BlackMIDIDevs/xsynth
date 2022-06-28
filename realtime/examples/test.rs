@@ -1,5 +1,5 @@
 use core::{
-    channel::ChannelEvent,
+    channel::{ChannelAudioEvent, ChannelConfigEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 use std::{sync::Arc, time::Duration};
@@ -20,9 +20,7 @@ fn main() {
         .unwrap(),
     )];
 
-    sender.send_event(SynthEvent::AllChannels(ChannelEvent::SetSoundfonts(
-        soundfonts,
-    )));
+    sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
 
     // for k in 0..127 {
     //     for c in 0..16 {
@@ -36,7 +34,7 @@ fn main() {
     // }
     sender.send_event(SynthEvent::Channel(
         0,
-        ChannelEvent::NoteOn { key: 10, vel: 127 },
+        ChannelAudioEvent::NoteOn { key: 10, vel: 127 },
     ));
 
     std::thread::sleep(Duration::from_secs(10000));

@@ -7,7 +7,7 @@ use std::{
 
 use crossbeam_channel::Sender;
 
-use core::channel::{ChannelEvent, ControlEvent};
+use core::channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, ControlEvent};
 
 use crate::{util::ReadWriteAtomicU64, SynthEvent};
 
@@ -128,29 +128,44 @@ impl EventSender {
         }
     }
 
-    pub fn send(&mut self, event: ChannelEvent) {
+    pub fn send_audio(&mut self, event: ChannelAudioEvent) {
         match &event {
-            ChannelEvent::NoteOn { vel, key } => {
+            ChannelAudioEvent::NoteOn { vel, key } => {
                 let nps = self.nps.calculate_nps();
                 if should_send_for_vel_and_nps(*vel, nps, self.max_nps.read()) {
-                    self.sender.send(event).ok();
+                    self.sender.send(ChannelEvent::Audio(event)).ok();
                     self.nps.add_note();
                 } else {
                     self.skipped_notes[*key as usize] += 1;
                 }
             }
-            ChannelEvent::NoteOff { key } => {
+            ChannelAudioEvent::NoteOff { key } => {
                 if self.skipped_notes[*key as usize] > 0 {
                     self.skipped_notes[*key as usize] -= 1;
                 } else {
-                    self.sender.send(event).ok();
+                    self.sender.send(ChannelEvent::Audio(event)).ok();
                 }
             }
             _ => {
-                self.sender.send(event).ok();
+                self.sender.send(ChannelEvent::Audio(event)).ok();
             }
         }
     }
+
+    pub fn send_config(&mut self, event: ChannelConfigEvent) {
+        self.sender.send(ChannelEvent::Config(event)).ok();
+    }
+
+    // pub fn send(&mut self, event: ChannelEvent) {
+    //     match event {
+    //         ChannelEvent::Audio(event) => {
+    //             self.send_audio(event);
+    //         }
+    //         ChannelEvent::Config(event) => {
+    //             self.send_config(event);
+    //         }
+    //     }
+    // }
 }
 
 impl Clone for EventSender {
@@ -191,16 +206,25 @@ impl RealtimeEventSender {
         match event {
             SynthEvent::Channel(channel, event) => {
                 if channel != 9 {
-                    self.senders[channel as usize].send(event);
+                    self.senders[channel as usize].send_audio(event);
                 }
                 //self.senders[channel as usize].send(event);
             }
             SynthEvent::AllChannels(event) => {
                 for sender in self.senders.iter_mut() {
-                    sender.send(event.clone());
+                    sender.send_audio(event.clone());
+                }
+            }
+            SynthEvent::ChannelConfig(event) => {
+                for sender in self.senders.iter_mut() {
+                    sender.send_config(event.clone());
                 }
             }
         }
+    }
+
+    pub fn send_config(&mut self, event: ChannelConfigEvent) {
+        self.send_event(SynthEvent::ChannelConfig(event))
     }
 
     pub fn send_event_u32(&mut self, event: u32) {
@@ -224,13 +248,13 @@ impl RealtimeEventSender {
             0x8 => {
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelEvent::NoteOff { key: val1!() },
+                    ChannelAudioEvent::NoteOff { key: val1!() },
                 ));
             }
             0x9 => {
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelEvent::NoteOn {
+                    ChannelAudioEvent::NoteOn {
                         key: val1!(),
                         vel: val2!(),
                     },
@@ -239,7 +263,7 @@ impl RealtimeEventSender {
             0xB => {
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelEvent::Control(ControlEvent::Raw(val1!(), val2!())),
+                    ChannelAudioEvent::Control(ControlEvent::Raw(val1!(), val2!())),
                 ));
             }
             0xE => {
@@ -247,7 +271,7 @@ impl RealtimeEventSender {
                 let value = value as f32 / 8192.0;
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelEvent::Control(ControlEvent::PitchBendValue(value)),
+                    ChannelAudioEvent::Control(ControlEvent::PitchBendValue(value)),
                 ));
             }
 
@@ -256,6 +280,6 @@ impl RealtimeEventSender {
     }
 
     pub fn reset_synth(&mut self) {
-        self.send_event(SynthEvent::AllChannels(ChannelEvent::AllNotesKilled));
+        self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::AllNotesKilled));
     }
 }

@@ -15,7 +15,15 @@ pub enum KeyNoteEvent {
 }
 
 #[derive(Debug, Clone)]
-pub enum ChannelEvent {
+pub enum ChannelConfigEvent {
+    /// Sets the soundfonts for the channel
+    SetSoundfonts(Vec<Arc<dyn SoundfontBase>>),
+    /// Sets the layer count for the soundfont
+    SetLayerCount(Option<usize>),
+}
+
+#[derive(Debug, Clone)]
+pub enum ChannelAudioEvent {
     /// Starts a new note vocice
     NoteOn { key: u8, vel: u8 },
     /// Signals off to a note voice
@@ -26,9 +34,15 @@ pub enum ChannelEvent {
     AllNotesKilled,
     /// Control event for the channel
     Control(ControlEvent),
+}
 
-    /// Sets the soundfonts for the channel
-    SetSoundfonts(Vec<Arc<dyn SoundfontBase>>),
+#[derive(Debug, Clone)]
+pub enum ChannelEvent {
+    /// Audio
+    Audio(ChannelAudioEvent),
+
+    /// Config event for the channel
+    Config(ChannelConfigEvent),
 }
 
 #[derive(Debug, Clone)]

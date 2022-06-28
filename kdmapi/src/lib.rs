@@ -9,11 +9,11 @@ use std::{
 };
 
 use core::{
-  channel::ChannelEvent,
+  channel::ChannelConfigEvent,
   soundfont::{SampleSoundfont, SoundfontBase},
 };
 
-use realtime::{RealtimeEventSender, RealtimeSynth, SynthEvent};
+use realtime::{RealtimeEventSender, RealtimeSynth};
 
 #[cfg(windows)]
 use winapi::{
@@ -73,9 +73,7 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32
     .unwrap(),
   )];
 
-  sender.send_event(SynthEvent::AllChannels(ChannelEvent::SetSoundfonts(
-    soundfonts,
-  )));
+  sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
 
   let killed = Arc::new(Mutex::new(false));
 

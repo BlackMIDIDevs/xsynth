@@ -190,6 +190,17 @@ impl VoiceChannelData {
             .set_soundfonts(soundfonts)
     }
 
+    pub fn process_config_event(&self, event: ChannelConfigEvent) {
+        match event {
+            ChannelConfigEvent::SetSoundfonts(soundfonts) => {
+                self.set_soundfonts(soundfonts);
+            }
+            ChannelConfigEvent::SetLayerCount(count) => {
+                self.params.write().unwrap().layers = count;
+            }
+        }
+    }
+
     pub fn process_control_event(&self, event: ControlEvent) {
         match event {
             ControlEvent::Raw(controller, value) => match controller {
@@ -284,30 +295,32 @@ impl VoiceChannel {
             .to_vec();
         for e in iter {
             match e {
-                ChannelEvent::NoteOn { key, vel } => {
-                    let ev = KeyNoteEvent::On(vel);
-                    key_events[key as usize].push(ev);
-                }
-                ChannelEvent::NoteOff { key } => {
-                    let ev = KeyNoteEvent::Off;
-                    key_events[key as usize].push(ev);
-                }
-                ChannelEvent::AllNotesOff => {
-                    let ev = KeyNoteEvent::AllOff;
-                    for key in key_events.iter_mut() {
-                        key.push(ev.clone());
+                ChannelEvent::Audio(audio) => match audio {
+                    ChannelAudioEvent::NoteOn { key, vel } => {
+                        let ev = KeyNoteEvent::On(vel);
+                        key_events[key as usize].push(ev);
                     }
-                }
-                ChannelEvent::AllNotesKilled => {
-                    let ev = KeyNoteEvent::AllKilled;
-                    for key in key_events.iter_mut() {
-                        key.push(ev.clone());
+                    ChannelAudioEvent::NoteOff { key } => {
+                        let ev = KeyNoteEvent::Off;
+                        key_events[key as usize].push(ev);
                     }
-                }
-                ChannelEvent::Control(control) => {
-                    data.process_control_event(control);
-                }
-                ChannelEvent::SetSoundfonts(soundfonts) => data.set_soundfonts(soundfonts),
+                    ChannelAudioEvent::AllNotesOff => {
+                        let ev = KeyNoteEvent::AllOff;
+                        for key in key_events.iter_mut() {
+                            key.push(ev.clone());
+                        }
+                    }
+                    ChannelAudioEvent::AllNotesKilled => {
+                        let ev = KeyNoteEvent::AllKilled;
+                        for key in key_events.iter_mut() {
+                            key.push(ev.clone());
+                        }
+                    }
+                    ChannelAudioEvent::Control(control) => {
+                        data.process_control_event(control);
+                    }
+                },
+                ChannelEvent::Config(config) => data.process_config_event(config),
             }
         }
     }

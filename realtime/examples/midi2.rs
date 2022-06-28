@@ -5,7 +5,7 @@ use std::{
 };
 
 use core::{
-    channel::{ChannelEvent, ControlEvent},
+    channel::{ChannelAudioEvent, ControlEvent, ChannelConfigEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 
@@ -34,9 +34,7 @@ fn main() {
         .unwrap(),
     )];
 
-    sender.send_event(SynthEvent::AllChannels(ChannelEvent::SetSoundfonts(
-        soundfonts,
-    )));
+    sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
 
     let midi =
         MIDIFile::open("D:/Midis/The Nuker 4 F1/The Nuker 4 - F1 Part 13.mid", None).unwrap();
@@ -78,7 +76,7 @@ fn main() {
             Event::NoteOn(e) => {
                 sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
-                    ChannelEvent::NoteOn {
+                    ChannelAudioEvent::NoteOn {
                         key: e.key,
                         vel: e.velocity,
                     },
@@ -87,19 +85,21 @@ fn main() {
             Event::NoteOff(e) => {
                 sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
-                    ChannelEvent::NoteOff { key: e.key },
+                    ChannelAudioEvent::NoteOff { key: e.key },
                 ));
             }
             Event::ControlChange(e) => {
                 sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
-                    ChannelEvent::Control(ControlEvent::Raw(e.controller, e.value)),
+                    ChannelAudioEvent::Control(ControlEvent::Raw(e.controller, e.value)),
                 ));
             }
             Event::PitchWheelChange(e) => {
                 sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
-                    ChannelEvent::Control(ControlEvent::PitchBendValue(e.pitch as f32 / 8192.0)),
+                    ChannelAudioEvent::Control(ControlEvent::PitchBendValue(
+                        e.pitch as f32 / 8192.0,
+                    )),
                 ));
             }
             _ => {}

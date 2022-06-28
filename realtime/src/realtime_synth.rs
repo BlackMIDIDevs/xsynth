@@ -116,9 +116,7 @@ impl RealtimeSynth {
         let sample_rate = stream_config.sample_rate().0;
         let audio_channels = stream_config.channels();
 
-        let use_threadpool = false;
-
-        let pool = if use_threadpool {
+        let pool = if config.use_threadpool {
             Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()))
         } else {
             None

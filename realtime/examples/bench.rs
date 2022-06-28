@@ -1,4 +1,4 @@
-use core::channel::ChannelEvent;
+use core::channel::ChannelAudioEvent;
 use std::time::{Duration, Instant};
 
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
@@ -12,11 +12,14 @@ fn main() {
             for _ in 0..100 {
                 synth.send_event(SynthEvent::Channel(
                     0,
-                    ChannelEvent::NoteOn { key: 0, vel: 5 },
+                    ChannelAudioEvent::NoteOn { key: 0, vel: 5 },
                 ));
             }
             for _ in 0..100 {
-                synth.send_event(SynthEvent::Channel(0, ChannelEvent::NoteOff { key: 0 }));
+                synth.send_event(SynthEvent::Channel(
+                    0,
+                    ChannelAudioEvent::NoteOff { key: 0 },
+                ));
             }
         }
         start.elapsed()
