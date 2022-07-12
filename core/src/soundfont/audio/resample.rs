@@ -1,8 +1,4 @@
-use std::{f32::consts::PI, fs::File, io, path::PathBuf, sync::Arc};
-
-use flac::{ErrorKind, StreamReader};
-use thiserror::Error;
-use wav::BitDepth;
+use std::f32::consts::PI;
 
 fn gen_resample_lookup_table(resolution: usize, fmax: f32, fsr: f32, wnwidth: i32) -> Vec<f32> {
     let r_g = 2.0 * fmax / fsr;

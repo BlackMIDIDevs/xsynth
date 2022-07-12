@@ -1,6 +1,6 @@
-use std::{path::PathBuf, sync::Arc, io, fs::File};
+use std::{fs::File, io, path::PathBuf, sync::Arc};
 
-use flac::{StreamReader, ErrorKind};
+use flac::{ErrorKind, StreamReader};
 use thiserror::Error;
 use wav::BitDepth;
 
@@ -116,10 +116,7 @@ fn load_wav(path: &PathBuf, new_sample_rate: f32) -> io::Result<Vec<Arc<[f32]>>>
     ))
 }
 
-fn load_flac(
-    path: &PathBuf,
-    new_sample_rate: f32,
-) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
+fn load_flac(path: &PathBuf, new_sample_rate: f32) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
     let path = path
         .to_str()
         .ok_or_else(|| AudioLoadError::UnknownExtension)?;
