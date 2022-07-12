@@ -1,11 +1,6 @@
 [workspace]
 
-members = [
-    "core",
-    "realtime",
-    "kdmapi",
-    "soundfonts"
-]
+members = ["core", "realtime", "kdmapi", "soundfonts"]
 
 [profile.release]
 codegen-units = 1

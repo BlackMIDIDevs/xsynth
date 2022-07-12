@@ -9,8 +9,9 @@ use std::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
 use soundfonts::sfz::RegionParams;
+use thiserror::Error;
 
-use self::audio::AudioFileLoader;
+use self::audio::{load_audio_file, AudioLoadError};
 
 use super::{
     voice::VoiceControlData,
@@ -138,8 +139,20 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
     }
 }
 
+#[derive(Debug, Error)]
+pub enum LoadSfzError {
+    #[error("IO Error")]
+    IOError(#[from] io::Error),
+
+    #[error("Error loading samples")]
+    AudioLoadError(#[from] AudioLoadError),
+}
+
 impl SampleSoundfont {
-    pub fn new(sfz_path: impl Into<PathBuf>, stream_params: AudioStreamParams) -> io::Result<Self> {
+    pub fn new(
+        sfz_path: impl Into<PathBuf>,
+        stream_params: AudioStreamParams,
+    ) -> Result<Self, LoadSfzError> {
         let regions = soundfonts::sfz::parse_soundfont(sfz_path.into())?;
 
         // Find the unique samples that we need to parse and convert
@@ -151,9 +164,8 @@ impl SampleSoundfont {
         // Parse and convert them in parallel
         let samples: Result<HashMap<_, _>, _> = unique_sample_params
             .into_par_iter()
-            .map(|params| -> Result<(_, _), io::Error> {
-                let sample =
-                    AudioFileLoader::load_wav(&params.path, stream_params.sample_rate as f32)?;
+            .map(|params| -> Result<(_, _), LoadSfzError> {
+                let sample = load_audio_file(&params.path, stream_params.sample_rate as f32)?;
                 Ok((params, sample))
             })
             .collect();

@@ -1,8 +1,8 @@
 use std::{f32::consts::PI, fs::File, io, path::PathBuf, sync::Arc};
 
+use flac::{ErrorKind, StreamReader};
+use thiserror::Error;
 use wav::BitDepth;
-
-use super::AudioFileLoader;
 
 fn gen_resample_lookup_table(resolution: usize, fmax: f32, fsr: f32, wnwidth: i32) -> Vec<f32> {
     let r_g = 2.0 * fmax / fsr;
@@ -20,7 +20,7 @@ fn gen_resample_lookup_table(resolution: usize, fmax: f32, fsr: f32, wnwidth: i3
     lookup_table
 }
 
-struct SincResampler {
+pub struct SincResampler {
     sample_rate: f32,
     resolution: f32,
     offset: i32,
@@ -29,7 +29,7 @@ struct SincResampler {
 }
 
 impl SincResampler {
-    fn new(resolution: usize, sample_rate: f32, wnwidth: i32) -> Self {
+    pub fn new(resolution: usize, sample_rate: f32, wnwidth: i32) -> Self {
         let lookup_table = gen_resample_lookup_table(resolution, 20000.0, sample_rate, wnwidth);
         SincResampler {
             sample_rate,
@@ -40,7 +40,7 @@ impl SincResampler {
         }
     }
 
-    fn resample_vec(&self, indata: &[f32], sample_rate: f32) -> Vec<f32> {
+    pub fn resample_vec(&self, indata: &[f32], sample_rate: f32) -> Vec<f32> {
         let new_len = indata.len() * sample_rate as usize / self.sample_rate as usize;
         let mut outdata = Vec::with_capacity(new_len);
 
@@ -63,63 +63,5 @@ impl SincResampler {
         }
 
         outdata
-    }
-}
-
-fn build_arrays<T: Copy, F: Fn(T) -> f32>(arr: &[T], channels: u16, cast: F) -> Vec<Vec<f32>> {
-    let mut chans = Vec::new();
-    for _ in 0..channels {
-        chans.push(Vec::new());
-    }
-
-    for i in 0..arr.len() {
-        let v = cast(arr[i]);
-        chans[i % channels as usize].push(v);
-    }
-
-    for chan in chans.iter_mut() {
-        chan.shrink_to_fit();
-    }
-
-    chans
-}
-
-fn extract_samples(data: BitDepth, channels: u16) -> Vec<Vec<f32>> {
-    match data.as_eight() {
-        Some(data) => return build_arrays(data, channels, |v| (v as f32 - 128.0) / 128.0),
-        None => {}
-    };
-
-    match data.as_sixteen() {
-        Some(data) => return build_arrays(data, channels, |v| (v as f32) / i16::MAX as f32),
-        None => {}
-    };
-
-    match data.as_thirty_two_float() {
-        Some(data) => return build_arrays(data, channels, |v| v),
-        None => {}
-    };
-
-    match data.as_twenty_four() {
-        Some(data) => return build_arrays(data, channels, |v| v as f32 / (1 << 23) as f32),
-        None => {}
-    }
-
-    panic!()
-}
-
-impl AudioFileLoader {
-    pub fn load_wav(path: &PathBuf, new_sample_rate: f32) -> io::Result<Vec<Arc<[f32]>>> {
-        let mut reader = File::open(path)?;
-        let (header, data) = wav::read(&mut reader)?;
-
-        let vecs = extract_samples(data, header.channel_count);
-
-        let resampler = SincResampler::new(10000, header.sampling_rate as f32, 32);
-
-        Ok(vecs
-            .into_iter()
-            .map(|samples| resampler.resample_vec(&samples, new_sample_rate).into())
-            .collect())
     }
 }
