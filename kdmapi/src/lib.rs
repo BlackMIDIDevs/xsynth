@@ -13,7 +13,7 @@ use core::{
   soundfont::{SampleSoundfont, SoundfontBase},
 };
 
-use realtime::{RealtimeEventSender, RealtimeSynth};
+use realtime::{config::XSynthRealtimeConfig, RealtimeEventSender, RealtimeSynth};
 
 #[cfg(windows)]
 use winapi::{
@@ -60,14 +60,20 @@ pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsy
 #[no_mangle]
 pub extern "C" fn InitializeKDMAPIStream() -> i32
 {
-  let realtime_synth = RealtimeSynth::open_with_all_defaults();
+  let config = XSynthRealtimeConfig {
+    render_window_ms: 5.0,
+    use_threadpool: true,
+    ..Default::default()
+  };
+
+  let realtime_synth = RealtimeSynth::open_with_default_output(config);
   let mut sender = realtime_synth.get_senders();
 
   let params = realtime_synth.stream_params();
 
   let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
     SampleSoundfont::new(
-      "D:/Midis/Loud and Proud Remastered/Axley Presets/Loud and Proud Remastered.sfz",
+      "E:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
       params.clone(),
     )
     .unwrap(),
