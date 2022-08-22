@@ -59,6 +59,8 @@ struct ControlEventData {
     pitch_bend_sensitivity_msb: u8,
     pitch_bend_sensitivity: f32,
     pitch_bend_value: f32,
+    volume: f32,  // 0.0 = silent, 1.0 = max volume
+    damper: bool,  // false = pedal up, true = pedal down
 }
 
 impl ControlEventData {
@@ -70,6 +72,8 @@ impl ControlEventData {
             pitch_bend_sensitivity_msb: 2,
             pitch_bend_sensitivity: 2.0,
             pitch_bend_value: 0.0,
+            volume: 1.0,
+            damper: false,
         }
     }
 }
@@ -238,6 +242,27 @@ impl VoiceChannelData {
 
                         self.process_control_event(ControlEvent::PitchBendSensitivity(sensitivity))
                     }
+                }
+                0x07 => {
+                    // Volume
+                    let volume = value / 128;
+                    self.control_event_data
+                        .borrow_mut()
+                        .volume = volume
+                }
+                0x40 => {
+                    // Damper / Sustain
+                    let mut damper: bool = false;
+                    if (value > 0) && (value < 64){
+                        damper = false;
+                    } else if (value >= 64) && (value < 128){
+                        damper = true;
+                    } else{
+                        damper = false;
+                    }
+                    self.control_event_data
+                        .borrow_mut()
+                        .damper = damper
                 }
                 _ => {}
             },
