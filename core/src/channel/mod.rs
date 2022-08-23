@@ -135,11 +135,11 @@ impl VoiceChannelData {
 
         // Panning
         let n = 2;
-        for sample in out.iter_mut().skip(n-1).step_by(n) {
-            *sample *= control.pan;
+        for sample in out.iter_mut().skip(0).step_by(n) {
+            *sample *= (control.pan * 2f32).min(1.0);
         }
-        for sample in out.iter_mut().skip(n).step_by(n) {
-            *sample *= 1.0 - control.pan;
+        for sample in out.iter_mut().skip(1).step_by(n) {
+            *sample *= ((1.0 - control.pan) * 2f32).min(1.0);
         }
     }
 
