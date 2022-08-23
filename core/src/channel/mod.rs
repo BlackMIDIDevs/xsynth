@@ -121,6 +121,14 @@ impl VoiceChannelData {
         }
     }
 
+    fn apply_channel_effects(&self, out: &mut [f32]) {
+        let params = self.params.read().unwrap();
+        let stream_params = &params.constant.stream_params;
+        let control = self.control_event_data.borrow();
+
+        // Apply effects to the audio here
+    }
+
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
         fn render_for_key(
             key: &Key,
@@ -176,6 +184,8 @@ impl VoiceChannelData {
                 }
             }
         }
+
+        self.apply_channel_effects(out);
     }
 
     fn propagate_voice_controls(&self) {
