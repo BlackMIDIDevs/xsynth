@@ -27,14 +27,12 @@ pub use control::*;
 
 pub struct VoiceControlData {
     pub voice_pitch_multiplier: f32,
-    pub voice_volume_multiplier: f32,
 }
 
 impl VoiceControlData {
     pub fn new_defaults() -> Self {
         VoiceControlData {
             voice_pitch_multiplier: 1.0,
-            voice_volume_multiplier: 1.0,
         }
     }
 }
