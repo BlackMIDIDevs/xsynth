@@ -28,15 +28,17 @@ impl DerefMut for GroupVoice {
 pub struct VoiceBuffer {
     id_counter: usize,
     buffer: VecDeque<GroupVoice>,
+    pub damper: bool,
+    held_by_damper: Vec<usize>,
 }
-
-static mut DAMPER: bool = false;
 
 impl VoiceBuffer {
     pub fn new() -> Self {
         VoiceBuffer {
             id_counter: 0,
             buffer: VecDeque::new(),
+            damper: false,
+            held_by_damper: Vec::new(),
         }
     }
 
@@ -107,19 +109,15 @@ impl VoiceBuffer {
         let mut id: Option<usize> = None;
         let mut vel = None;
 
-        let mut held_by_damper: Vec<&mut GroupVoice> = Vec::new();
-
-        let damper = unsafe { DAMPER };
-
         // Find the first non releasing voice, get its id and release all voices with that id
         for voice in self.buffer.iter_mut() {
-            if voice.is_releasing() {
-                continue;
-            }
-
-            if damper {
-                held_by_damper.push(voice);
+            if self.damper {
+                self.held_by_damper.push(voice.id.clone());
             } else {
+                if voice.is_releasing() {
+                    continue;
+                }
+
                 if id.is_none() {
                     id = Some(voice.id);
                     vel = Some(voice.velocity())
@@ -130,21 +128,26 @@ impl VoiceBuffer {
                 }
 
                 voice.signal_release();
-            }
 
-            if !damper {
-                for v in held_by_damper.iter_mut() {
-                    if id.is_none() {
-                        id = Some(v.id);
-                        vel = Some(v.velocity());
-                    }
+                for v in &mut self.held_by_damper {
+                    if v == &mut voice.id {
+                        if voice.is_releasing() {
+                            continue;
+                        }
 
-                    if id != Some(v.id) {
-                        break;
+                        if id.is_none() {
+                            id = Some(voice.id);
+                            vel = Some(voice.velocity())
+                        }
+
+                        if id != Some(voice.id) {
+                            break;
+                        }
+
+                        voice.signal_release();
                     }
-                    v.signal_release();
                 }
-                held_by_damper.clear();
+                self.held_by_damper.clear();
             }
         }
 
@@ -177,8 +180,4 @@ impl VoiceBuffer {
     pub fn voice_count(&self) -> usize {
         self.buffer.len()
     }
-}
-
-pub fn set_damper(damper: bool) {
-    unsafe { DAMPER = damper };
 }
