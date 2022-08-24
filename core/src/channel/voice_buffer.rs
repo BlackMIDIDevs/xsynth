@@ -30,6 +30,8 @@ pub struct VoiceBuffer {
     buffer: VecDeque<GroupVoice>,
 }
 
+static mut DAMPER: bool = false;
+
 impl VoiceBuffer {
     pub fn new() -> Self {
         VoiceBuffer {
@@ -107,7 +109,7 @@ impl VoiceBuffer {
 
         let mut held_by_damper: Vec<&mut GroupVoice> = Vec::new();
 
-        let damper = true; // Need to access damper from VoiceChannelData
+        let damper = unsafe { DAMPER };
 
         // Find the first non releasing voice, get its id and release all voices with that id
         for voice in self.buffer.iter_mut() {
@@ -132,6 +134,14 @@ impl VoiceBuffer {
 
             if !damper {
                 for v in held_by_damper.iter_mut() {
+                    if id.is_none() {
+                        id = Some(v.id);
+                        vel = Some(v.velocity());
+                    }
+
+                    if id != Some(v.id) {
+                        break;
+                    }
                     v.signal_release();
                 }
                 held_by_damper.clear();
@@ -167,4 +177,8 @@ impl VoiceBuffer {
     pub fn voice_count(&self) -> usize {
         self.buffer.len()
     }
+}
+
+pub fn set_damper(damper: bool) {
+    unsafe { DAMPER = damper };
 }

@@ -29,6 +29,8 @@ mod voice_spawner;
 mod event;
 pub use event::*;
 
+use voice_buffer::set_damper;
+
 #[derive(Clone)]
 pub struct VoiceChannel {
     data: Arc<Mutex<VoiceChannelData>>,
@@ -283,12 +285,13 @@ impl VoiceChannelData {
                 }
                 0x40 => {
                     // Damper / Sustain
-                    let mut damper = false;
-                    match value {
-                        0..=63 => damper = false,
-                        64..=127 => damper = true,
-                        _ => damper = false,
-                    }
+                    let damper = match value {
+                        0..=63 => false,
+                        64..=127 => true,
+                        _ => false,
+                    };
+
+                    set_damper(damper);
 
                     self.control_event_data
                         .borrow_mut()
