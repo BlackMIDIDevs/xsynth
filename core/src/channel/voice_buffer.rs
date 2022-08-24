@@ -105,22 +105,37 @@ impl VoiceBuffer {
         let mut id: Option<usize> = None;
         let mut vel = None;
 
+        let mut held_by_damper: Vec<&mut GroupVoice> = Vec::new();
+
+        let damper = true; // Need to access damper from VoiceChannelData
+
         // Find the first non releasing voice, get its id and release all voices with that id
         for voice in self.buffer.iter_mut() {
             if voice.is_releasing() {
                 continue;
             }
 
-            if id.is_none() {
-                id = Some(voice.id);
-                vel = Some(voice.velocity())
+            if damper {
+                held_by_damper.push(voice);
+            } else {
+                if id.is_none() {
+                    id = Some(voice.id);
+                    vel = Some(voice.velocity())
+                }
+
+                if id != Some(voice.id) {
+                    break;
+                }
+
+                voice.signal_release();
             }
 
-            if id != Some(voice.id) {
-                break;
+            if !damper {
+                for v in held_by_damper.iter_mut() {
+                    v.signal_release();
+                }
+                held_by_damper.clear();
             }
-
-            voice.signal_release();
         }
 
         vel

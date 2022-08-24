@@ -283,14 +283,13 @@ impl VoiceChannelData {
                 }
                 0x40 => {
                     // Damper / Sustain
-                    let mut damper: bool = false;
-                    if (value > 0) && (value < 64){
-                        damper = false;
-                    } else if (value >= 64) && (value < 128){
-                        damper = true;
-                    } else{
-                        damper = false;
+                    let mut damper = false;
+                    match value {
+                        0..=63 => damper = false,
+                        64..=127 => damper = true,
+                        _ => damper = false,
                     }
+
                     self.control_event_data
                         .borrow_mut()
                         .damper = damper
