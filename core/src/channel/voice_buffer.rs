@@ -28,6 +28,8 @@ impl DerefMut for GroupVoice {
 pub struct VoiceBuffer {
     id_counter: usize,
     buffer: VecDeque<GroupVoice>,
+    pub damper: bool,
+    held_by_damper: Vec<usize>,
 }
 
 impl VoiceBuffer {
@@ -35,6 +37,8 @@ impl VoiceBuffer {
         VoiceBuffer {
             id_counter: 0,
             buffer: VecDeque::new(),
+            damper: false,
+            held_by_damper: Vec::new(),
         }
     }
 
@@ -107,20 +111,44 @@ impl VoiceBuffer {
 
         // Find the first non releasing voice, get its id and release all voices with that id
         for voice in self.buffer.iter_mut() {
-            if voice.is_releasing() {
-                continue;
-            }
+            if self.damper {
+                self.held_by_damper.push(voice.id.clone());
+            } else {
+                if voice.is_releasing() {
+                    continue;
+                }
 
-            if id.is_none() {
-                id = Some(voice.id);
-                vel = Some(voice.velocity())
-            }
+                if id.is_none() {
+                    id = Some(voice.id);
+                    vel = Some(voice.velocity())
+                }
 
-            if id != Some(voice.id) {
-                break;
-            }
+                if id != Some(voice.id) {
+                    break;
+                }
 
-            voice.signal_release();
+                voice.signal_release();
+
+                for v in &mut self.held_by_damper {
+                    if v == &mut voice.id {
+                        if voice.is_releasing() {
+                            continue;
+                        }
+
+                        if id.is_none() {
+                            id = Some(voice.id);
+                            vel = Some(voice.velocity())
+                        }
+
+                        if id != Some(voice.id) {
+                            break;
+                        }
+
+                        voice.signal_release();
+                    }
+                }
+                self.held_by_damper.clear();
+            }
         }
 
         vel
