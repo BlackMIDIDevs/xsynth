@@ -59,9 +59,6 @@ struct ControlEventData {
     pitch_bend_sensitivity_msb: u8,
     pitch_bend_sensitivity: f32,
     pitch_bend_value: f32,
-    volume: f32,  // 0.0 = silent, 1.0 = max volume
-    pan: f32, // 0.0 = left, 0.5 = center, 1.0 = right
-    damper: bool,  // false = pedal up, true = pedal down
 }
 
 impl ControlEventData {
@@ -73,9 +70,6 @@ impl ControlEventData {
             pitch_bend_sensitivity_msb: 2,
             pitch_bend_sensitivity: 2.0,
             pitch_bend_value: 0.0,
-            volume: 1.0,
-            pan: 0.5,
-            damper: false,
         }
     }
 }
@@ -128,19 +122,7 @@ impl VoiceChannelData {
         let stream_params = &params.constant.stream_params;
         let control = self.control_event_data.borrow();
 
-        // Volume
-        for sample in out.iter_mut() {
-            *sample *= control.volume;
-        }
-
-        // Panning
-        let n = 2;
-        for sample in out.iter_mut().skip(0).step_by(n) {
-            *sample *= (control.pan * 2f32).min(1.0);
-        }
-        for sample in out.iter_mut().skip(1).step_by(n) {
-            *sample *= ((1.0 - control.pan) * 2f32).min(1.0);
-        }
+        // Apply effects to the audio here
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
@@ -266,37 +248,6 @@ impl VoiceChannelData {
 
                         self.process_control_event(ControlEvent::PitchBendSensitivity(sensitivity))
                     }
-                }
-                0x07 => {
-                    // Volume
-                    let vol: f32 = value as f32 / 128.0;
-                    self.control_event_data
-                    .borrow_mut()
-                    .volume = vol
-                }
-                0x0A => {
-                    // Pan
-                    let pan: f32 = value as f32 / 128.0;
-                    self.control_event_data
-                    .borrow_mut()
-                    .pan = pan
-                }
-                0x40 => {
-                    // Damper / Sustain
-                    let damper = match value {
-                        0..=63 => false,
-                        64..=127 => true,
-                        _ => false,
-                    };
-
-                    for key in self.key_voices.iter() {
-                        key.data.borrow().voices.damper = damper;
-                        key.data.borrow().voices.release_next_voice();
-                    }
-
-                    self.control_event_data
-                        .borrow_mut()
-                        .damper = damper
                 }
                 _ => {}
             },
