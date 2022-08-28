@@ -9,7 +9,7 @@ use super::{
 
 pub struct KeyData {
     key: u8,
-    pub voices: VoiceBuffer,
+    voices: VoiceBuffer,
     last_voice_count: usize,
     shared_voice_counter: Arc<AtomicU64>,
 }
