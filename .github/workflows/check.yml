@@ -1,13 +1,24 @@
-name: Rust Example
+on: [push, pull_request]
 
-on: [push]
+name: Lints
 
 jobs:
-  build:
+  clippy:
+    name: Clippy
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v1
-      - uses: icepuma/rust-action@master
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
         with:
-          args: cargo fmt --all -- --check
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
