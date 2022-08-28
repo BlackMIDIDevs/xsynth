@@ -26,7 +26,7 @@ mod control;
 pub use control::*;
 
 pub struct VoiceControlData {
-    pub voice_pitch_multiplier: f32,
+     pub voice_pitch_multiplier: f32,
 }
 
 impl VoiceControlData {
