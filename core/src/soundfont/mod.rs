@@ -38,6 +38,7 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
 
 struct SampleVoiceSpawnerParams {
     speed_mult: f32,
+    cutoff: f32,
     envelope: Arc<EnvelopeParameters>,
     sample: Vec<Arc<[f32]>>,
 }
@@ -61,6 +62,7 @@ impl SampleCache {
 
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
+    cutoff: f32,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Vec<Arc<[f32]>>,
@@ -74,6 +76,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
         Self {
             speed_mult: params.speed_mult,
+            cutoff: params.cutoff,
             amp,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
@@ -105,6 +108,8 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 
         let modulated = VoiceCombineSIMD::mult(amp, sampler);
         let modulated = VoiceCombineSIMD::mult(volume_envelope, modulated);
+
+        let cutoff = self.cutoff; // TODO
 
         let flattened = SIMDStereoVoice::new(modulated);
         let base = VoiceBase::new(self.vel, flattened);
@@ -199,25 +204,64 @@ impl SampleSoundfont {
             let params = sample_cache_from_region_params(&region);
             let envelope = envelope_descriptor_from_region_params(&region);
 
-            let speed_mult =
-                get_speed_mult_from_keys(region.key, region.pitch_keycenter.unwrap_or(region.key));
+            if region.lokey.is_none() && region.hikey.is_none() {
+                for vel in region.lovel..=region.hivel {
+                    let index = key_vel_to_index(region.key.unwrap(), vel);
 
-            let envelope_params = unique_envelope_params
-                .iter()
-                .find(|e| &e.0 == &envelope)
-                .unwrap()
-                .1
-                .clone();
+                    let speed_mult = get_speed_mult_from_keys(region.key.unwrap(), region.pitch_keycenter.unwrap_or(region.key.unwrap()));
 
-            let spawner_params = Arc::new(SampleVoiceSpawnerParams {
-                envelope: envelope_params,
-                speed_mult,
-                sample: samples[&params].clone(),
-            });
+                    let envelope_params = unique_envelope_params
+                        .iter()
+                        .find(|e| &e.0 == &envelope)
+                        .unwrap()
+                        .1
+                        .clone();
 
-            for vel in region.lovel..=region.hivel {
-                let index = key_vel_to_index(region.key, vel);
-                spawner_params_list[index] = Some(spawner_params.clone());
+                    let cutoff = region.cutoff.unwrap(); // TODO: fil_veltrack
+
+                    let spawner_params = Arc::new(SampleVoiceSpawnerParams {
+                        envelope: envelope_params,
+                        speed_mult,
+                        cutoff,
+                        sample: samples[&params].clone(),
+                    });
+
+                    spawner_params_list[index] = Some(spawner_params.clone());
+                }
+            } else {
+                let lokey = region.lokey.unwrap();
+                let hikey = region.hikey.unwrap();
+                for k in lokey..=hikey {
+                    for vel in region.lovel..=region.hivel {
+                        let index = key_vel_to_index(k, vel);
+
+                        let center = if region.pitch_keycenter == None && region.key != None {
+                            region.key.unwrap()
+                        } else {
+                            region.pitch_keycenter.unwrap_or(k)
+                        };
+
+                        let speed_mult = get_speed_mult_from_keys(k, center);
+
+                        let envelope_params = unique_envelope_params
+                            .iter()
+                            .find(|e| &e.0 == &envelope)
+                            .unwrap()
+                            .1
+                            .clone();
+
+                        let cutoff = region.cutoff.unwrap(); // TODO: fil_veltrack
+
+                        let spawner_params = Arc::new(SampleVoiceSpawnerParams {
+                            envelope: envelope_params,
+                            speed_mult,
+                            cutoff,
+                            sample: samples[&params].clone(),
+                        });
+
+                        spawner_params_list[index] = Some(spawner_params.clone());
+                    }
+                }
             }
         }
 
