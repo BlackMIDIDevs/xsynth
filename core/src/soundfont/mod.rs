@@ -94,6 +94,8 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 
         let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
 
+        let cutoff = SIMDConstant::<S>::new(self.cutoff);
+
         let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
             self.samples[0].clone(),
         )));
@@ -101,15 +103,13 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
             self.samples[1].clone(),
         )));
 
-        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
+        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac, cutoff);
 
         let amp = SIMDConstant::<S>::new(self.amp);
         let volume_envelope = SIMDVoiceEnvelope::new(self.volume_envelope_params.clone());
 
         let modulated = VoiceCombineSIMD::mult(amp, sampler);
         let modulated = VoiceCombineSIMD::mult(volume_envelope, modulated);
-
-        let cutoff = self.cutoff; // TODO
 
         let flattened = SIMDStereoVoice::new(modulated);
         let base = VoiceBase::new(self.vel, flattened);
@@ -217,7 +217,7 @@ impl SampleSoundfont {
                         .1
                         .clone();
 
-                    let cutoff = region.cutoff.unwrap(); // TODO: fil_veltrack
+                    let cutoff = region.cutoff; // TODO: fil_veltrack
 
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                         envelope: envelope_params,
@@ -250,7 +250,7 @@ impl SampleSoundfont {
                             .1
                             .clone();
 
-                        let cutoff = region.cutoff.unwrap(); // TODO: fil_veltrack
+                        let cutoff = region.cutoff; // TODO: fil_veltrack
 
                         let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                             envelope: envelope_params,

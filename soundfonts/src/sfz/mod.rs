@@ -57,7 +57,7 @@ pub struct RegionParamsBuilder {
     sample: Option<String>,
     default_path: Option<String>,
     loop_mode: SfzLoopMode,
-    cutoff: Option<f32>,
+    cutoff: f32,
     ampeg_envelope: AmpegEnvelopeParams,
 }
 
@@ -74,7 +74,7 @@ impl Default for RegionParamsBuilder {
             sample: None,
             default_path: None,
             loop_mode: SfzLoopMode::NoLoop,
-            cutoff: None,
+            cutoff: 20000.0,
             ampeg_envelope: AmpegEnvelopeParams::default(),
         }
     }
@@ -92,7 +92,7 @@ impl RegionParamsBuilder {
             SfzRegionFlags::Pan(val) => self.pan = val,
             SfzRegionFlags::Sample(val) => self.sample = Some(val),
             SfzRegionFlags::LoopMode(val) => self.loop_mode = val,
-            SfzRegionFlags::Cutoff(val) => self.cutoff = Some(val),
+            SfzRegionFlags::Cutoff(val) => self.cutoff = val,
             SfzRegionFlags::DefaultPath(val) => self.default_path = Some(val),
             SfzRegionFlags::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
         }
@@ -134,7 +134,7 @@ pub struct RegionParams {
     pub pan: i8,
     pub sample_path: PathBuf,
     pub loop_mode: SfzLoopMode,
-    pub cutoff: Option<f32>,
+    pub cutoff: f32,
     pub ampeg_envelope: AmpegEnvelopeParams,
 }
 
