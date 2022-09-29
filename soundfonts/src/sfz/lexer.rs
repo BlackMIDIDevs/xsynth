@@ -131,28 +131,24 @@ fn parse_basic_tag_name<'a>(parser: &mut StringParser<'a>, tag_name: &str) -> Op
     Some(())
 }
 
-fn parse_vel_number<'a>(parser: &mut StringParser<'a>) -> Option<u8> {
+fn parse_vel_number(parser: &mut StringParser<'_>) -> Option<u8> {
     let num = parser.parse_regex(regex!(r"\d+"))?;
-    let num = num.parse().ok();
-    num
+    num.parse().ok()
 }
 
-fn parse_key_number<'a>(parser: &mut StringParser<'a>) -> Option<u8> {
+fn parse_key_number(parser: &mut StringParser<'_>) -> Option<u8> {
     let num = parser.parse_regex(regex!(r"\d+"))?;
-    let num = num.parse().ok();
-    num
+    num.parse().ok()
 }
 
-fn parse_pan_number<'a>(parser: &mut StringParser<'a>) -> Option<i8> {
+fn parse_pan_number(parser: &mut StringParser<'_>) -> Option<i8> {
     let num = parser.parse_regex(regex!(r"[\-\d]+"))?;
-    let num = num.parse().ok();
-    num
+    num.parse().ok()
 }
 
-fn parse_float<'a>(parser: &mut StringParser<'a>) -> Option<f32> {
+fn parse_float(parser: &mut StringParser<'_>) -> Option<f32> {
     let num = parser.parse_regex(regex!(r"[\-\d\.]+"))?;
-    let num = num.parse().ok();
-    num
+    num.parse().ok()
 }
 
 #[derive(Debug, Clone)]
@@ -178,6 +174,7 @@ pub enum SfzRegionFlags {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum SfzAmpegEnvelope {
     AmpegStart(f32),
     AmpegDelay(f32),
@@ -214,10 +211,10 @@ fn parse_ampeg_envelope(parser: &mut StringParser) -> Option<SfzAmpegEnvelope> {
     None
 }
 
-fn parse_region_flags<'a>(parser: &mut StringParser<'a>) -> Option<SfzRegionFlags> {
+fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
     try_parse!(parser, SfzRegionFlags::Sample, String, parser, {
         parse_basic_tag_name(parser, "sample")?;
-        Some(parser.parse_until_line_end().replace("\\", "/"))
+        Some(parser.parse_until_line_end().replace('\\', "/"))
     });
 
     try_parse_basic_tag!(parser, SfzRegionFlags::Lovel, u8, "lovel", parse_vel_number);
@@ -263,7 +260,7 @@ fn parse_region_flags<'a>(parser: &mut StringParser<'a>) -> Option<SfzRegionFlag
     None
 }
 
-fn parse_next_token<'a>(parser: &mut StringParser<'a>) -> Option<SfzToken> {
+fn parse_next_token(parser: &mut StringParser) -> Option<SfzToken> {
     try_parse!(parser, SfzToken::Group, SfzGroupType, parser, {
         parser.parse_literal("<")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
@@ -282,10 +279,10 @@ fn parse_next_token<'a>(parser: &mut StringParser<'a>) -> Option<SfzToken> {
         Some(envelope)
     });
 
-    return None;
+    None
 }
 
-fn parse_next_meta_token<'a>(parser: &mut StringParser<'a>) -> Option<SfzMetaToken> {
+fn parse_next_meta_token(parser: &mut StringParser) -> Option<SfzMetaToken> {
     try_parse!(parser, SfzMetaToken::InnerToken, SfzToken, parser, {
         let token = parse_next_token(parser)?;
         Some(token)
@@ -297,7 +294,7 @@ fn parse_next_meta_token<'a>(parser: &mut StringParser<'a>) -> Option<SfzMetaTok
         parser.parse_literal("\"")?;
         let path = parser.parse_regex(regex!("[^\"]+"))?;
         parser.parse_literal("\"")?;
-        Some(path.replace("\\", "/"))
+        Some(path.replace('\\', "/"))
     });
 
     let mut comment_parser = parser.clone();
@@ -307,7 +304,7 @@ fn parse_next_meta_token<'a>(parser: &mut StringParser<'a>) -> Option<SfzMetaTok
         return Some(SfzMetaToken::Comment);
     }
 
-    return None;
+    None
 }
 
 pub fn parse_all_tokens(file_path: &PathBuf) -> io::Result<Vec<SfzToken>> {

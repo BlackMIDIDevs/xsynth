@@ -46,7 +46,7 @@ impl VoiceBuffer {
     /// Pops the quietest voice group. Multiple voices can be part of the same group
     /// based on their ID (e.g. a note and a hammer playing at the same time for a note on event)
     fn pop_quietest_voice_group(&mut self, reference_vel: u8, ignored_id: usize) {
-        if self.buffer.len() == 0 {
+        if self.buffer.is_empty() {
             return;
         }
 
@@ -141,7 +141,7 @@ impl VoiceBuffer {
     //     self.buffer.iter().map(|group| &group.voice)
     // }
 
-    pub fn iter_voices_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut Box<dyn Voice>> + 'a {
+    pub fn iter_voices_mut(&mut self) -> impl Iterator<Item = &mut Box<dyn Voice>> {
         self.buffer.iter_mut().map(|group| &mut group.voice)
     }
 

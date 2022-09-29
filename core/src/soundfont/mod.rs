@@ -30,7 +30,7 @@ pub trait VoiceSpawner: Sync + Send {
 }
 
 pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
-    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams;
+    fn stream_params(&self) -> &'_ AudioStreamParams;
 
     fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
     fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
@@ -175,11 +175,10 @@ impl SampleSoundfont {
         let mut unique_envelope_params =
             Vec::<(EnvelopeDescriptor, Arc<EnvelopeParameters>)>::new();
         for region in regions.iter() {
-            let envelope_descriptor = envelope_descriptor_from_region_params(&region);
+            let envelope_descriptor = envelope_descriptor_from_region_params(region);
             let exists = unique_envelope_params
                 .iter()
-                .find(|e| &e.0 == &envelope_descriptor)
-                .is_some();
+                .any(|e| e.0 == envelope_descriptor);
             if !exists {
                 unique_envelope_params.push((
                     envelope_descriptor,
@@ -204,7 +203,7 @@ impl SampleSoundfont {
 
             let envelope_params = unique_envelope_params
                 .iter()
-                .find(|e| &e.0 == &envelope)
+                .find(|e| e.0 == envelope)
                 .unwrap()
                 .1
                 .clone();
@@ -235,7 +234,7 @@ impl std::fmt::Debug for SampleSoundfont {
 }
 
 impl SoundfontBase for SampleSoundfont {
-    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+    fn stream_params(&self) -> &'_ AudioStreamParams {
         &self.stream_params
     }
 
@@ -259,7 +258,7 @@ impl SoundfontBase for SampleSoundfont {
             }
         );
 
-        get_runtime_select(key, vel, &self)
+        get_runtime_select(key, vel, self)
     }
 
     fn get_release_voice_spawners_at(&self, _key: u8, _vel: u8) -> Vec<Box<dyn VoiceSpawner>> {

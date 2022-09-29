@@ -192,7 +192,7 @@ impl BufferedRenderer {
         }
 
         // Read from output queue, leave the remainder if there is any
-        while self.remainder.len() == 0 {
+        while self.remainder.is_empty() {
             let mut buf = self.receive.recv().unwrap();
 
             let len = buf.len().min(dest.len() - i);
@@ -222,7 +222,7 @@ impl BufferedRenderer {
 }
 
 impl AudioPipe for BufferedRenderer {
-    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+    fn stream_params(&self) -> &'_ AudioStreamParams {
         &self.stream_params
     }
 

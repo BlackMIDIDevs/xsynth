@@ -2,7 +2,7 @@ use crate::AudioStreamParams;
 
 pub trait AudioPipe {
     /// The stream parameters of the audio pipe
-    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams;
+    fn stream_params(&self) -> &'_ AudioStreamParams;
 
     /// Reads samples from the pipe
     fn read_samples(&mut self, to: &mut [f32]) {
@@ -20,7 +20,7 @@ pub struct FunctionAudioPipe<F: 'static + FnMut(&mut [f32]) + Send> {
 }
 
 impl<F: 'static + FnMut(&mut [f32]) + Send> AudioPipe for FunctionAudioPipe<F> {
-    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+    fn stream_params(&self) -> &'_ AudioStreamParams {
         &self.stream_params
     }
 

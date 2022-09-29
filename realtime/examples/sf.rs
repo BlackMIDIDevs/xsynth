@@ -47,26 +47,20 @@ fn main() {
         }
 
         fn extract_samples(data: BitDepth, channels: u16) -> Vec<Vec<f32>> {
-            match data.as_eight() {
-                Some(data) => return build_arrays(data, channels, |v| (v as f32 - 128.0) / 128.0),
-                None => {}
+            if let Some(data) = data.as_eight() {
+                return build_arrays(data, channels, |v| (v as f32 - 128.0) / 128.0);
             };
 
-            match data.as_sixteen() {
-                Some(data) => {
-                    return build_arrays(data, channels, |v| (v as f32) / i16::MAX as f32)
-                }
-                None => {}
+            if let Some(data) = data.as_sixteen() {
+                return build_arrays(data, channels, |v| (v as f32) / i16::MAX as f32);
             };
 
-            match data.as_thirty_two_float() {
-                Some(data) => return build_arrays(data, channels, |v| v),
-                None => {}
+            if let Some(data) = data.as_thirty_two_float() {
+                return build_arrays(data, channels, |v| v);
             };
 
-            match data.as_twenty_four() {
-                Some(data) => return build_arrays(data, channels, |v| v as f32 / (1 << 23) as f32),
-                None => {}
+            if let Some(data) = data.as_twenty_four() {
+                return build_arrays(data, channels, |v| v as f32 / (1 << 23) as f32);
             }
 
             panic!()

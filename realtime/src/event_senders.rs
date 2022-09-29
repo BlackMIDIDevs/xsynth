@@ -40,7 +40,7 @@ impl RoughNpsTracker {
             thread::spawn(move || {
                 let mut last_time = 0;
                 let mut now = Instant::now();
-                while *stop.read().unwrap() == false {
+                while !*stop.read().unwrap() {
                     thread::sleep(Duration::from_millis(NPS_WINDOW_MILLISECONDS));
                     let diff = now.elapsed();
                     last_time += diff.as_millis() as u64;

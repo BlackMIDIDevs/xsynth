@@ -159,12 +159,11 @@ impl RealtimeSynth {
 
         let channel_count = config.channel_count;
         let render = FunctionAudioPipe::new(sample_rate, audio_channels, move |out| {
-            for i in 0..channel_count as usize {
+            for sender in command_senders.iter() {
                 let mut buf = vec_cache.pop_front().unwrap();
                 prepapre_cache_vec(&mut buf, out.len(), 0.0);
 
-                let channel = &command_senders[i];
-                channel.send(buf).unwrap();
+                sender.send(buf).unwrap();
             }
 
             for _ in 0..channel_count {
@@ -194,37 +193,30 @@ impl RealtimeSynth {
 
             let mut limiter = VolumeLimiter::new(stream_config.channels());
 
-            let stream = device
+            device
                 .build_output_stream(
                     &stream_config.into(),
                     move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-                        output_vec.reserve(data.len());
-                        for _ in 0..data.len() {
-                            output_vec.push(0.0);
-                        }
+                        output_vec.resize(data.len(), 0.0);
                         buffered.lock().unwrap().read(&mut output_vec);
-                        let mut i = 0;
-                        for s in limiter.limit_iter(output_vec.drain(0..)) {
+                        for (i, s) in limiter.limit_iter(output_vec.drain(0..)).enumerate() {
                             data[i] = Sample::from(&s);
-                            i += 1;
                         }
                     },
                     err_fn,
                 )
-                .unwrap();
-
-            stream
+                .unwrap()
         }
 
         let stream = match stream_config.sample_format() {
             cpal::SampleFormat::F32 => {
-                build_stream::<f32>(&device, stream_config, buffered.clone())
+                build_stream::<f32>(device, stream_config, buffered.clone())
             }
             cpal::SampleFormat::I16 => {
-                build_stream::<i16>(&device, stream_config, buffered.clone())
+                build_stream::<i16>(device, stream_config, buffered.clone())
             }
             cpal::SampleFormat::U16 => {
-                build_stream::<u16>(&device, stream_config, buffered.clone())
+                build_stream::<u16>(device, stream_config, buffered.clone())
             }
         };
 
