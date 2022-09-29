@@ -41,16 +41,16 @@ impl ChannelSoundfont {
                     .soundfonts
                     .iter()
                     .map(|sf| sf.get_attack_voice_spawners_at(k, v))
-                    .find(|vec| vec.len() > 0)
-                    .unwrap_or_else(|| vec![]);
+                    .find(|vec| !vec.is_empty())
+                    .unwrap_or_default();
                 self.matrix.set_spawners_attack(k, v, vec);
 
                 let vec = self
                     .soundfonts
                     .iter()
                     .map(|sf| sf.get_release_voice_spawners_at(k, v))
-                    .find(|vec| vec.len() > 0)
-                    .unwrap_or_else(|| vec![]);
+                    .find(|vec| !vec.is_empty())
+                    .unwrap_or_default();
                 self.matrix.set_spawners_release(k, v, vec);
             }
         }

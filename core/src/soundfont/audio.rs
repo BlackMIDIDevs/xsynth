@@ -1,4 +1,9 @@
-use std::{fs::File, io, path::PathBuf, sync::Arc};
+use std::{
+    fs::File,
+    io,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use flac::{ErrorKind, StreamReader};
 use thiserror::Error;
@@ -31,36 +36,26 @@ fn build_arrays<T: Copy>(
 }
 
 fn extract_samples(data: BitDepth, channels: u16) -> Vec<Vec<f32>> {
-    match data.as_eight() {
-        Some(data) => {
-            return build_arrays(data.iter().copied(), channels, |v| {
-                (v as f32 - 128.0) / 128.0
-            })
-        }
-        None => {}
-    };
+    if let Some(data) = data.as_eight() {
+        return build_arrays(data.iter().copied(), channels, |v| {
+            (v as f32 - 128.0) / 128.0
+        });
+    }
 
-    match data.as_sixteen() {
-        Some(data) => {
-            return build_arrays(data.iter().copied(), channels, |v| {
-                (v as f32) / i16::MAX as f32
-            })
-        }
-        None => {}
-    };
+    if let Some(data) = data.as_sixteen() {
+        return build_arrays(data.iter().copied(), channels, |v| {
+            (v as f32) / i16::MAX as f32
+        });
+    }
 
-    match data.as_thirty_two_float() {
-        Some(data) => return build_arrays(data.iter().copied(), channels, |v| v),
-        None => {}
-    };
+    if let Some(data) = data.as_thirty_two_float() {
+        return build_arrays(data.iter().copied(), channels, |v| v);
+    }
 
-    match data.as_twenty_four() {
-        Some(data) => {
-            return build_arrays(data.iter().copied(), channels, |v| {
-                v as f32 / (1 << 23) as f32
-            })
-        }
-        None => {}
+    if let Some(data) = data.as_twenty_four() {
+        return build_arrays(data.iter().copied(), channels, |v| {
+            v as f32 / (1 << 23) as f32
+        });
     }
 
     panic!()
@@ -92,9 +87,8 @@ pub fn load_audio_file(
 ) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
     let extension = path
         .extension()
-        .map(|ext| ext.to_str())
-        .flatten()
-        .ok_or_else(|| AudioLoadError::UnknownExtension)?;
+        .and_then(|ext| ext.to_str())
+        .ok_or(AudioLoadError::UnknownExtension)?;
 
     match extension {
         "wav" => Ok(load_wav(path, new_sample_rate)?),
@@ -116,10 +110,8 @@ fn load_wav(path: &PathBuf, new_sample_rate: f32) -> io::Result<Vec<Arc<[f32]>>>
     ))
 }
 
-fn load_flac(path: &PathBuf, new_sample_rate: f32) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
-    let path = path
-        .to_str()
-        .ok_or_else(|| AudioLoadError::UnknownExtension)?;
+fn load_flac(path: &Path, new_sample_rate: f32) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
+    let path = path.to_str().ok_or(AudioLoadError::UnknownExtension)?;
 
     match StreamReader::<File>::from_file(path) {
         Ok(mut stream) => {
@@ -132,11 +124,11 @@ fn load_flac(path: &PathBuf, new_sample_rate: f32) -> Result<Vec<Arc<[f32]>>, Au
                 (val as f32) / bit_div as f32
             });
 
-            return Ok(resample_vecs(
+            Ok(resample_vecs(
                 vecs,
                 info.sample_rate as f32,
                 new_sample_rate,
-            ));
+            ))
         }
         Err(ErrorKind::IO(io_err)) => Err(io::Error::from(io_err).into()),
         Err(_) => Err(AudioLoadError::FlacParseError),

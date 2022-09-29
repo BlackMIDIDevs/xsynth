@@ -7,7 +7,7 @@ use crate::voice::VoiceControlData;
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
 /// The stages in envelopes as a numbered enum
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EnvelopeStage {
     Delay = 0,
     Attack = 1,
@@ -243,7 +243,7 @@ pub struct EnvelopeParameters {
 }
 
 impl EnvelopeParameters {
-    fn get_cache_at(&self, index: usize) -> &Box<[f32]> {
+    fn get_cache_at(&self, index: usize) -> &[f32] {
         &self.caches[index]
     }
 
@@ -265,7 +265,7 @@ impl EnvelopeParameters {
                     self.get_stage_data(stage.next_stage(), target)
                 } else {
                     let cache_index = *cache_index;
-                    if false && self.get_cache_at(cache_index)[0] == start_amp {
+                    if self.get_cache_at(cache_index)[0] == start_amp {
                         let data = StageData::Cache {
                             cache_index,
                             length: self.get_cache_at(cache_index).len(),
@@ -513,7 +513,7 @@ mod tests {
                 let mut time = StageTime::<S>::new(5, 20);
                 let mut time2 = StageTime::<S>::new(4, 20);
                 assert_eq!(time.simd_array_start(), 5);
-                assert_eq!(time.is_ending(), false);
+                assert!(!time.is_ending());
 
                 let end_simd = S::set1_ps(20.0);
 
@@ -537,22 +537,22 @@ mod tests {
                         simd_from_range::<S>(5..(5 + S::VF32_WIDTH)) / end_simd,
                     );
                     assert_eq!(time.simd_array_start(), i as u32);
-                    assert_eq!(time.is_ending(), false);
+                    assert!(!time.is_ending());
 
-                    assert_eq!(time.is_intersecting_end(), false);
+                    assert!(!time.is_intersecting_end());
 
                     time.increment();
                     time2.increment();
                     i += S::VF32_WIDTH;
                 }
                 assert_eq!(time.simd_array_start(), i as u32);
-                assert_eq!(time.is_ending(), true);
-                assert_eq!(time.is_intersecting_end(), true);
+                assert!(time.is_ending());
+                assert!(time.is_intersecting_end());
 
-                assert_eq!(time2.is_ending(), false);
+                assert!(!time2.is_ending());
                 time2.increment();
-                assert_eq!(time2.is_ending(), true);
-                assert_eq!(time2.is_intersecting_end(), false);
+                assert!(time2.is_ending());
+                assert!(!time2.is_intersecting_end());
             }
         );
 
@@ -561,6 +561,8 @@ mod tests {
 
     #[test]
     fn test_envelope() {
+        #![allow(clippy::same_item_push)]
+
         fn push_simd_to_vec<S: Simd>(vec: &mut Vec<f32>, simd: S::Vf32) {
             for i in 0..S::VF32_WIDTH {
                 vec.push(simd[i]);
@@ -616,6 +618,11 @@ mod tests {
                 }
                 for _ in 0..16 {
                     expected_vec.push(0.0);
+                }
+
+                for v in vec.iter_mut().chain(expected_vec.iter_mut()) {
+                    // Rounding as cached values are sometimes off by tiny fractions
+                    *v = (*v * 10000.0).round() / 10000.0;
                 }
 
                 assert_eq!(vec, expected_vec);

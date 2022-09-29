@@ -19,7 +19,7 @@ where
 impl<S: Simd, G: SIMDVoiceGenerator<S, SIMDSampleMono<S>>> SIMDVoiceMonoToStereo<S, G> {
     pub fn new(generator: G) -> SIMDVoiceMonoToStereo<S, G> {
         SIMDVoiceMonoToStereo {
-            generator: generator,
+            generator,
             _s: PhantomData,
         }
     }

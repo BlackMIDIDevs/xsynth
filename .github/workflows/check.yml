@@ -9,12 +9,27 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
+        name: Initialize Cargo
         with:
           profile: minimal
           toolchain: nightly
           override: true
           components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        name: Cargo Cache
+
       - uses: actions-rs/cargo@v1
+        name: Check code formatting
         with:
           command: fmt
           args: --all -- --check
+
+      - name: Install dependencies
+        run: sudo apt-get install -y libasound2-dev portaudio19-dev build-essential libpulse-dev libdbus-1-dev
+
+      - uses: actions-rs/cargo@v1
+        name: Check code with clippy
+        with:
+          command: clippy
+          args: --all -- --deny "warnings"
