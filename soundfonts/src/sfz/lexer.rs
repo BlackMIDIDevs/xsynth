@@ -217,7 +217,7 @@ fn parse_ampeg_envelope(parser: &mut StringParser) -> Option<SfzAmpegEnvelope> {
 fn parse_region_flags<'a>(parser: &mut StringParser<'a>) -> Option<SfzRegionFlags> {
     try_parse!(parser, SfzRegionFlags::Sample, String, parser, {
         parse_basic_tag_name(parser, "sample")?;
-        Some(parser.parse_until_line_end())
+        Some(parser.parse_until_line_end().replace("\\", "/"))
     });
 
     try_parse_basic_tag!(parser, SfzRegionFlags::Lovel, u8, "lovel", parse_vel_number);
@@ -297,7 +297,7 @@ fn parse_next_meta_token<'a>(parser: &mut StringParser<'a>) -> Option<SfzMetaTok
         parser.parse_literal("\"")?;
         let path = parser.parse_regex(regex!("[^\"]+"))?;
         parser.parse_literal("\"")?;
-        Some(path)
+        Some(path.replace("\\", "/"))
     });
 
     let mut comment_parser = parser.clone();
@@ -311,6 +311,7 @@ fn parse_next_meta_token<'a>(parser: &mut StringParser<'a>) -> Option<SfzMetaTok
 }
 
 pub fn parse_all_tokens(file_path: &PathBuf) -> io::Result<Vec<SfzToken>> {
+    dbg!(file_path);
     let file_path = file_path.canonicalize()?;
     let file = fs::read_to_string(&file_path)?;
 
