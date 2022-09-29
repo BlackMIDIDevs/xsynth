@@ -106,6 +106,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac, cutoff);
 
         let amp = SIMDConstant::<S>::new(self.amp);
+
         let volume_envelope = SIMDVoiceEnvelope::new(self.volume_envelope_params.clone());
 
         let modulated = VoiceCombineSIMD::mult(amp, sampler);
@@ -140,7 +141,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release.min(0.3),
+        release: env.ampeg_release / 4.0,
     }
 }
 
