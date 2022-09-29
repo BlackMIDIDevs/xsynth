@@ -209,15 +209,9 @@ impl RealtimeSynth {
         }
 
         let stream = match stream_config.sample_format() {
-            cpal::SampleFormat::F32 => {
-                build_stream::<f32>(device, stream_config, buffered.clone())
-            }
-            cpal::SampleFormat::I16 => {
-                build_stream::<i16>(device, stream_config, buffered.clone())
-            }
-            cpal::SampleFormat::U16 => {
-                build_stream::<u16>(device, stream_config, buffered.clone())
-            }
+            cpal::SampleFormat::F32 => build_stream::<f32>(device, stream_config, buffered.clone()),
+            cpal::SampleFormat::I16 => build_stream::<i16>(device, stream_config, buffered.clone()),
+            cpal::SampleFormat::U16 => build_stream::<u16>(device, stream_config, buffered.clone()),
         };
 
         stream.play().unwrap();
