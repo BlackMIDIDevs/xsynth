@@ -32,6 +32,12 @@ impl VoiceChannelStats {
     }
 }
 
+impl Default for VoiceChannelStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VoiceChannelParams {
     pub fn new(sample_rate: u32, channels: u16) -> Self {
         let channel_sf = ChannelSoundfont::new();

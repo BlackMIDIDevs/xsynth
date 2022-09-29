@@ -19,7 +19,7 @@ pub struct SIMDStereoVoice<S: Simd, T: SIMDVoiceGenerator<S, SIMDSampleStereo<S>
 impl<S: Simd, T: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>> SIMDStereoVoice<S, T> {
     pub fn new(generator: T) -> SIMDStereoVoice<S, T> {
         SIMDStereoVoice {
-            generator: generator,
+            generator,
             remainder: SIMDSampleStereo::<S>::zero(),
             remainder_pos: S::VF32_WIDTH,
             _s: PhantomData,
@@ -78,7 +78,7 @@ pub struct SIMDMonoVoice<S: Simd, T: SIMDVoiceGenerator<S, SIMDSampleMono<S>>> {
 impl<S: Simd, T: SIMDVoiceGenerator<S, SIMDSampleMono<S>>> SIMDMonoVoice<S, T> {
     pub fn new(generator: T) -> SIMDMonoVoice<S, T> {
         SIMDMonoVoice {
-            generator: generator,
+            generator,
             remainder: SIMDSampleMono::<S>::zero(),
             remainder_pos: S::VF32_WIDTH,
             _s: PhantomData,

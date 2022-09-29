@@ -122,6 +122,8 @@ impl VoiceChannelData {
     }
 
     fn apply_channel_effects(&self, out: &mut [f32]) {
+        #![allow(unused_variables)]
+
         let params = self.params.read().unwrap();
         let stream_params = &params.constant.stream_params;
         let control = self.control_event_data.borrow();
@@ -208,7 +210,7 @@ impl VoiceChannelData {
                 });
 
                 for key in self.key_voices.iter() {
-                    let key = &key.audio_cache.borrow();
+                    let key = key.audio_cache.borrow();
                     sum_simd(&key, out);
                 }
             }
@@ -222,7 +224,7 @@ impl VoiceChannelData {
 
                 for key in self.key_voices.iter() {
                     let key = &key.audio_cache.borrow();
-                    sum_simd(&key, out);
+                    sum_simd(key, out);
                 }
             }
         }
@@ -407,12 +409,12 @@ impl VoiceChannel {
     pub fn get_channel_stats(&self) -> VoiceChannelStatsReader {
         let data = self.data.lock().unwrap();
         let stats = data.params.read().unwrap().stats.clone();
-        VoiceChannelStatsReader::new(stats.clone())
+        VoiceChannelStatsReader::new(stats)
     }
 }
 
 impl AudioPipe for VoiceChannel {
-    fn stream_params<'a>(&'a self) -> &'a AudioStreamParams {
+    fn stream_params(&self) -> &AudioStreamParams {
         &self.constants.stream_params
     }
 

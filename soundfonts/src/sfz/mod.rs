@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, io, path::PathBuf};
+use std::{
+    collections::VecDeque,
+    io,
+    path::{Path, PathBuf},
+};
 
 use self::lexer::{
     parse_all_tokens, SfzAmpegEnvelope, SfzGroupType, SfzLoopMode, SfzRegionFlags, SfzToken,
@@ -98,7 +102,7 @@ impl RegionParamsBuilder {
         }
     }
 
-    fn build(self, base_path: &PathBuf) -> Option<RegionParams> {
+    fn build(self, base_path: &Path) -> Option<RegionParams> {
         let relative_sample_path = if let Some(default_path) = self.default_path {
             PathBuf::from(default_path).join(self.sample?)
         } else {
@@ -185,7 +189,7 @@ fn parse_sf_root(tokens: impl Iterator<Item = SfzToken>, base_path: PathBuf) -> 
                 }
             }
             SfzToken::RegionFlag(flag) => {
-                if current_group != None {
+                if current_group.is_some() {
                     if let Some(group_data) = group_data_stack.back_mut() {
                         group_data.update_from_flag(flag);
                     }

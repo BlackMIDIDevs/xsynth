@@ -8,7 +8,7 @@ pub struct VoiceSpawnerMatrix {
 }
 
 fn voice_iter_from_vec<'a>(
-    vec: &'a Vec<Box<dyn VoiceSpawner>>,
+    vec: &'a [Box<dyn VoiceSpawner>],
     control: &'a VoiceControlData,
 ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
     vec.iter().map(move |voice| voice.spawn_voice(control))

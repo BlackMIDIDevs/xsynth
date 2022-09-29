@@ -62,8 +62,8 @@ impl VolumeLimiter {
     }
 
     pub fn limit(&mut self, sample: &mut [f32]) {
-        for i in 0..sample.len() {
-            sample[i] = self.channels[i % self.channel_count].limit(sample[i]);
+        for (i, s) in sample.iter_mut().enumerate() {
+            *s = self.channels[i % self.channel_count].limit(*s);
         }
     }
 

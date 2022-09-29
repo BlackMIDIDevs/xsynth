@@ -12,7 +12,7 @@ pub struct VoiceBase<T: Send + Sync + VoiceSampleGenerator> {
 impl<T: Send + Sync + VoiceSampleGenerator> VoiceBase<T> {
     pub fn new(velocity: u8, sample_generator: T) -> VoiceBase<T> {
         VoiceBase {
-            sample_generator: sample_generator,
+            sample_generator,
             releasing: false,
             velocity,
         }
