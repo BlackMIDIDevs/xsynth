@@ -207,17 +207,16 @@ impl SampleSoundfont {
             if region.lokey.is_none() && region.hikey.is_none() {
                 for vel in region.lovel..=region.hivel {
                     let index = key_vel_to_index(region.key.unwrap(), vel);
-
-<<<<<<< HEAD
-                    let speed_mult = get_speed_mult_from_keys(region.key.unwrap(), region.pitch_keycenter.unwrap_or(region.key.unwrap()));
-=======
-            let envelope_params = unique_envelope_params
-                .iter()
-                .find(|e| e.0 == envelope)
-                .unwrap()
-                .1
-                .clone();
->>>>>>> upstream/master
+                    let speed_mult = get_speed_mult_from_keys(
+                        region.key.unwrap(),
+                        region.pitch_keycenter.unwrap_or(region.key.unwrap()),
+                    );
+                    let envelope_params = unique_envelope_params
+                        .iter()
+                        .find(|e| e.0 == envelope)
+                        .unwrap()
+                        .1
+                        .clone();
 
                     let envelope_params = unique_envelope_params
                         .iter()

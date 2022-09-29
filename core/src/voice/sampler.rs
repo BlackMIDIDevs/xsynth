@@ -174,7 +174,12 @@ where
     Cutoff: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     Grabber: SIMDSampleGrabber<S>,
 {
-    pub fn new(grabber_left: Grabber, grabber_right: Grabber, pitch_gen: Pitch, cutoff: Cutoff) -> Self {
+    pub fn new(
+        grabber_left: Grabber,
+        grabber_right: Grabber,
+        pitch_gen: Pitch,
+        cutoff: Cutoff,
+    ) -> Self {
         SIMDStereoVoiceSampler {
             grabber_left,
             grabber_right,
@@ -192,7 +197,8 @@ where
     }
 }
 
-impl<S, Pitch, Cutoff, Grabber> VoiceGeneratorBase for SIMDStereoVoiceSampler<S, Pitch, Cutoff, Grabber>
+impl<S, Pitch, Cutoff, Grabber> VoiceGeneratorBase
+    for SIMDStereoVoiceSampler<S, Pitch, Cutoff, Grabber>
 where
     S: Simd,
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,

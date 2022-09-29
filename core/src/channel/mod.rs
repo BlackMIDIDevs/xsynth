@@ -142,35 +142,34 @@ impl VoiceChannelData {
         }
 
         // Cutoff, it doesn't work
-//         let cutoff_freq = 2000.0;
-//         let mut dn1 = 0.0;
-//         let mut dn2 = 0.0;
-//         let highpass = false;
-//
-//         for sample in out.iter_mut().skip(0).step_by(2) {
-//             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
-//             let tan = tanp.tan();
-//             let a1 = (tan - 1.0) / (tan + 1.0);
-//             let p = *sample;
-//             *sample = a1 * p + dn1;
-//             dn1 = p - a1 * p;
-//             if highpass {
-//                 *sample *= -1.0;
-//             }
-//         }
-//
-//         for sample in out.iter_mut().skip(1).step_by(2) {
-//             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
-//             let tan = tanp.tan();
-//             let a1 = (tan - 1.0) / (tan + 1.0);
-//             let p = *sample;
-//             *sample = a1 * p + dn2;
-//             dn2 = p - a1 * p;
-//             if highpass {
-//                 *sample *= -1.0;
-//             }
-//         }
-
+        //         let cutoff_freq = 2000.0;
+        //         let mut dn1 = 0.0;
+        //         let mut dn2 = 0.0;
+        //         let highpass = false;
+        //
+        //         for sample in out.iter_mut().skip(0).step_by(2) {
+        //             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
+        //             let tan = tanp.tan();
+        //             let a1 = (tan - 1.0) / (tan + 1.0);
+        //             let p = *sample;
+        //             *sample = a1 * p + dn1;
+        //             dn1 = p - a1 * p;
+        //             if highpass {
+        //                 *sample *= -1.0;
+        //             }
+        //         }
+        //
+        //         for sample in out.iter_mut().skip(1).step_by(2) {
+        //             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
+        //             let tan = tanp.tan();
+        //             let a1 = (tan - 1.0) / (tan + 1.0);
+        //             let p = *sample;
+        //             *sample = a1 * p + dn2;
+        //             dn2 = p - a1 * p;
+        //             if highpass {
+        //                 *sample *= -1.0;
+        //             }
+        //         }
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
