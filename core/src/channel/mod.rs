@@ -315,8 +315,8 @@ impl VoiceChannelData {
                     };
 
                     for key in self.key_voices.iter() {
-                        key.data.borrow().voices.set_damper(damper);
-                        key.data.borrow().voices.release_next_voice();
+                        key.data.borrow().set_damper(damper);
+                        key.data.borrow().check_to_release_voices();
                     }
                 }
                 _ => {}

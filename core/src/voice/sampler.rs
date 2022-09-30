@@ -148,11 +148,10 @@ impl<S: Simd, Sampler: BufferSampler> SIMDSampleGrabber<S> for SIMDSampleGrabber
 
 // Sampler generator
 
-pub struct SIMDStereoVoiceSampler<S, Pitch, Cutoff, Grabber>
+pub struct SIMDStereoVoiceSampler<S, Pitch, Grabber>
 where
     S: Simd,
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
-    Cutoff: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     Grabber: SIMDSampleGrabber<S>,
 {
     grabber_left: Grabber,
@@ -160,31 +159,22 @@ where
 
     pitch_gen: Pitch,
 
-    cutoff: Cutoff,
-
     time: f64,
 
     _s: PhantomData<S>,
 }
 
-impl<S, Pitch, Cutoff, Grabber> SIMDStereoVoiceSampler<S, Pitch, Cutoff, Grabber>
+impl<S, Pitch, Grabber> SIMDStereoVoiceSampler<S, Pitch, Grabber>
 where
     S: Simd,
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
-    Cutoff: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     Grabber: SIMDSampleGrabber<S>,
 {
-    pub fn new(
-        grabber_left: Grabber,
-        grabber_right: Grabber,
-        pitch_gen: Pitch,
-        cutoff: Cutoff,
-    ) -> Self {
+    pub fn new(grabber_left: Grabber, grabber_right: Grabber, pitch_gen: Pitch) -> Self {
         SIMDStereoVoiceSampler {
             grabber_left,
             grabber_right,
             pitch_gen,
-            cutoff,
             time: 0.0,
             _s: PhantomData,
         }
@@ -197,12 +187,10 @@ where
     }
 }
 
-impl<S, Pitch, Cutoff, Grabber> VoiceGeneratorBase
-    for SIMDStereoVoiceSampler<S, Pitch, Cutoff, Grabber>
+impl<S, Pitch, Grabber> VoiceGeneratorBase for SIMDStereoVoiceSampler<S, Pitch, Grabber>
 where
     S: Simd,
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
-    Cutoff: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     Grabber: SIMDSampleGrabber<S>,
 {
     fn ended(&self) -> bool {
@@ -211,26 +199,22 @@ where
 
     fn signal_release(&mut self) {
         self.pitch_gen.signal_release();
-        self.cutoff.signal_release();
     }
 
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.pitch_gen.process_controls(control);
-        self.cutoff.process_controls(control);
     }
 }
 
-impl<S, Pitch, Cutoff, Grabber> SIMDVoiceGenerator<S, SIMDSampleStereo<S>>
-    for SIMDStereoVoiceSampler<S, Pitch, Cutoff, Grabber>
+impl<S, Pitch, Grabber> SIMDVoiceGenerator<S, SIMDSampleStereo<S>>
+    for SIMDStereoVoiceSampler<S, Pitch, Grabber>
 where
     S: Simd,
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
-    Cutoff: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     Grabber: SIMDSampleGrabber<S>,
 {
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         let speed = self.pitch_gen.next_sample().0;
-        let cutoff = self.cutoff.next_sample().0;
         let mut indexes = unsafe { S::set1_epi32(0) };
         let mut fractionals = unsafe { S::set1_ps(0.0) };
 

@@ -1,6 +1,7 @@
 use std::{
     collections::VecDeque,
     io,
+    ops::RangeInclusive,
     path::{Path, PathBuf},
 };
 
@@ -51,34 +52,30 @@ impl AmpegEnvelopeParams {
 
 #[derive(Debug, Clone)]
 pub struct RegionParamsBuilder {
-    lovel: u8,
-    hivel: u8,
+    velrange: RangeInclusive<u8>,
     key: Option<u8>,
-    lokey: Option<u8>,
-    hikey: Option<u8>,
+    keyrange: Option<RangeInclusive<u8>>,
     pitch_keycenter: Option<u8>,
     pan: i8,
     sample: Option<String>,
     default_path: Option<String>,
     loop_mode: SfzLoopMode,
-    cutoff: f32,
+    cutoff: Option<f32>,
     ampeg_envelope: AmpegEnvelopeParams,
 }
 
 impl Default for RegionParamsBuilder {
     fn default() -> Self {
         RegionParamsBuilder {
-            lovel: 0,
-            hivel: 127,
+            velrange: RangeInclusive::new(0, 127),
             key: None,
-            lokey: None,
-            hikey: None,
+            keyrange: Some(RangeInclusive::new(0, 127)),
             pitch_keycenter: None,
             pan: 0,
             sample: None,
             default_path: None,
             loop_mode: SfzLoopMode::NoLoop,
-            cutoff: 20000.0,
+            cutoff: None,
             ampeg_envelope: AmpegEnvelopeParams::default(),
         }
     }
@@ -86,19 +83,28 @@ impl Default for RegionParamsBuilder {
 
 impl RegionParamsBuilder {
     fn update_from_flag(&mut self, flag: SfzRegionFlags) {
+        let default = RegionParamsBuilder::default();
+        let mut lovel_tmp: u8 = *default.velrange.start();
+        let mut hivel_tmp: u8 = *default.velrange.end();
+        let mut lokey_tmp: Option<u8> = None;
+        let mut hikey_tmp: Option<u8> = None;
         match flag {
-            SfzRegionFlags::Lovel(val) => self.lovel = val,
-            SfzRegionFlags::Hivel(val) => self.hivel = val,
+            SfzRegionFlags::Lovel(val) => lovel_tmp = val,
+            SfzRegionFlags::Hivel(val) => hivel_tmp = val,
             SfzRegionFlags::Key(val) => self.key = Some(val),
-            SfzRegionFlags::Lokey(val) => self.lokey = Some(val),
-            SfzRegionFlags::Hikey(val) => self.hikey = Some(val),
+            SfzRegionFlags::Lokey(val) => lokey_tmp = Some(val),
+            SfzRegionFlags::Hikey(val) => hikey_tmp = Some(val),
             SfzRegionFlags::PitchKeycenter(val) => self.pitch_keycenter = Some(val),
             SfzRegionFlags::Pan(val) => self.pan = val,
             SfzRegionFlags::Sample(val) => self.sample = Some(val),
             SfzRegionFlags::LoopMode(val) => self.loop_mode = val,
-            SfzRegionFlags::Cutoff(val) => self.cutoff = val,
+            SfzRegionFlags::Cutoff(val) => self.cutoff = Some(val),
             SfzRegionFlags::DefaultPath(val) => self.default_path = Some(val),
             SfzRegionFlags::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
+        }
+        self.velrange = RangeInclusive::new(lovel_tmp, hivel_tmp);
+        if let Some(lokey_tmp) = lokey_tmp && let Some(hikey_tmp) = hikey_tmp {
+            self.keyrange = Some(RangeInclusive::new(lokey_tmp, hikey_tmp));
         }
     }
 
@@ -112,11 +118,9 @@ impl RegionParamsBuilder {
         let sample_path = base_path.join(relative_sample_path);
 
         Some(RegionParams {
-            lovel: self.lovel,
-            hivel: self.hivel,
+            velrange: self.velrange,
             key: self.key,
-            lokey: self.lokey,
-            hikey: self.hikey,
+            keyrange: self.keyrange,
             pitch_keycenter: self.pitch_keycenter,
             pan: self.pan,
             sample_path,
@@ -129,16 +133,14 @@ impl RegionParamsBuilder {
 
 #[derive(Debug, Clone)]
 pub struct RegionParams {
-    pub lovel: u8,
-    pub hivel: u8,
+    pub velrange: RangeInclusive<u8>,
     pub key: Option<u8>,
-    pub lokey: Option<u8>,
-    pub hikey: Option<u8>,
+    pub keyrange: Option<RangeInclusive<u8>>,
     pub pitch_keycenter: Option<u8>,
     pub pan: i8,
     pub sample_path: PathBuf,
     pub loop_mode: SfzLoopMode,
-    pub cutoff: f32,
+    pub cutoff: Option<f32>,
     pub ampeg_envelope: AmpegEnvelopeParams,
 }
 

@@ -9,7 +9,7 @@ impl Default for XSynthRealtimeConfig {
         Self {
             render_window_ms: 20.0,
             channel_count: 16,
-            use_threadpool: true,
+            use_threadpool: false,
         }
     }
 }

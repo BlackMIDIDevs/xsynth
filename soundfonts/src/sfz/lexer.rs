@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf};
+use std::{fs, io, path::Path};
 
 use lazy_regex::{regex, Regex};
 
@@ -312,8 +312,7 @@ fn parse_next_meta_token(parser: &mut StringParser) -> Option<SfzMetaToken> {
     None
 }
 
-pub fn parse_all_tokens(file_path: &PathBuf) -> io::Result<Vec<SfzToken>> {
-    dbg!(file_path);
+pub fn parse_all_tokens(file_path: &Path) -> io::Result<Vec<SfzToken>> {
     let file_path = file_path.canonicalize()?;
     let file = fs::read_to_string(&file_path)?;
 

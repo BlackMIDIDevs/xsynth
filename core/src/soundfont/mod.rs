@@ -38,7 +38,7 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
 
 struct SampleVoiceSpawnerParams {
     speed_mult: f32,
-    cutoff: f32,
+    cutoff: Option<f32>,
     envelope: Arc<EnvelopeParameters>,
     sample: Vec<Arc<[f32]>>,
 }
@@ -62,7 +62,7 @@ impl SampleCache {
 
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
-    cutoff: f32,
+    cutoff: Option<f32>,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Vec<Arc<[f32]>>,
@@ -94,7 +94,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 
         let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
 
-        let cutoff = SIMDConstant::<S>::new(self.cutoff);
+        let _cutoff = SIMDConstant::<S>::new(self.cutoff.unwrap());
 
         let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
             self.samples[0].clone(),
@@ -103,7 +103,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
             self.samples[1].clone(),
         )));
 
-        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac, cutoff);
+        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
 
         let amp = SIMDConstant::<S>::new(self.amp);
 
@@ -204,12 +204,16 @@ impl SampleSoundfont {
             let params = sample_cache_from_region_params(&region);
             let envelope = envelope_descriptor_from_region_params(&region);
 
-            if region.lokey.is_none() && region.hikey.is_none() {
-                for vel in region.lovel..=region.hivel {
+            if region.keyrange.is_none() {
+                for vel in *region.keyrange.as_ref().unwrap().start()
+                    ..=*region.keyrange.as_ref().unwrap().end()
+                {
                     let index = key_vel_to_index(region.key.unwrap(), vel);
                     let speed_mult = get_speed_mult_from_keys(
                         region.key.unwrap(),
-                        region.pitch_keycenter.unwrap_or(region.key.unwrap()),
+                        region
+                            .pitch_keycenter
+                            .unwrap_or_else(|| region.key.unwrap()),
                     );
                     let envelope_params = unique_envelope_params
                         .iter()
@@ -218,12 +222,12 @@ impl SampleSoundfont {
                         .1
                         .clone();
 
-                    let envelope_params = unique_envelope_params
-                        .iter()
-                        .find(|e| &e.0 == &envelope)
-                        .unwrap()
-                        .1
-                        .clone();
+                    /*let envelope_params = unique_envelope_params
+                    .iter()
+                    .find(|e| &e.0 == &envelope)
+                    .unwrap()
+                    .1
+                    .clone();*/
 
                     let cutoff = region.cutoff; // TODO: fil_veltrack
 
@@ -237,13 +241,13 @@ impl SampleSoundfont {
                     spawner_params_list[index] = Some(spawner_params.clone());
                 }
             } else {
-                let lokey = region.lokey.unwrap();
-                let hikey = region.hikey.unwrap();
+                let lokey = *region.keyrange.as_ref().unwrap().start();
+                let hikey = *region.keyrange.as_ref().unwrap().end();
                 for k in lokey..=hikey {
-                    for vel in region.lovel..=region.hivel {
+                    for vel in *region.velrange.start()..=*region.velrange.end() {
                         let index = key_vel_to_index(k, vel);
 
-                        let center = if region.pitch_keycenter == None && region.key != None {
+                        let center = if region.pitch_keycenter.is_none() && region.key.is_some() {
                             region.key.unwrap()
                         } else {
                             region.pitch_keycenter.unwrap_or(k)
@@ -253,7 +257,7 @@ impl SampleSoundfont {
 
                         let envelope_params = unique_envelope_params
                             .iter()
-                            .find(|e| &e.0 == &envelope)
+                            .find(|e| e.0 == envelope)
                             .unwrap()
                             .1
                             .clone();

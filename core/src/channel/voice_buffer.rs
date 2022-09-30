@@ -28,7 +28,7 @@ impl DerefMut for GroupVoice {
 pub struct VoiceBuffer {
     id_counter: usize,
     buffer: VecDeque<GroupVoice>,
-    damper: bool, // false = pedal up, true = pedal down
+    damper_held: bool,
     held_by_damper: Vec<usize>,
 }
 
@@ -37,7 +37,7 @@ impl VoiceBuffer {
         VoiceBuffer {
             id_counter: 0,
             buffer: VecDeque::new(),
-            damper: false,
+            damper_held: false,
             held_by_damper: Vec::new(),
         }
     }
@@ -111,8 +111,8 @@ impl VoiceBuffer {
 
         // Find the first non releasing voice, get its id and release all voices with that id
         for voice in self.buffer.iter_mut() {
-            if self.damper {
-                self.held_by_damper.push(voice.id.clone());
+            if self.damper_held {
+                self.held_by_damper.push(voice.id);
             } else {
                 if voice.is_releasing() {
                     continue;
@@ -129,8 +129,8 @@ impl VoiceBuffer {
 
                 voice.signal_release();
 
-                for v in &mut self.held_by_damper {
-                    if v == &mut voice.id {
+                for v in self.held_by_damper.drain(..) {
+                    if v == voice.id {
                         if voice.is_releasing() {
                             continue;
                         }
@@ -147,7 +147,6 @@ impl VoiceBuffer {
                         voice.signal_release();
                     }
                 }
-                self.held_by_damper.clear();
             }
         }
 
@@ -182,6 +181,6 @@ impl VoiceBuffer {
     }
 
     pub fn set_damper(&mut self, damper: bool) {
-        self.damper = damper;
+        self.damper_held = damper;
     }
 }

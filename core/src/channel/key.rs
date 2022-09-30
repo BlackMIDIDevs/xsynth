@@ -9,7 +9,7 @@ use super::{
 
 pub struct KeyData {
     key: u8,
-    pub voices: VoiceBuffer,
+    voices: VoiceBuffer,
     last_voice_count: usize,
     shared_voice_counter: Arc<AtomicU64>,
 }
@@ -84,5 +84,13 @@ impl KeyData {
 
     pub fn has_voices(&self) -> bool {
         self.voices.has_voices()
+    }
+
+    pub fn set_damper(&mut self, damper: bool) {
+        self.voices.set_damper(damper);
+    }
+
+    pub fn check_to_release_voices(&mut self) {
+        self.voices.release_next_voice();
     }
 }
