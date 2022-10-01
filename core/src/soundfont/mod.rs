@@ -94,7 +94,9 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 
         let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
 
-        let _cutoff = SIMDConstant::<S>::new(self.cutoff.unwrap());
+        if let Some(cutoff) = self.cutoff {
+            let _cutoff = SIMDConstant::<S>::new(cutoff);
+        }
 
         let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
             self.samples[0].clone(),
