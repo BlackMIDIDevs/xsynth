@@ -38,6 +38,7 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
 
 struct SampleVoiceSpawnerParams {
     speed_mult: f32,
+    cutoff: Option<f32>,
     envelope: Arc<EnvelopeParameters>,
     sample: Vec<Arc<[f32]>>,
 }
@@ -61,6 +62,7 @@ impl SampleCache {
 
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
+    cutoff: Option<f32>,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Vec<Arc<[f32]>>,
@@ -74,6 +76,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
         Self {
             speed_mult: params.speed_mult,
+            cutoff: params.cutoff,
             amp,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
@@ -91,6 +94,10 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 
         let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
 
+        if let Some(cutoff) = self.cutoff {
+            let _cutoff = SIMDConstant::<S>::new(cutoff);
+        }
+
         let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
             self.samples[0].clone(),
         )));
@@ -101,6 +108,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
 
         let amp = SIMDConstant::<S>::new(self.amp);
+
         let volume_envelope = SIMDVoiceEnvelope::new(self.volume_envelope_params.clone());
 
         let modulated = VoiceCombineSIMD::mult(amp, sampler);
@@ -135,7 +143,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release.min(0.3),
+        release: env.ampeg_release / 4.0,
     }
 }
 
@@ -198,25 +206,30 @@ impl SampleSoundfont {
             let params = sample_cache_from_region_params(&region);
             let envelope = envelope_descriptor_from_region_params(&region);
 
-            let speed_mult =
-                get_speed_mult_from_keys(region.key, region.pitch_keycenter.unwrap_or(region.key));
+            for key in *region.keyrange.start()..=*region.keyrange.end() {
+                for vel in *region.velrange.start()..=*region.velrange.end() {
+                    let index = key_vel_to_index(key, vel);
+                    let speed_mult =
+                        get_speed_mult_from_keys(key, region.pitch_keycenter.unwrap_or(key));
 
-            let envelope_params = unique_envelope_params
-                .iter()
-                .find(|e| e.0 == envelope)
-                .unwrap()
-                .1
-                .clone();
+                    let envelope_params = unique_envelope_params
+                        .iter()
+                        .find(|e| e.0 == envelope)
+                        .unwrap()
+                        .1
+                        .clone();
 
-            let spawner_params = Arc::new(SampleVoiceSpawnerParams {
-                envelope: envelope_params,
-                speed_mult,
-                sample: samples[&params].clone(),
-            });
+                    let cutoff = region.cutoff; // TODO: fil_veltrack
 
-            for vel in region.lovel..=region.hivel {
-                let index = key_vel_to_index(region.key, vel);
-                spawner_params_list[index] = Some(spawner_params.clone());
+                    let spawner_params = Arc::new(SampleVoiceSpawnerParams {
+                        envelope: envelope_params,
+                        speed_mult,
+                        cutoff,
+                        sample: samples[&params].clone(),
+                    });
+
+                    spawner_params_list[index] = Some(spawner_params.clone());
+                }
             }
         }
 

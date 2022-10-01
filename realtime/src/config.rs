@@ -7,7 +7,7 @@ pub struct XSynthRealtimeConfig {
 impl Default for XSynthRealtimeConfig {
     fn default() -> Self {
         Self {
-            render_window_ms: 10.0,
+            render_window_ms: 20.0,
             channel_count: 16,
             use_threadpool: false,
         }

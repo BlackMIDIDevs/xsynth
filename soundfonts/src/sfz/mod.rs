@@ -1,6 +1,7 @@
 use std::{
     collections::VecDeque,
     io,
+    ops::RangeInclusive,
     path::{Path, PathBuf},
 };
 
@@ -54,11 +55,14 @@ pub struct RegionParamsBuilder {
     lovel: u8,
     hivel: u8,
     key: Option<u8>,
+    lokey: Option<u8>,
+    hikey: Option<u8>,
     pitch_keycenter: Option<u8>,
     pan: i8,
     sample: Option<String>,
     default_path: Option<String>,
     loop_mode: SfzLoopMode,
+    cutoff: Option<f32>,
     ampeg_envelope: AmpegEnvelopeParams,
 }
 
@@ -68,11 +72,14 @@ impl Default for RegionParamsBuilder {
             lovel: 0,
             hivel: 127,
             key: None,
+            lokey: None,
+            hikey: None,
             pitch_keycenter: None,
             pan: 0,
             sample: None,
             default_path: None,
             loop_mode: SfzLoopMode::NoLoop,
+            cutoff: None,
             ampeg_envelope: AmpegEnvelopeParams::default(),
         }
     }
@@ -84,10 +91,13 @@ impl RegionParamsBuilder {
             SfzRegionFlags::Lovel(val) => self.lovel = val,
             SfzRegionFlags::Hivel(val) => self.hivel = val,
             SfzRegionFlags::Key(val) => self.key = Some(val),
+            SfzRegionFlags::Lokey(val) => self.lokey = Some(val),
+            SfzRegionFlags::Hikey(val) => self.hikey = Some(val),
             SfzRegionFlags::PitchKeycenter(val) => self.pitch_keycenter = Some(val),
             SfzRegionFlags::Pan(val) => self.pan = val,
             SfzRegionFlags::Sample(val) => self.sample = Some(val),
             SfzRegionFlags::LoopMode(val) => self.loop_mode = val,
+            SfzRegionFlags::Cutoff(val) => self.cutoff = Some(val),
             SfzRegionFlags::DefaultPath(val) => self.default_path = Some(val),
             SfzRegionFlags::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
         }
@@ -102,14 +112,24 @@ impl RegionParamsBuilder {
 
         let sample_path = base_path.join(relative_sample_path);
 
+        let keyrange: RangeInclusive<u8>;
+
+        if let (Some(lokey), Some(hikey)) = (self.lokey, self.hikey) {
+            keyrange = RangeInclusive::new(lokey, hikey);
+        } else if let Some(key) = self.key {
+            keyrange = RangeInclusive::new(key, key);
+        } else {
+            return None;
+        };
+
         Some(RegionParams {
-            lovel: self.lovel,
-            hivel: self.hivel,
-            key: self.key?,
+            velrange: RangeInclusive::new(self.lovel, self.hivel),
+            keyrange,
             pitch_keycenter: self.pitch_keycenter,
             pan: self.pan,
             sample_path,
             loop_mode: self.loop_mode,
+            cutoff: self.cutoff,
             ampeg_envelope: self.ampeg_envelope,
         })
     }
@@ -117,13 +137,13 @@ impl RegionParamsBuilder {
 
 #[derive(Debug, Clone)]
 pub struct RegionParams {
-    pub lovel: u8,
-    pub hivel: u8,
-    pub key: u8,
+    pub velrange: RangeInclusive<u8>,
+    pub keyrange: RangeInclusive<u8>,
     pub pitch_keycenter: Option<u8>,
     pub pan: i8,
     pub sample_path: PathBuf,
     pub loop_mode: SfzLoopMode,
+    pub cutoff: Option<f32>,
     pub ampeg_envelope: AmpegEnvelopeParams,
 }
 

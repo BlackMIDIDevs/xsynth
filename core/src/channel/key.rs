@@ -85,4 +85,8 @@ impl KeyData {
     pub fn has_voices(&self) -> bool {
         self.voices.has_voices()
     }
+
+    pub fn set_damper(&mut self, damper: bool) {
+        self.voices.set_damper(damper);
+    }
 }

@@ -28,6 +28,8 @@ impl DerefMut for GroupVoice {
 pub struct VoiceBuffer {
     id_counter: usize,
     buffer: VecDeque<GroupVoice>,
+    damper_held: bool,
+    held_by_damper: Vec<usize>,
 }
 
 impl VoiceBuffer {
@@ -35,6 +37,8 @@ impl VoiceBuffer {
         VoiceBuffer {
             id_counter: 0,
             buffer: VecDeque::new(),
+            damper_held: false,
+            held_by_damper: Vec::new(),
         }
     }
 
@@ -72,6 +76,9 @@ impl VoiceBuffer {
 
         if count > 0 {
             self.buffer.drain(quietest_index..(quietest_index + count));
+            if let Some(index) = self.held_by_damper.iter().position(|&x| x == quietest_id) {
+                self.held_by_damper.remove(index);
+            }
         }
     }
 
@@ -102,28 +109,46 @@ impl VoiceBuffer {
 
     /// Releases the next voice, and all subsequent voices that have the same ID.
     pub fn release_next_voice(&mut self) -> Option<u8> {
-        let mut id: Option<usize> = None;
-        let mut vel = None;
+        if !self.damper_held {
+            let mut id: Option<usize> = None;
+            let mut vel = None;
 
-        // Find the first non releasing voice, get its id and release all voices with that id
-        for voice in self.buffer.iter_mut() {
-            if voice.is_releasing() {
-                continue;
+            // Find the first non releasing voice, get its id and release all voices with that id
+            for voice in self.buffer.iter_mut() {
+                if voice.is_releasing() {
+                    continue;
+                }
+
+                if id.is_none() {
+                    id = Some(voice.id);
+                    vel = Some(voice.velocity())
+                }
+
+                if id != Some(voice.id) {
+                    break;
+                }
+
+                voice.signal_release();
             }
 
-            if id.is_none() {
-                id = Some(voice.id);
-                vel = Some(voice.velocity())
-            }
+            vel
+        } else {
+            // Find the first non releasing voice which also isn't being held in the release buffer, and add it to the release buffer
+            for voice in self.buffer.iter_mut() {
+                if voice.is_releasing() {
+                    continue;
+                }
 
-            if id != Some(voice.id) {
+                if self.held_by_damper.contains(&voice.id) {
+                    continue;
+                }
+
+                self.held_by_damper.push(voice.id);
                 break;
             }
 
-            voice.signal_release();
+            None
         }
-
-        vel
     }
 
     pub fn remove_ended_voices(&mut self) {
@@ -151,5 +176,18 @@ impl VoiceBuffer {
 
     pub fn voice_count(&self) -> usize {
         self.buffer.len()
+    }
+
+    pub fn set_damper(&mut self, damper: bool) {
+        if self.damper_held && !damper {
+            // Release all voices that are held by the damper
+            for voice in self.buffer.iter_mut() {
+                if self.held_by_damper.contains(&voice.id) {
+                    voice.signal_release();
+                }
+            }
+            self.held_by_damper.clear();
+        }
+        self.damper_held = damper;
     }
 }

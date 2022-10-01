@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf};
+use std::{fs, io, path::Path};
 
 use lazy_regex::{regex, Regex};
 
@@ -165,10 +165,13 @@ pub enum SfzRegionFlags {
     Lovel(u8),
     Hivel(u8),
     Key(u8),
+    Lokey(u8),
+    Hikey(u8),
     PitchKeycenter(u8),
     Pan(i8),
     Sample(String),
     LoopMode(SfzLoopMode),
+    Cutoff(f32),
     DefaultPath(String),
     AmpegEnvelope(SfzAmpegEnvelope),
 }
@@ -188,7 +191,6 @@ pub enum SfzAmpegEnvelope {
 #[derive(Debug, Clone)]
 pub enum SfzToken {
     Group(SfzGroupType),
-
     RegionFlag(SfzRegionFlags),
 }
 
@@ -219,6 +221,8 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
 
     try_parse_basic_tag!(parser, SfzRegionFlags::Lovel, u8, "lovel", parse_vel_number);
     try_parse_basic_tag!(parser, SfzRegionFlags::Hivel, u8, "hivel", parse_vel_number);
+    try_parse_basic_tag!(parser, SfzRegionFlags::Lokey, u8, "lokey", parse_key_number);
+    try_parse_basic_tag!(parser, SfzRegionFlags::Hikey, u8, "hikey", parse_key_number);
     try_parse_basic_tag!(parser, SfzRegionFlags::Pan, i8, "pan", parse_pan_number);
     try_parse_basic_tag!(
         parser,
@@ -228,6 +232,7 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         parse_key_number
     );
     try_parse_basic_tag!(parser, SfzRegionFlags::Key, u8, "key", parse_key_number);
+    try_parse_basic_tag!(parser, SfzRegionFlags::Cutoff, f32, "cutoff", parse_float);
 
     try_parse!(parser, SfzRegionFlags::LoopMode, SfzLoopMode, parser, {
         parse_basic_tag_name(parser, "loop_mode")?;
@@ -307,8 +312,7 @@ fn parse_next_meta_token(parser: &mut StringParser) -> Option<SfzMetaToken> {
     None
 }
 
-pub fn parse_all_tokens(file_path: &PathBuf) -> io::Result<Vec<SfzToken>> {
-    dbg!(file_path);
+pub fn parse_all_tokens(file_path: &Path) -> io::Result<Vec<SfzToken>> {
     let file_path = file_path.canonicalize()?;
     let file = fs::read_to_string(&file_path)?;
 
