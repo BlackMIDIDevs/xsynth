@@ -119,7 +119,7 @@ impl RegionParamsBuilder {
         } else if let Some(key) = self.key {
             keyrange = RangeInclusive::new(key, key);
         } else {
-            return None
+            return None;
         };
 
         Some(RegionParams {

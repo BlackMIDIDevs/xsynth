@@ -207,13 +207,10 @@ impl SampleSoundfont {
             let envelope = envelope_descriptor_from_region_params(&region);
 
             for key in *region.keyrange.start()..=*region.keyrange.end() {
-                for vel in *region.velrange.start()..=*region.velrange.end()
-                {
+                for vel in *region.velrange.start()..=*region.velrange.end() {
                     let index = key_vel_to_index(key, vel);
-                    let speed_mult = get_speed_mult_from_keys(
-                        key,
-                        region.pitch_keycenter.unwrap_or(key),
-                    );
+                    let speed_mult =
+                        get_speed_mult_from_keys(key, region.pitch_keycenter.unwrap_or(key));
 
                     let envelope_params = unique_envelope_params
                         .iter()
@@ -234,7 +231,7 @@ impl SampleSoundfont {
                     spawner_params_list[index] = Some(spawner_params.clone());
                 }
             }
-            }
+        }
 
         Ok(SampleSoundfont {
             spawner_params_list,
