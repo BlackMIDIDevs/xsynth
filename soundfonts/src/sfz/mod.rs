@@ -52,9 +52,11 @@ impl AmpegEnvelopeParams {
 
 #[derive(Debug, Clone)]
 pub struct RegionParamsBuilder {
-    velrange: RangeInclusive<u8>,
+    lovel: u8,
+    hivel: u8,
     key: Option<u8>,
-    keyrange: Option<RangeInclusive<u8>>,
+    lokey: Option<u8>,
+    hikey: Option<u8>,
     pitch_keycenter: Option<u8>,
     pan: i8,
     sample: Option<String>,
@@ -67,9 +69,11 @@ pub struct RegionParamsBuilder {
 impl Default for RegionParamsBuilder {
     fn default() -> Self {
         RegionParamsBuilder {
-            velrange: RangeInclusive::new(0, 127),
+            lovel: 0,
+            hivel: 127,
             key: None,
-            keyrange: Some(RangeInclusive::new(0, 127)),
+            lokey: None,
+            hikey: None,
             pitch_keycenter: None,
             pan: 0,
             sample: None,
@@ -83,17 +87,12 @@ impl Default for RegionParamsBuilder {
 
 impl RegionParamsBuilder {
     fn update_from_flag(&mut self, flag: SfzRegionFlags) {
-        let default = RegionParamsBuilder::default();
-        let mut lovel_tmp: u8 = *default.velrange.start();
-        let mut hivel_tmp: u8 = *default.velrange.end();
-        let mut lokey_tmp: Option<u8> = None;
-        let mut hikey_tmp: Option<u8> = None;
         match flag {
-            SfzRegionFlags::Lovel(val) => lovel_tmp = val,
-            SfzRegionFlags::Hivel(val) => hivel_tmp = val,
+            SfzRegionFlags::Lovel(val) => self.lovel = val,
+            SfzRegionFlags::Hivel(val) => self.hivel = val,
             SfzRegionFlags::Key(val) => self.key = Some(val),
-            SfzRegionFlags::Lokey(val) => lokey_tmp = Some(val),
-            SfzRegionFlags::Hikey(val) => hikey_tmp = Some(val),
+            SfzRegionFlags::Lokey(val) => self.lokey = Some(val),
+            SfzRegionFlags::Hikey(val) => self.hikey = Some(val),
             SfzRegionFlags::PitchKeycenter(val) => self.pitch_keycenter = Some(val),
             SfzRegionFlags::Pan(val) => self.pan = val,
             SfzRegionFlags::Sample(val) => self.sample = Some(val),
@@ -101,10 +100,6 @@ impl RegionParamsBuilder {
             SfzRegionFlags::Cutoff(val) => self.cutoff = Some(val),
             SfzRegionFlags::DefaultPath(val) => self.default_path = Some(val),
             SfzRegionFlags::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
-        }
-        self.velrange = RangeInclusive::new(lovel_tmp, hivel_tmp);
-        if let Some(lokey_tmp) = lokey_tmp && let Some(hikey_tmp) = hikey_tmp {
-            self.keyrange = Some(RangeInclusive::new(lokey_tmp, hikey_tmp));
         }
     }
 
@@ -117,10 +112,19 @@ impl RegionParamsBuilder {
 
         let sample_path = base_path.join(relative_sample_path);
 
+        let keyrange: RangeInclusive<u8>;
+
+        if let (Some(lokey), Some(hikey)) = (self.lokey, self.hikey) {
+            keyrange = RangeInclusive::new(lokey, hikey);
+        } else if let Some(key) = self.key {
+            keyrange = RangeInclusive::new(key, key);
+        } else {
+            return None
+        };
+
         Some(RegionParams {
-            velrange: self.velrange,
-            key: self.key,
-            keyrange: self.keyrange,
+            velrange: RangeInclusive::new(self.lovel, self.hivel),
+            keyrange,
             pitch_keycenter: self.pitch_keycenter,
             pan: self.pan,
             sample_path,
@@ -134,8 +138,7 @@ impl RegionParamsBuilder {
 #[derive(Debug, Clone)]
 pub struct RegionParams {
     pub velrange: RangeInclusive<u8>,
-    pub key: Option<u8>,
-    pub keyrange: Option<RangeInclusive<u8>>,
+    pub keyrange: RangeInclusive<u8>,
     pub pitch_keycenter: Option<u8>,
     pub pan: i8,
     pub sample_path: PathBuf,

@@ -204,30 +204,21 @@ impl SampleSoundfont {
             let params = sample_cache_from_region_params(&region);
             let envelope = envelope_descriptor_from_region_params(&region);
 
-            if region.keyrange.is_none() {
-                for vel in *region.keyrange.as_ref().unwrap().start()
-                    ..=*region.keyrange.as_ref().unwrap().end()
+            for key in *region.keyrange.start()..=*region.keyrange.end() {
+                for vel in *region.velrange.start()..=*region.velrange.end()
                 {
-                    let index = key_vel_to_index(region.key.unwrap(), vel);
+                    let index = key_vel_to_index(key, vel);
                     let speed_mult = get_speed_mult_from_keys(
-                        region.key.unwrap(),
-                        region
-                            .pitch_keycenter
-                            .unwrap_or_else(|| region.key.unwrap()),
+                        key,
+                        region.pitch_keycenter.unwrap_or(key),
                     );
+
                     let envelope_params = unique_envelope_params
                         .iter()
                         .find(|e| e.0 == envelope)
                         .unwrap()
                         .1
                         .clone();
-
-                    /*let envelope_params = unique_envelope_params
-                    .iter()
-                    .find(|e| &e.0 == &envelope)
-                    .unwrap()
-                    .1
-                    .clone();*/
 
                     let cutoff = region.cutoff; // TODO: fil_veltrack
 
@@ -240,42 +231,8 @@ impl SampleSoundfont {
 
                     spawner_params_list[index] = Some(spawner_params.clone());
                 }
-            } else {
-                let lokey = *region.keyrange.as_ref().unwrap().start();
-                let hikey = *region.keyrange.as_ref().unwrap().end();
-                for k in lokey..=hikey {
-                    for vel in *region.velrange.start()..=*region.velrange.end() {
-                        let index = key_vel_to_index(k, vel);
-
-                        let center = if region.pitch_keycenter.is_none() && region.key.is_some() {
-                            region.key.unwrap()
-                        } else {
-                            region.pitch_keycenter.unwrap_or(k)
-                        };
-
-                        let speed_mult = get_speed_mult_from_keys(k, center);
-
-                        let envelope_params = unique_envelope_params
-                            .iter()
-                            .find(|e| e.0 == envelope)
-                            .unwrap()
-                            .1
-                            .clone();
-
-                        let cutoff = region.cutoff; // TODO: fil_veltrack
-
-                        let spawner_params = Arc::new(SampleVoiceSpawnerParams {
-                            envelope: envelope_params,
-                            speed_mult,
-                            cutoff,
-                            sample: samples[&params].clone(),
-                        });
-
-                        spawner_params_list[index] = Some(spawner_params.clone());
-                    }
-                }
             }
-        }
+            }
 
         Ok(SampleSoundfont {
             spawner_params_list,
