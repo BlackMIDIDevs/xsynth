@@ -89,8 +89,4 @@ impl KeyData {
     pub fn set_damper(&mut self, damper: bool) {
         self.voices.set_damper(damper);
     }
-
-    pub fn check_to_release_voices(&mut self) {
-        self.voices.release_next_voice();
-    }
 }
