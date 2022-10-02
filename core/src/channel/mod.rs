@@ -377,11 +377,15 @@ impl VoiceChannel {
                 ChannelEvent::Audio(audio) => match audio {
                     ChannelAudioEvent::NoteOn { key, vel } => {
                         let ev = KeyNoteEvent::On(vel);
-                        key_events[key as usize].push(ev);
+                        if let Some(events) = key_events.get_mut(key as usize) {
+                            events.push(ev);
+                        }
                     }
                     ChannelAudioEvent::NoteOff { key } => {
                         let ev = KeyNoteEvent::Off;
-                        key_events[key as usize].push(ev);
+                        if let Some(events) = key_events.get_mut(key as usize) {
+                            events.push(ev);
+                        }
                     }
                     ChannelAudioEvent::AllNotesOff => {
                         let ev = KeyNoteEvent::AllOff;
