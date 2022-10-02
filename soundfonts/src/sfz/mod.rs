@@ -115,15 +115,24 @@ impl RegionParamsBuilder {
         let keyrange: RangeInclusive<u8>;
 
         if let (Some(lokey), Some(hikey)) = (self.lokey, self.hikey) {
-            keyrange = RangeInclusive::new(lokey, hikey);
+            // If key is present, the region is only valid if the key falls between
+            // lokey and hikey. Then key is used.
+            if let Some(key) = self.key {
+                if key < lokey || key > hikey {
+                    return None;
+                }
+                keyrange = key..=key;
+            } else {
+                keyrange = lokey..=hikey;
+            }
         } else if let Some(key) = self.key {
-            keyrange = RangeInclusive::new(key, key);
+            keyrange = key..=key;
         } else {
             return None;
         };
 
         Some(RegionParams {
-            velrange: RangeInclusive::new(self.lovel, self.hivel),
+            velrange: self.lovel..=self.hivel,
             keyrange,
             pitch_keycenter: self.pitch_keycenter,
             pan: self.pan,
