@@ -28,7 +28,7 @@ fn main() {
     println!("Loading Soundfont");
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
-            "D:/Midis/Steinway-B-211-master/Steinway-B-211-master/Presets/1960 Steinway B-211.sfz",
+            "D:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
             params.clone(),
         )
         .unwrap(),

@@ -206,8 +206,8 @@ impl SampleSoundfont {
             let params = sample_cache_from_region_params(&region);
             let envelope = envelope_descriptor_from_region_params(&region);
 
-            for key in *region.keyrange.start()..=*region.keyrange.end() {
-                for vel in *region.velrange.start()..=*region.velrange.end() {
+            for key in region.keyrange.clone() {
+                for vel in region.velrange.clone() {
                     let index = key_vel_to_index(key, vel);
                     let speed_mult =
                         get_speed_mult_from_keys(key, region.pitch_keycenter.unwrap_or(key));
