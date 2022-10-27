@@ -150,18 +150,13 @@ pub enum EnvelopePart {
     Lerp {
         target: f32,   // Target value by the end of the envelope part
         duration: u32, // Duration in samples
-        cache_index: usize,
     },
     Hold(f32),
 }
 
 impl EnvelopePart {
-    pub fn lerp(cache_index: usize, target: f32, duration: u32) -> EnvelopePart {
-        EnvelopePart::Lerp {
-            target,
-            duration,
-            cache_index,
-        }
+    pub fn lerp(target: f32, duration: u32) -> EnvelopePart {
+        EnvelopePart::Lerp { target, duration }
     }
 
     pub fn hold(value: f32) -> EnvelopePart {
@@ -185,49 +180,24 @@ impl EnvelopeDescriptor {
     pub fn to_envelope_params(&self, samplerate: u32) -> EnvelopeParameters {
         let samplerate = samplerate as f32;
 
-        fn gen_lerp(from: f32, to: f32, len: u32) -> Box<[f32]> {
-            let mut vec = Vec::new();
-
-            for i in 0..len {
-                vec.push(from + (to - from) * i as f32 / len as f32);
-            }
-
-            vec.into()
-        }
-
         EnvelopeParameters {
             start: self.start_percent,
             parts: [
                 // Delay
-                EnvelopePart::lerp(0, self.start_percent, (self.delay * samplerate) as u32),
+                EnvelopePart::lerp(self.start_percent, (self.delay * samplerate) as u32),
                 // Attack
-                EnvelopePart::lerp(1, 1.0, (self.attack * samplerate) as u32),
+                EnvelopePart::lerp(1.0, (self.attack * samplerate) as u32),
                 // Hold
-                EnvelopePart::lerp(2, 1.0, (self.hold * samplerate) as u32),
+                EnvelopePart::lerp(1.0, (self.hold * samplerate) as u32),
                 // Decay
-                EnvelopePart::lerp(3, self.sustain_percent, (self.decay * samplerate) as u32),
+                EnvelopePart::lerp(self.sustain_percent, (self.decay * samplerate) as u32),
                 // Sustain
                 EnvelopePart::hold(self.sustain_percent),
                 // Release
-                EnvelopePart::lerp(4, 0.0, (self.release * samplerate) as u32),
+                EnvelopePart::lerp(0.0, (self.release * samplerate) as u32),
                 // Finished
                 EnvelopePart::hold(0.0),
             ],
-            caches: Box::new([
-                gen_lerp(
-                    self.start_percent,
-                    self.start_percent,
-                    (self.delay * samplerate) as u32,
-                ),
-                gen_lerp(self.start_percent, 1.0, (self.attack * samplerate) as u32),
-                gen_lerp(1.0, 1.0, (self.hold * samplerate) as u32),
-                gen_lerp(1.0, self.sustain_percent, (self.decay * samplerate) as u32),
-                gen_lerp(
-                    self.sustain_percent,
-                    0.0,
-                    (self.release * samplerate) as u32,
-                ),
-            ]),
         }
     }
 }
@@ -239,14 +209,9 @@ impl EnvelopeDescriptor {
 pub struct EnvelopeParameters {
     start: f32,
     parts: [EnvelopePart; 7],
-    caches: Box<[Box<[f32]>]>,
 }
 
 impl EnvelopeParameters {
-    fn get_cache_at(&self, index: usize) -> &[f32] {
-        &self.caches[index]
-    }
-
     fn get_stage_data<T: Simd>(
         &self,
         stage: EnvelopeStage,
@@ -254,36 +219,19 @@ impl EnvelopeParameters {
     ) -> VoiceEnvelopeState<T> {
         let stage_info = &self.parts[stage.as_usize()];
         match stage_info {
-            EnvelopePart::Lerp {
-                target,
-                duration,
-                cache_index,
-            } => {
+            EnvelopePart::Lerp { target, duration } => {
                 let duration = *duration;
                 let target = *target;
                 if duration == 0 {
                     self.get_stage_data(stage.next_stage(), target)
                 } else {
-                    let cache_index = *cache_index;
-                    if self.get_cache_at(cache_index)[0] == start_amp {
-                        let data = StageData::Cache {
-                            cache_index,
-                            length: self.get_cache_at(cache_index).len(),
-                            time: 0,
-                        };
-                        VoiceEnvelopeState {
-                            current_stage: stage,
-                            stage_data: data,
-                        }
-                    } else {
-                        let data = StageData::Lerp(
-                            SIMDLerper::new(start_amp, target),
-                            StageTime::new(0, duration),
-                        );
-                        VoiceEnvelopeState {
-                            current_stage: stage,
-                            stage_data: data,
-                        }
+                    let data = StageData::Lerp(
+                        SIMDLerper::new(start_amp, target),
+                        StageTime::new(0, duration),
+                    );
+                    VoiceEnvelopeState {
+                        current_stage: stage,
+                        stage_data: data,
                     }
                 }
             }
@@ -300,11 +248,6 @@ impl EnvelopeParameters {
 
 enum StageData<T: Simd> {
     Lerp(SIMDLerper<T>, StageTime<T>),
-    Cache {
-        time: usize,
-        length: usize,
-        cache_index: usize,
-    },
     Constant(T::Vf32),
 }
 
@@ -331,15 +274,6 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
                 lerper.lerp(stage_time.simd_array_start_f32() / stage_time.stage_end_time_f32)
             }
             StageData::Constant(constant) => constant[0],
-            StageData::Cache {
-                time, cache_index, ..
-            } => {
-                let cache = self.params.get_cache_at(*cache_index);
-                match cache.get(*time) {
-                    Some(value) => *value,
-                    None => cache[cache.len() - 1],
-                }
-            }
         }
     }
 
@@ -360,9 +294,6 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
                 stage_time.increment_by(increment);
             }
             StageData::Constant(_) => {}
-            StageData::Cache { time, .. } => {
-                *time += increment as usize;
-            }
         }
     }
 
@@ -377,7 +308,6 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
                     stage_time.is_ending() && !stage_time.is_intersecting_end()
                 }
                 StageData::Constant(_) => false,
-                StageData::Cache { time, length, .. } => *time >= *length,
             };
             if should_progress {
                 self.switch_to_next_stage();
@@ -423,33 +353,6 @@ impl<T: Simd> SIMDVoiceGenerator<T, SIMDSampleMono<T>> for SIMDVoiceEnvelope<T> 
                 }
             }
             StageData::Constant(constant) => SIMDSampleMono(*constant),
-            StageData::Cache {
-                time,
-                length,
-                cache_index,
-            } => {
-                if *time + T::VF32_WIDTH >= *length {
-                    if *time < *length {
-                        // It is ended, and the SIMD array intersects the border of the envelope part.
-                        // Therefore, this needs to generate one float sample at a time for this SIMD array.
-                        self.manually_build_simd_sample()
-                    } else {
-                        // Is ended, except the SIMD array isn't intersecting the end.
-                        // Therefore can jump to the next stage, and try again
-                        self.switch_to_next_stage();
-                        self.next_sample()
-                    }
-                } else {
-                    // No special conditions happening, return the next entire simd array lerped
-                    let mut values = unsafe { T::set1_ps(0.0) };
-                    let cache = self.params.get_cache_at(*cache_index);
-                    for i in 0..T::VF32_WIDTH {
-                        values[i] = cache[*time];
-                        *time += 1;
-                    }
-                    SIMDSampleMono(values)
-                }
-            }
         }
     }
 }

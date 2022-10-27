@@ -8,17 +8,15 @@ edition = "2018"
 [dependencies]
 atomic_refcell = "0.1.7"
 bytemuck = "1.7.2"
-cpal = "0.13.3"
 crossbeam-channel = "0.5.1"
 lazy_static = "1.4.0"
-midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "51ff0dc" }
 soundfonts = { path = "../soundfonts", package = "xsynth-soundfonts" }
 rayon = "1.5.1"
 simdeez = { git = "https://github.com/arduano/simdeez", rev = "d72e9a1" }
-sofiza = { git = "https://github.com/arduano/sofiza", rev = "4a013a6" }
-soundfont = "0.0.0"
 spin_sleep = "1.0.0"
 to_vec = "0.1.0"
-wav = "1.0.0"
 thiserror = "1.0.31"
-flac = "0.5.0"
+symphonia = "0.5.1"
+
+[dev-dependencies]
+midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "51ff0dc" }
