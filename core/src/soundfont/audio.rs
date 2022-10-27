@@ -1,18 +1,10 @@
-use std::{
-    fs::File,
-    io,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs::File, io, path::PathBuf, sync::Arc};
 
+use symphonia::core::formats::FormatOptions;
 use symphonia::core::{audio::AudioBuffer, conv::IntoSample, probe::Hint, sample::Sample};
 use symphonia::core::{audio::AudioBufferRef, meta::MetadataOptions};
-use symphonia::core::{audio::SampleBuffer, formats::FormatOptions};
 use symphonia::core::{audio::Signal, io::MediaSourceStream};
-use symphonia::core::{
-    codecs::{DecoderOptions, CODEC_TYPE_NULL},
-    errors::Error,
-};
+use symphonia::core::{codecs::DecoderOptions, errors::Error};
 
 use thiserror::Error;
 
