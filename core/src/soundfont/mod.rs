@@ -88,7 +88,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult as f32);
+        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult);
 
         let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
 

@@ -158,6 +158,6 @@ impl BuilderVecs {
             chan.shrink_to_fit();
         }
 
-        resample_vecs(vecs, sample_rate as f32, new_sample_rate)
+        resample_vecs(vecs, sample_rate, new_sample_rate)
     }
 }
