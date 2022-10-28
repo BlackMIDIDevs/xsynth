@@ -61,6 +61,7 @@ struct ControlEventData {
     pitch_bend_value: f32,
     volume: f32, // 0.0 = silent, 1.0 = max volume
     pan: f32,    // 0.0 = left, 0.5 = center, 1.0 = right
+    cutoff: Option<f32>,
 }
 
 impl ControlEventData {
@@ -74,6 +75,7 @@ impl ControlEventData {
             pitch_bend_value: 0.0,
             volume: 1.0,
             pan: 0.5,
+            cutoff: None,
         }
     }
 }
@@ -122,8 +124,6 @@ impl VoiceChannelData {
     }
 
     fn apply_channel_effects(&self, out: &mut [f32]) {
-        #![allow(unused_variables)]
-
         let params = self.params.read().unwrap();
         let stream_params = &params.constant.stream_params;
         let control = self.control_event_data.borrow();
@@ -141,35 +141,19 @@ impl VoiceChannelData {
             *sample *= ((1.0 - control.pan) * 2f32).min(1.0);
         }
 
-        // Cutoff, it doesn't work
-        //         let cutoff_freq = 2000.0;
-        //         let mut dn1 = 0.0;
-        //         let mut dn2 = 0.0;
-        //         let highpass = false;
-        //
-        //         for sample in out.iter_mut().skip(0).step_by(2) {
-        //             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
-        //             let tan = tanp.tan();
-        //             let a1 = (tan - 1.0) / (tan + 1.0);
-        //             let p = *sample;
-        //             *sample = a1 * p + dn1;
-        //             dn1 = p - a1 * p;
-        //             if highpass {
-        //                 *sample *= -1.0;
-        //             }
-        //         }
-        //
-        //         for sample in out.iter_mut().skip(1).step_by(2) {
-        //             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
-        //             let tan = tanp.tan();
-        //             let a1 = (tan - 1.0) / (tan + 1.0);
-        //             let p = *sample;
-        //             *sample = a1 * p + dn2;
-        //             dn2 = p - a1 * p;
-        //             if highpass {
-        //                 *sample *= -1.0;
-        //             }
-        //         }
+        // Cutoff
+        if let Some(cutoff) = control.cutoff {
+            let rc = 1.0 / (cutoff * 2.0 * core::f32::consts::PI);
+            let dt = 1.0 / stream_params.sample_rate as f32;
+            let alpha = dt / (rc + dt);
+
+            out[0] *= alpha;
+            out[1] *= alpha;
+
+            for i in 2..out.len() {
+                out[i] = out[i - 2] + alpha * (out[i] - out[i - 2]);
+            }
+        }
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
@@ -317,6 +301,12 @@ impl VoiceChannelData {
                     for key in self.key_voices.iter() {
                         key.data.borrow().set_damper(damper);
                     }
+                }
+                0x4A => {
+                    // Cutoff
+                    let cutoff = (value as f32 / 128.0) * 20000.0;
+                    println!("{}", cutoff);
+                    self.control_event_data.borrow_mut().cutoff = Some(cutoff)
                 }
                 _ => {}
             },
