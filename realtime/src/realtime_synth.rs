@@ -11,7 +11,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, PauseStreamError, PlayStreamError, Sample, Stream, SupportedStreamConfig,
 };
-use crossbeam_channel::{bounded, unbounded, Sender, Receiver};
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use to_vec::ToVec;
 
 use core::{
@@ -193,7 +193,7 @@ impl RealtimeSynth {
             buffered: Arc<Mutex<BufferedRenderer>>,
             output_snd: Sender<f32>,
         ) -> Stream {
-            let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+            let err_fn = |err| eprintln!("an error occurred on stream: {err}");
             let mut output_vec = Vec::new();
 
             let mut limiter = VolumeLimiter::new(stream_config.channels());
@@ -215,9 +215,15 @@ impl RealtimeSynth {
         }
 
         let stream = match stream_config.sample_format() {
-            cpal::SampleFormat::F32 => build_stream::<f32>(device, stream_config, buffered.clone(), output_snd),
-            cpal::SampleFormat::I16 => build_stream::<i16>(device, stream_config, buffered.clone(), output_snd),
-            cpal::SampleFormat::U16 => build_stream::<u16>(device, stream_config, buffered.clone(), output_snd),
+            cpal::SampleFormat::F32 => {
+                build_stream::<f32>(device, stream_config, buffered.clone(), output_snd)
+            }
+            cpal::SampleFormat::I16 => {
+                build_stream::<i16>(device, stream_config, buffered.clone(), output_snd)
+            }
+            cpal::SampleFormat::U16 => {
+                build_stream::<u16>(device, stream_config, buffered.clone(), output_snd)
+            }
         };
 
         stream.play().unwrap();

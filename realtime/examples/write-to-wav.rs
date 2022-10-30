@@ -9,6 +9,7 @@ use core::{
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 
+use hound;
 use midi_toolkit::{
     events::{Event, MIDIEvent},
     io::MIDIFile,
@@ -19,7 +20,6 @@ use midi_toolkit::{
     },
 };
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
-use hound;
 
 fn main() {
     let synth = RealtimeSynth::open_with_all_defaults();
@@ -80,7 +80,7 @@ fn main() {
                     has_started = true;
                 }
             } else {
-                writer.write_sample((s*32768f32).round() as i16).unwrap();
+                writer.write_sample((s * 32768f32).round() as i16).unwrap();
             }
         }
     });

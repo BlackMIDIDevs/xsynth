@@ -40,7 +40,7 @@ impl SincResampler {
         let new_len = indata.len() * sample_rate as usize / self.sample_rate as usize;
         let mut outdata = Vec::with_capacity(new_len);
 
-        let rate_fac = self.sample_rate as f32 / sample_rate;
+        let rate_fac = self.sample_rate / sample_rate;
         for s in 0..new_len {
             let x = s as f32 * rate_fac;
 
