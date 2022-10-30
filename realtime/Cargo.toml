@@ -21,6 +21,7 @@ to_vec = "0.1.0"
 wav = "1.0.0"
 core = { path = "../core", package = "xsynth-core" }
 gen-iter = "0.2.1"
+hound = "3.5.0"
 
 [build-dependencies]
 cbindgen = "0.20.0"
