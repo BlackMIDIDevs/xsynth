@@ -5,3 +5,7 @@ members = ["core", "realtime", "kdmapi", "soundfonts", "render"]
 [profile.release]
 codegen-units = 1
 lto = true
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true

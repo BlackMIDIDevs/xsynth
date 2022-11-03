@@ -188,7 +188,7 @@ impl RealtimeSynth {
             stream_config: SupportedStreamConfig,
             buffered: Arc<Mutex<BufferedRenderer>>,
         ) -> Stream {
-            let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+            let err_fn = |err| eprintln!("an error occurred on stream: {err}");
             let mut output_vec = Vec::new();
 
             let mut limiter = VolumeLimiter::new(stream_config.channels());
