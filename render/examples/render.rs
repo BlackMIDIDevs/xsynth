@@ -7,6 +7,7 @@ use std::{
 use core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
+    channel_group::SynthEvent,
 };
 
 use midi_toolkit::{
@@ -18,23 +19,20 @@ use midi_toolkit::{
         unwrap_items, TimeCaster,
     },
 };
-use xsynth_render::{XSynthRender, SynthEvent, config::XSynthRenderConfig};
+use xsynth_render::{XSynthRender, config::XSynthRenderConfig};
 
 fn main() {
-    let mut synth = XSynthRender::open_renderer(Default::default(), "out.wav".into());
-    let mut sender = synth.get_senders();
-
-    let params = synth.stream_params();
+    let mut synth = XSynthRender::new(Default::default(), "out.wav".into());
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
             "/home/jim/Projects/SoundFonts/AIG/Preset-1L.sfz",
-            params.clone(),
+            synth.get_params(),
         )
         .unwrap(),
     )];
 
-    sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
+    synth.send_event(SynthEvent::ChannelConfig(ChannelConfigEvent::SetSoundfonts(soundfonts)));
 
     let midi =
     MIDIFile::open("/home/jim/Black MIDIs/MIDI Files/Infernis/Impossible Piano - HSiFS - Crazy Backup Dancers ][ black.mid", None).unwrap();
@@ -50,16 +48,7 @@ fn main() {
 
     let collected = merged.collect::<Vec<_>>();
 
-    /*let stats = synth.get_stats();
-    thread::spawn(move || loop {
-        println!(
-            "Voice Count: {}  \tBuffer: {}\tRender time: {}",
-            stats.voice_count(),
-                 stats.buffer().last_samples_after_read(),
-                 stats.buffer().average_renderer_load()
-        );
-        thread::sleep(Duration::from_millis(10));
-    });*/
+    //synth.start_render();
 
     let now = Instant::now() - Duration::from_secs_f64(0.0);
     let mut time = 0.0;
@@ -68,13 +57,14 @@ fn main() {
             time += e.delta();
             let diff = time - now.elapsed().as_secs_f64();
             if diff > 0.0 {
+                synth.render_batch(diff);
                 spin_sleep::sleep(Duration::from_secs_f64(diff));
             }
         }
 
         match e {
             Event::NoteOn(e) => {
-                sender.send_event(SynthEvent::Channel(
+                synth.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelAudioEvent::NoteOn {
                         key: e.key,
@@ -83,19 +73,19 @@ fn main() {
                 ));
             }
             Event::NoteOff(e) => {
-                sender.send_event(SynthEvent::Channel(
+                synth.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelAudioEvent::NoteOff { key: e.key },
                 ));
             }
             Event::ControlChange(e) => {
-                sender.send_event(SynthEvent::Channel(
+                synth.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelAudioEvent::Control(ControlEvent::Raw(e.controller, e.value)),
                 ));
             }
             Event::PitchWheelChange(e) => {
-                sender.send_event(SynthEvent::Channel(
+                synth.send_event(SynthEvent::Channel(
                     e.channel as u32,
                     ChannelAudioEvent::Control(ControlEvent::PitchBendValue(
                         e.pitch as f32 / 8192.0,
