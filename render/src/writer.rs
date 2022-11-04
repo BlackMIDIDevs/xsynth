@@ -88,7 +88,7 @@ impl AudioFileWriter {
         }
     }
 
-    pub fn get_state(&self) -> AudioWriterState {
+    /*pub fn get_state(&self) -> AudioWriterState {
         self.state
-    }
+    }*/
 }

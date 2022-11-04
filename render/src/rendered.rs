@@ -52,20 +52,16 @@ impl XSynthRender {
 
     pub fn render_batch(&mut self, event_time: f64) {
         let samples = (self.config.sample_rate as f64 * event_time) as u16 * self.config.audio_channels;
-        let mut output_vec = vec![0.0; samples as usize];
+        let mut output_vec = Vec::new();
+        output_vec.resize(samples as usize, 0.0);
         self.channel_group.render_to(&mut output_vec);
 
-        let mut out = if self.config.use_limiter {
-            let mut out = Vec::new();
-            let mut limiter = VolumeLimiter::new(self.config.audio_channels);
-            for s in limiter.limit_iter(output_vec.drain(0..)) {
-                out.push(s);
-            }
-            out
-        } else {
-            output_vec
-        };
-        self.audio_writer.write_samples(&mut out);
+        if self.config.use_limiter {
+            let limiter = VolumeLimiter::new(self.config.audio_channels);
+            limiter.limit(&mut output_vec);
+        }
+
+        self.audio_writer.write_samples(&mut output_vec);
     }
 
     pub fn finalize(self) {

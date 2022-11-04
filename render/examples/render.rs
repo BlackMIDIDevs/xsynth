@@ -21,7 +21,8 @@ use midi_toolkit::{
 use xsynth_render::{XSynthRender, config::XSynthRenderConfig};
 
 fn main() {
-    let render_config = XSynthRenderConfig::default();
+    let mut render_config = XSynthRenderConfig::default();
+    //render_config.use_limiter = false;
     let mut synth = XSynthRender::new(render_config.clone(), "out.wav".into());
 
     println!("Loading Soundfont");
@@ -39,7 +40,7 @@ fn main() {
     println!("Loading MIDI");
 
     let midi =
-    MIDIFile::open("/home/jim/Black MIDIs/MIDI Files/Orangepaprika67/When E is E v2 - The Deadlier Lagtester/When E is E v2 - The Deadlier Lagtester ~ Pon MIDIs, Orangepaprika 67, Danidanijr, Minecraftfan Redstone.mid", None).unwrap();
+    MIDIFile::open("/home/jim/Black MIDIs/MIDI Files/Danidanijr/4448_U3_Fix.mid", None).unwrap();
 
     let ppq = midi.ppq();
     let merged = pipe!(
