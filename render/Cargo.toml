@@ -10,5 +10,5 @@ core = { path = "../core", package = "xsynth-core" }
 crossbeam-channel = "0.5.1"
 hound = "3.5.0"
 rayon = "1.5.3"
-midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "f30ca8a" }
+midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "907dec1" }
 spin_sleep = "1.0.0"

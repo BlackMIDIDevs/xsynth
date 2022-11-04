@@ -1,10 +1,9 @@
 use crate::{
-    config::XSynthRenderAudioFormat,
+    config::{XSynthRenderConfig, XSynthRenderAudioFormat},
 };
 
 use std::{
     path::PathBuf,
-    thread::{self},
     io::BufWriter,
     fs::File,
 };
@@ -26,19 +25,19 @@ pub struct AudioFileWriter {
 }
 
 impl AudioFileWriter {
-    pub fn new(format: XSynthRenderAudioFormat, path: PathBuf) -> Self {
-        match format {
+    pub fn new(config: XSynthRenderConfig, path: PathBuf) -> Self {
+        match config.audio_format {
             XSynthRenderAudioFormat::Wav => {
                 let spec = WavSpec {
-                    channels: 2,
-                    sample_rate: 44100,
-                    bits_per_sample: 16,
-                    sample_format: hound::SampleFormat::Int,
+                    channels: config.audio_channels,
+                    sample_rate: config.sample_rate,
+                    bits_per_sample: 32,
+                    sample_format: hound::SampleFormat::Float,
                 };
-                let mut writer = WavWriter::create(path, spec).unwrap();
+                let writer = WavWriter::create(path, spec).unwrap();
 
                 Self {
-                    format,
+                    format: config.audio_format,
                     state: AudioWriterState::Idle,
                     wav_writer: Some(writer),
                 }
@@ -64,7 +63,7 @@ impl AudioFileWriter {
                         }
                     } else {
                         if let Some(writer) = &mut self.wav_writer {
-                            writer.write_sample((s * 32768f32).round() as i16).unwrap();
+                            writer.write_sample(s).unwrap();
                         }
                     };
                 }
