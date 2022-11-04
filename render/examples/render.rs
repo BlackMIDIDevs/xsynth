@@ -1,6 +1,6 @@
 use std::{
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use core::{
@@ -18,10 +18,11 @@ use midi_toolkit::{
         unwrap_items, TimeCaster,
     },
 };
-use xsynth_render::XSynthRender;
+use xsynth_render::{XSynthRender, config::XSynthRenderConfig};
 
 fn main() {
-    let mut synth = XSynthRender::new(Default::default(), "out.wav".into());
+    let render_config = XSynthRenderConfig::default();
+    let mut synth = XSynthRender::new(render_config.clone(), "out.wav".into());
 
     println!("Loading Soundfont");
 
@@ -38,7 +39,7 @@ fn main() {
     println!("Loading MIDI");
 
     let midi =
-    MIDIFile::open("/home/jim/Black MIDIs/MIDI Files/Infernis/Impossible Piano - HSiFS - Crazy Backup Dancers ][ black.mid", None).unwrap();
+    MIDIFile::open("/home/jim/Black MIDIs/MIDI Files/Orangepaprika67/When E is E v2 - The Deadlier Lagtester/When E is E v2 - The Deadlier Lagtester ~ Pon MIDIs, Orangepaprika 67, Danidanijr, Minecraftfan Redstone.mid", None).unwrap();
 
     let ppq = midi.ppq();
     let merged = pipe!(
@@ -51,22 +52,13 @@ fn main() {
 
     let collected = merged.collect::<Vec<_>>();
 
-    let now = Instant::now() - Duration::from_secs_f64(0.0);
-    let mut time = 0.0;
-
     let render_time = Instant::now();
 
     println!("Starting rendering");
 
     for batch in collected.into_iter() {
         if batch.delta > 0.0 {
-            time += batch.delta;
             synth.render_batch(batch.delta);
-
-            let diff = time - now.elapsed().as_secs_f64();
-            if diff > 0.0 {
-                spin_sleep::sleep(Duration::from_secs_f64(diff));
-            }
         }
 
         for e in batch.iter_events() {

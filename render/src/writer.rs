@@ -19,7 +19,7 @@ pub enum AudioWriterState {
 }
 
 pub struct AudioFileWriter {
-    format: XSynthRenderAudioFormat,
+    config: XSynthRenderConfig,
     state: AudioWriterState,
     wav_writer: Option<WavWriter<BufWriter<File>>>,
 }
@@ -37,14 +37,14 @@ impl AudioFileWriter {
                 let writer = WavWriter::create(path, spec).unwrap();
 
                 Self {
-                    format: config.audio_format,
+                    config: config,
                     state: AudioWriterState::Idle,
                     wav_writer: Some(writer),
                 }
             }
             _ => {
                 Self {
-                    format: XSynthRenderAudioFormat::Wav,
+                    config: config,
                     state: AudioWriterState::Finished,
                     wav_writer: None,
                 }
@@ -53,7 +53,7 @@ impl AudioFileWriter {
     }
 
     pub fn write_samples(&mut self, samples: &mut Vec<f32>) {
-        match self.format {
+        match self.config.audio_format {
             XSynthRenderAudioFormat::Wav => {
                 for s in samples.drain(..) {
                     // Ignore blank at beginning
@@ -73,9 +73,12 @@ impl AudioFileWriter {
     }
 
     pub fn finalize(mut self) {
-        match self.format {
+        match self.config.audio_format {
             XSynthRenderAudioFormat::Wav => {
-                if let Some(writer) = self.wav_writer {
+                if let Some(mut writer) = self.wav_writer {
+                    while writer.duration() % self.config.audio_channels as u32 != 0 {
+                        writer.write_sample(0.0).unwrap();
+                    }
                     writer.finalize().unwrap();
                     self.wav_writer = None;
                     self.state = AudioWriterState::Finished;
