@@ -18,6 +18,7 @@ pub struct ChannelGroup {
     channel_events_cache: Box<[Vec<ChannelAudioEvent>]>,
     sample_cache_vecs: Box<[Vec<f32>]>,
     channels: Box<[VoiceChannel]>,
+    audio_params: AudioStreamParams,
 }
 
 pub struct ChannelGroupConfig {
@@ -58,6 +59,7 @@ impl ChannelGroup {
             channel_events_cache: channel_events_cache.into_boxed_slice(),
             channels: channels.into_boxed_slice(),
             sample_cache_vecs: sample_cache_vecs.into_boxed_slice(),
+            audio_params: config.audio_params,
         }
     }
 
@@ -108,7 +110,7 @@ impl ChannelGroup {
         self.cached_event_count = 0;
     }
 
-    pub fn render_to(&mut self, buffer: &mut [f32]) {
+    fn render_to(&mut self, buffer: &mut [f32]) {
         self.flush_events();
 
         let thread_pool = &mut self.thread_pool;
@@ -129,5 +131,15 @@ impl ChannelGroup {
                 vec.clear();
             }
         });
+    }
+}
+
+impl AudioPipe for ChannelGroup {
+    fn stream_params(&self) -> &AudioStreamParams {
+        &self.audio_params
+    }
+
+    fn read_samples_unchecked(&mut self, to: &mut [f32]) {
+        self.render_to(to);
     }
 }
