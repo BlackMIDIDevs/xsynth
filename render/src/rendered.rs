@@ -1,6 +1,6 @@
 use core::{
     effects::VolumeLimiter,
-    AudioStreamParams,
+    AudioStreamParams, AudioPipe,
     channel_group::{ChannelGroup, ChannelGroupConfig, SynthEvent},
 };
 
@@ -20,6 +20,7 @@ pub struct XSynthRender {
     channel_group: ChannelGroup,
     audio_writer: AudioFileWriter,
     audio_params: AudioStreamParams,
+    limiter: Option<VolumeLimiter>,
 }
 
 impl XSynthRender {
@@ -34,11 +35,18 @@ impl XSynthRender {
 
         let audio_writer = AudioFileWriter::new(config.clone(), out_path);
 
+        let limiter = if config.use_limiter {
+            Some(VolumeLimiter::new(config.audio_channels))
+        } else {
+            None
+        };
+
         Self {
             config: config,
             channel_group,
             audio_writer,
             audio_params,
+            limiter,
         }
     }
 
@@ -51,13 +59,12 @@ impl XSynthRender {
     }
 
     pub fn render_batch(&mut self, event_time: f64) {
-        let samples = (self.config.sample_rate as f64 * event_time) as u16 * self.config.audio_channels;
+        let samples = ((self.config.sample_rate as f64 * event_time) as usize) * self.config.audio_channels as usize;
         let mut output_vec = Vec::new();
-        output_vec.resize(samples as usize, 0.0);
-        self.channel_group.render_to(&mut output_vec);
+        output_vec.resize(samples, 0.0);
+        self.channel_group.read_samples(&mut output_vec);
 
-        if self.config.use_limiter {
-            let limiter = VolumeLimiter::new(self.config.audio_channels);
+        if let Some(limiter) = &mut self.limiter {
             limiter.limit(&mut output_vec);
         }
 

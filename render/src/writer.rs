@@ -11,16 +11,9 @@ use std::{
 use hound::{WavWriter, WavSpec};
 
 
-#[derive(PartialEq, Clone, Copy)]
-pub enum AudioWriterState {
-    Idle,
-    Writing,
-    Finished,
-}
 
 pub struct AudioFileWriter {
     config: XSynthRenderConfig,
-    state: AudioWriterState,
     wav_writer: Option<WavWriter<BufWriter<File>>>,
 }
 
@@ -38,14 +31,12 @@ impl AudioFileWriter {
 
                 Self {
                     config: config,
-                    state: AudioWriterState::Idle,
                     wav_writer: Some(writer),
                 }
             }
             _ => {
                 Self {
                     config: config,
-                    state: AudioWriterState::Finished,
                     wav_writer: None,
                 }
             },
@@ -55,17 +46,10 @@ impl AudioFileWriter {
     pub fn write_samples(&mut self, samples: &mut Vec<f32>) {
         match self.config.audio_format {
             XSynthRenderAudioFormat::Wav => {
-                for s in samples.drain(..) {
-                    // Ignore blank at beginning
-                    if self.state == AudioWriterState::Idle {
-                        if s != 0.0 {
-                            self.state = AudioWriterState::Writing;
-                        }
-                    } else {
-                        if let Some(writer) = &mut self.wav_writer {
-                            writer.write_sample(s).unwrap();
-                        }
-                    };
+                for s in samples.drain(0..) {
+                    if let Some(writer) = &mut self.wav_writer {
+                        writer.write_sample(s).unwrap();
+                    }
                 }
             },
             _ => {},
@@ -75,20 +59,12 @@ impl AudioFileWriter {
     pub fn finalize(mut self) {
         match self.config.audio_format {
             XSynthRenderAudioFormat::Wav => {
-                if let Some(mut writer) = self.wav_writer {
-                    while writer.duration() % self.config.audio_channels as u32 != 0 {
-                        writer.write_sample(0.0).unwrap();
-                    }
+                if let Some(writer) = self.wav_writer {
                     writer.finalize().unwrap();
                     self.wav_writer = None;
-                    self.state = AudioWriterState::Finished;
                 }
             }
             _ => {},
         }
     }
-
-    /*pub fn get_state(&self) -> AudioWriterState {
-        self.state
-    }*/
 }

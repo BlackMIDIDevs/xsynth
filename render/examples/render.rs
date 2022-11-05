@@ -18,18 +18,16 @@ use midi_toolkit::{
         unwrap_items, TimeCaster,
     },
 };
-use xsynth_render::{XSynthRender, config::XSynthRenderConfig};
+use xsynth_render::XSynthRender;
 
 fn main() {
-    let mut render_config = XSynthRenderConfig::default();
-    //render_config.use_limiter = false;
-    let mut synth = XSynthRender::new(render_config.clone(), "out.wav".into());
+    let mut synth = XSynthRender::new(Default::default(), "out.wav".into());
 
     println!("Loading Soundfont");
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
-            "/home/jim/Projects/SoundFonts/AIG/Preset-1L.sfz",
+            "/home/jim/Black MIDIs/SoundFonts/MBMS Soundfonts/CFaz Keys IV Concert Grand Piano/.PianoSamples/cfaz.sfz",
             synth.get_params(),
         )
         .unwrap(),
@@ -61,7 +59,6 @@ fn main() {
         if batch.delta > 0.0 {
             synth.render_batch(batch.delta);
         }
-
         for e in batch.iter_events() {
             match e.as_event() {
                 Event::NoteOn(e) => {
@@ -97,6 +94,8 @@ fn main() {
             }
         }
     }
+
+    synth.render_batch(5.0);
 
     println!("Render finished");
     println!("Render time: {} seconds", render_time.elapsed().as_secs());
