@@ -1,12 +1,9 @@
-use std::{
-    sync::Arc,
-    time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 
 use core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
-    soundfont::{SampleSoundfont, SoundfontBase},
     channel_group::SynthEvent,
+    soundfont::{SampleSoundfont, SoundfontBase},
 };
 
 use midi_toolkit::{
@@ -33,12 +30,17 @@ fn main() {
         .unwrap(),
     )];
 
-    synth.send_event(SynthEvent::ChannelConfig(ChannelConfigEvent::SetSoundfonts(soundfonts)));
+    synth.send_event(SynthEvent::ChannelConfig(
+        ChannelConfigEvent::SetSoundfonts(soundfonts),
+    ));
 
     println!("Loading MIDI");
 
-    let midi =
-    MIDIFile::open("/home/jim/Black MIDIs/MIDI Files/Danidanijr/4448_U3_Fix.mid", None).unwrap();
+    let midi = MIDIFile::open(
+        "/home/jim/Black MIDIs/MIDI Files/Danidanijr/4448_U3_Fix.mid",
+        None,
+    )
+    .unwrap();
 
     let ppq = midi.ppq();
     let merged = pipe!(
@@ -95,7 +97,7 @@ fn main() {
         }
     }
 
-    synth.render_batch(5.0);
+    synth.render_batch(3.0);
 
     println!("Render finished");
     println!("Render time: {} seconds", render_time.elapsed().as_secs());

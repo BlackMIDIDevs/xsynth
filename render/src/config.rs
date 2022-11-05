@@ -3,9 +3,7 @@ pub enum XSynthRenderAudioFormat {
     Wav,
     Ogg,
     Flac,
-    Mp3,
 }
-
 
 pub struct XSynthRenderConfig {
     pub channel_count: u32,
@@ -32,12 +30,12 @@ impl Default for XSynthRenderConfig {
 impl Clone for XSynthRenderConfig {
     fn clone(&self) -> Self {
         XSynthRenderConfig {
-            channel_count: self.channel_count.clone(),
-            use_threadpool: self.use_threadpool.clone(),
-            use_limiter: self.use_limiter.clone(),
-            sample_rate: self.sample_rate.clone(),
-            audio_channels: self.audio_channels.clone(),
-            audio_format: self.audio_format.clone(),
+            channel_count: self.channel_count,
+            use_threadpool: self.use_threadpool,
+            use_limiter: self.use_limiter,
+            sample_rate: self.sample_rate,
+            audio_channels: self.audio_channels,
+            audio_format: self.audio_format,
         }
     }
 }

@@ -1,16 +1,8 @@
-use crate::{
-    config::{XSynthRenderConfig, XSynthRenderAudioFormat},
-};
+use crate::config::{XSynthRenderAudioFormat, XSynthRenderConfig};
 
-use std::{
-    path::PathBuf,
-    io::BufWriter,
-    fs::File,
-};
+use std::{fs::File, io::BufWriter, path::PathBuf};
 
-use hound::{WavWriter, WavSpec};
-
-
+use hound::{WavSpec, WavWriter};
 
 pub struct AudioFileWriter {
     config: XSynthRenderConfig,
@@ -30,15 +22,17 @@ impl AudioFileWriter {
                 let writer = WavWriter::create(path, spec).unwrap();
 
                 Self {
-                    config: config,
+                    config,
                     wav_writer: Some(writer),
                 }
             }
-            _ => {
-                Self {
-                    config: config,
-                    wav_writer: None,
-                }
+            XSynthRenderAudioFormat::Ogg => Self {
+                config,
+                wav_writer: None,
+            },
+            XSynthRenderAudioFormat::Flac => Self {
+                config,
+                wav_writer: None,
             },
         }
     }
@@ -51,8 +45,9 @@ impl AudioFileWriter {
                         writer.write_sample(s).unwrap();
                     }
                 }
-            },
-            _ => {},
+            }
+            XSynthRenderAudioFormat::Ogg => {}
+            XSynthRenderAudioFormat::Flac => {}
         }
     }
 
@@ -64,7 +59,8 @@ impl AudioFileWriter {
                     self.wav_writer = None;
                 }
             }
-            _ => {},
+            XSynthRenderAudioFormat::Ogg => {}
+            XSynthRenderAudioFormat::Flac => {}
         }
     }
 }

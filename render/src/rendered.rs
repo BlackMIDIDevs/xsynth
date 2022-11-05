@@ -1,19 +1,12 @@
 use core::{
-    effects::VolumeLimiter,
-    AudioStreamParams, AudioPipe,
     channel_group::{ChannelGroup, ChannelGroupConfig, SynthEvent},
+    effects::VolumeLimiter,
+    AudioPipe, AudioStreamParams,
 };
 
-use std::{
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
-use crate::{
-    config::XSynthRenderConfig,
-    writer::AudioFileWriter,
-};
-
-
+use crate::{config::XSynthRenderConfig, writer::AudioFileWriter};
 
 pub struct XSynthRender {
     config: XSynthRenderConfig,
@@ -42,7 +35,7 @@ impl XSynthRender {
         };
 
         Self {
-            config: config,
+            config,
             channel_group,
             audio_writer,
             audio_params,
@@ -59,7 +52,8 @@ impl XSynthRender {
     }
 
     pub fn render_batch(&mut self, event_time: f64) {
-        let samples = ((self.config.sample_rate as f64 * event_time) as usize) * self.config.audio_channels as usize;
+        let samples = ((self.config.sample_rate as f64 * event_time) as usize)
+            * self.config.audio_channels as usize;
         let mut output_vec = Vec::new();
         output_vec.resize(samples, 0.0);
         self.channel_group.read_samples(&mut output_vec);
