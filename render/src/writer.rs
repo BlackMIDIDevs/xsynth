@@ -26,14 +26,6 @@ impl AudioFileWriter {
                     wav_writer: Some(writer),
                 }
             }
-            XSynthRenderAudioFormat::Ogg => Self {
-                config,
-                wav_writer: None,
-            },
-            XSynthRenderAudioFormat::Flac => Self {
-                config,
-                wav_writer: None,
-            },
         }
     }
 
@@ -46,8 +38,6 @@ impl AudioFileWriter {
                     }
                 }
             }
-            XSynthRenderAudioFormat::Ogg => {}
-            XSynthRenderAudioFormat::Flac => {}
         }
     }
 
@@ -59,8 +49,6 @@ impl AudioFileWriter {
                     self.wav_writer = None;
                 }
             }
-            XSynthRenderAudioFormat::Ogg => {}
-            XSynthRenderAudioFormat::Flac => {}
         }
     }
 }

@@ -1,8 +1,6 @@
 #[derive(PartialEq, Clone, Copy)]
 pub enum XSynthRenderAudioFormat {
     Wav,
-    Ogg,
-    Flac,
 }
 
 pub struct XSynthRenderConfig {
