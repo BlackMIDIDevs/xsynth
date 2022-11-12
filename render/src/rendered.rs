@@ -8,12 +8,18 @@ use std::path::PathBuf;
 
 use crate::{config::XSynthRenderConfig, writer::AudioFileWriter};
 
+struct BatchRenderElements {
+    output_vec: Vec<f32>,
+    missed_samples: f64,
+}
+
 pub struct XSynthRender {
     config: XSynthRenderConfig,
     channel_group: ChannelGroup,
     audio_writer: AudioFileWriter,
     audio_params: AudioStreamParams,
     limiter: Option<VolumeLimiter>,
+    render_elements: BatchRenderElements,
 }
 
 impl XSynthRender {
@@ -40,6 +46,10 @@ impl XSynthRender {
             audio_writer,
             audio_params,
             limiter,
+            render_elements: BatchRenderElements{
+                output_vec: vec![0.0],
+                missed_samples: 0.0,
+            }
         }
     }
 
@@ -52,17 +62,32 @@ impl XSynthRender {
     }
 
     pub fn render_batch(&mut self, event_time: f64) {
-        let samples = ((self.config.sample_rate as f64 * event_time) as usize)
-            * self.config.audio_channels as usize;
-        let mut output_vec = Vec::new();
-        output_vec.resize(samples, 0.0);
-        self.channel_group.read_samples(&mut output_vec);
+        if event_time > 10.0 {
+            // If the time is too large, split it up
+            let mut remaining_time = event_time;
+            loop {
+                if remaining_time > 10.0 {
+                    self.render_batch(10.0);
+                    remaining_time -= 10.0;
+                } else {
+                    self.render_batch(remaining_time);
+                    break;
+                }
+            }
+        } else {
+            let samples = self.config.sample_rate as f64 * event_time + self.render_elements.missed_samples;
+            self.render_elements.missed_samples = samples % 1.0;
+            let samples = samples as usize * self.config.audio_channels as usize;
 
-        if let Some(limiter) = &mut self.limiter {
-            limiter.limit(&mut output_vec);
+            self.render_elements.output_vec.resize(samples, 0.0);
+            self.channel_group.read_samples(&mut self.render_elements.output_vec);
+
+            if let Some(limiter) = &mut self.limiter {
+                limiter.limit(&mut self.render_elements.output_vec);
+            }
+
+            self.audio_writer.write_samples(&mut self.render_elements.output_vec);
         }
-
-        self.audio_writer.write_samples(&mut output_vec);
     }
 
     pub fn finalize(self) {
