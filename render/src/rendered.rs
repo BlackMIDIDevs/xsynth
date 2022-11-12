@@ -46,10 +46,10 @@ impl XSynthRender {
             audio_writer,
             audio_params,
             limiter,
-            render_elements: BatchRenderElements{
+            render_elements: BatchRenderElements {
                 output_vec: vec![0.0],
                 missed_samples: 0.0,
-            }
+            },
         }
     }
 
@@ -75,18 +75,21 @@ impl XSynthRender {
                 }
             }
         } else {
-            let samples = self.config.sample_rate as f64 * event_time + self.render_elements.missed_samples;
+            let samples =
+                self.config.sample_rate as f64 * event_time + self.render_elements.missed_samples;
             self.render_elements.missed_samples = samples % 1.0;
             let samples = samples as usize * self.config.audio_channels as usize;
 
             self.render_elements.output_vec.resize(samples, 0.0);
-            self.channel_group.read_samples(&mut self.render_elements.output_vec);
+            self.channel_group
+                .read_samples(&mut self.render_elements.output_vec);
 
             if let Some(limiter) = &mut self.limiter {
                 limiter.limit(&mut self.render_elements.output_vec);
             }
 
-            self.audio_writer.write_samples(&mut self.render_elements.output_vec);
+            self.audio_writer
+                .write_samples(&mut self.render_elements.output_vec);
         }
     }
 

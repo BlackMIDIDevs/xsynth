@@ -37,7 +37,9 @@ pub fn render_to_file(
     let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
 
     for sfz in sfz_paths {
-        soundfonts.push(Arc::new(SampleSoundfont::new(sfz, synth.get_params()).unwrap()));
+        soundfonts.push(Arc::new(
+            SampleSoundfont::new(sfz, synth.get_params()).unwrap(),
+        ));
     }
 
     synth.send_event(SynthEvent::ChannelConfig(
@@ -57,7 +59,7 @@ pub fn render_to_file(
 
     let render_time = Instant::now();
 
-    for batch in merged.into_iter() {
+    for batch in merged {
         if batch.delta > 0.0 {
             synth.render_batch(batch.delta);
         }
