@@ -26,26 +26,23 @@ use midi_toolkit::{
 
 /// Will convert a MIDI to an audio file using the specified soundfont
 /// and will return the time it took to render in seconds.
-pub fn render_to_file(config: XSynthRenderConfig, midi_path: &str, sfz_path: &str, out_path: &str) -> u64 {
-    let mut synth = XSynthRender::new(Default::default(), out_path.into());
+pub fn render_to_file(
+    config: XSynthRenderConfig,
+    midi_path: &str,
+    sfz_path: &str,
+    out_path: &str,
+) -> u64 {
+    let mut synth = XSynthRender::new(config, out_path.into());
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(
-            sfz_path,
-            synth.get_params(),
-        )
-        .unwrap(),
+        SampleSoundfont::new(sfz_path, synth.get_params()).unwrap(),
     )];
 
     synth.send_event(SynthEvent::ChannelConfig(
         ChannelConfigEvent::SetSoundfonts(soundfonts),
     ));
 
-    let midi = MIDIFile::open(
-        midi_path,
-        None,
-    )
-    .unwrap();
+    let midi = MIDIFile::open(midi_path, None).unwrap();
 
     let ppq = midi.ppq();
     let merged = pipe!(

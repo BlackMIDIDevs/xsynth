@@ -1,4 +1,4 @@
-use xsynth_render::{render_to_file, config::XSynthRenderConfig};
+use xsynth_render::{config::XSynthRenderConfig, render_to_file};
 
 fn main() {
     let config = XSynthRenderConfig::default();
