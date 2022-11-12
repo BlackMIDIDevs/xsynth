@@ -29,14 +29,16 @@ use midi_toolkit::{
 pub fn render_to_file(
     config: XSynthRenderConfig,
     midi_path: &str,
-    sfz_path: &str,
+    sfz_paths: Vec<&str>,
     out_path: &str,
 ) -> u64 {
     let mut synth = XSynthRender::new(config, out_path.into());
 
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(sfz_path, synth.get_params()).unwrap(),
-    )];
+    let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
+
+    for sfz in sfz_paths {
+        soundfonts.push(Arc::new(SampleSoundfont::new(sfz, synth.get_params()).unwrap()));
+    }
 
     synth.send_event(SynthEvent::ChannelConfig(
         ChannelConfigEvent::SetSoundfonts(soundfonts),
@@ -53,11 +55,9 @@ pub fn render_to_file(
         |>unwrap_items()
     );
 
-    let collected = merged.collect::<Vec<_>>();
-
     let render_time = Instant::now();
 
-    for batch in collected.into_iter() {
+    for batch in merged.into_iter() {
         if batch.delta > 0.0 {
             synth.render_batch(batch.delta);
         }
