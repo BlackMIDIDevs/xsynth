@@ -25,6 +25,9 @@ pub use sampler::*;
 mod control;
 pub use control::*;
 
+mod cutoff;
+pub use cutoff::*;
+
 pub struct VoiceControlData {
     pub voice_pitch_multiplier: f32,
     pub cutoff: f32,

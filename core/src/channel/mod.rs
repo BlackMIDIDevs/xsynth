@@ -91,6 +91,8 @@ struct VoiceChannelData {
 
     /// Processed control data, ready to feed to voices
     voice_control_data: AtomicRefCell<VoiceControlData>,
+
+    last_buffer: Option<Vec<f32>>,
 }
 
 impl VoiceChannelData {
@@ -120,10 +122,12 @@ impl VoiceChannelData {
 
             control_event_data: RefCell::new(ControlEventData::new_defaults()),
             voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
+
+            last_buffer: None,
         }
     }
 
-    fn apply_channel_effects(&self, out: &mut [f32]) {
+    fn apply_channel_effects(&mut self, out: &mut [f32]) {
         let params = self.params.read().unwrap();
         let stream_params = &params.constant.stream_params;
         let control = self.control_event_data.borrow();
@@ -147,12 +151,23 @@ impl VoiceChannelData {
             let dt = 1.0 / stream_params.sample_rate as f32;
             let alpha = dt / (rc + dt);
 
-            out[0] *= alpha;
-            out[1] *= alpha;
+            if let Some(last) = &self.last_buffer {
+                for i in 0..2 {
+                    out[i] = last[i] + alpha * (out[i] - last[i]);
+                }
+            } else {
+                out[0] *= alpha;
+                out[1] *= alpha;
+            }
 
             for i in 2..out.len() {
                 out[i] = out[i - 2] + alpha * (out[i] - out[i - 2]);
             }
+
+            let mut cache: Vec<f32> = Vec::new();
+            cache.push(out[out.len() - 2]);
+            cache.push(out[out.len() - 1]);
+            self.last_buffer = Some(cache);
         }
     }
 
@@ -304,8 +319,7 @@ impl VoiceChannelData {
                 }
                 0x4A => {
                     // Cutoff
-                    let cutoff = (value as f32 / 128.0) * 20000.0;
-                    println!("{}", cutoff);
+                    let cutoff = (value as f32 / 127.0) * 18000.0;
                     self.control_event_data.borrow_mut().cutoff = Some(cutoff)
                 }
                 _ => {}
