@@ -1,4 +1,7 @@
-use crate::{config::{XSynthRenderConfig, XSynthRenderAudioFormat}, XSynthRender};
+use crate::{
+    config::{XSynthRenderAudioFormat, XSynthRenderConfig},
+    XSynthRender,
+};
 
 use std::sync::Arc;
 
