@@ -19,5 +19,7 @@ pub mod effects;
 
 pub mod helpers;
 
+pub mod channel_group;
+
 mod threaded_ref_cell;
 use self::threaded_ref_cell::*;
