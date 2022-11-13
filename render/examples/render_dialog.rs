@@ -1,4 +1,4 @@
-use xsynth_render::{xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
+use xsynth_render::{xsynth_renderer, XSynthRenderStats};
 
 use midi_toolkit::{io::MIDIFile, sequence::event::get_channels_array_statistics};
 
@@ -19,19 +19,14 @@ fn main() {
     let sfz_path = read_input("Enter SFZ path");
     let out_path = read_input("Enter output path");
 
-    println!("--- RENDER OPTIONS ---");
+    println!("\n--- RENDER OPTIONS ---");
     let sample_rate: u32 = read_input("Enter sample rate (in Hz)").parse().unwrap();
     let use_threadpool = read_input_bool("Use threadpool? (y/n)");
     let use_limiter = read_input_bool("Use audio limiter? (y/n)");
 
     io::stdout().lock().flush().unwrap();
 
-    println!("--- STARTING RENDER ---");
-
-    let mut config = XSynthRenderConfig::default();
-    config.sample_rate = sample_rate;
-    config.use_threadpool = use_threadpool;
-    config.use_limiter = use_limiter;
+    println!("\n--- STARTING RENDER ---");
 
     let render_time = Instant::now();
     let position = Arc::new(AtomicF64::new(0.0));
@@ -61,13 +56,15 @@ fn main() {
     });
 
     xsynth_renderer(&midi_path, &out_path)
-        .with_config(config)
+        .with_sample_rate(sample_rate)
+        .use_threadpool(use_threadpool)
+        .use_limiter(use_limiter)
         .add_soundfont(&sfz_path)
         .with_progress_callback(callback)
         .run();
 
     println!(
-        "\n--- RENDER FINISHED ---\nRender time: {} seconds",
+        "\n\n--- RENDER FINISHED ---\nRender time: {} seconds",
         render_time.elapsed().as_secs()
     );
     pause();

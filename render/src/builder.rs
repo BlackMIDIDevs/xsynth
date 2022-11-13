@@ -1,4 +1,4 @@
-use crate::{config::XSynthRenderConfig, XSynthRender};
+use crate::{config::{XSynthRenderConfig, XSynthRenderAudioFormat}, XSynthRender};
 
 use std::sync::Arc;
 
@@ -46,11 +46,44 @@ pub fn xsynth_renderer<'a>(
 }
 
 impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, ProgressCallback> {
+    // Config functions
     pub fn with_config(mut self, config: XSynthRenderConfig) -> Self {
         self.config = config;
         self
     }
 
+    pub fn with_channel_count(mut self, channels: u32) -> Self {
+        self.config.channel_count = channels;
+        self
+    }
+
+    pub fn use_threadpool(mut self, use_threadpool: bool) -> Self {
+        self.config.use_threadpool = use_threadpool;
+        self
+    }
+
+    pub fn use_limiter(mut self, use_limiter: bool) -> Self {
+        self.config.use_limiter = use_limiter;
+        self
+    }
+
+    pub fn with_sample_rate(mut self, sample_rate: u32) -> Self {
+        self.config.sample_rate = sample_rate;
+        self
+    }
+
+    pub fn with_audio_channels(mut self, audio_channels: u16) -> Self {
+        self.config.audio_channels = audio_channels;
+        self
+    }
+
+    /// Unused because only WAV is supported
+    pub fn _with_audio_format(mut self, audio_format: XSynthRenderAudioFormat) -> Self {
+        self.config.audio_format = audio_format;
+        self
+    }
+
+    // Set up functions
     pub fn add_soundfonts(mut self, soundfont_paths: impl IntoIterator<Item = &'a str>) -> Self {
         self.soundfont_paths.extend(soundfont_paths);
         self
