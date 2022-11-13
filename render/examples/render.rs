@@ -1,12 +1,22 @@
-use xsynth_render::{config::XSynthRenderConfig, render_to_file};
+use xsynth_render::builder::{xsynth_renderer, XSynthRenderStats};
+use std::time::Instant;
 
 fn main() {
-    let config = XSynthRenderConfig::default();
-    let midi = "/home/jim/Black MIDIs/MIDI Files/Danidanijr/4448_U3_Fix.mid";
+    let midi = "/home/jim/Black MIDIs/MIDI Files/Infernis/Impossible Piano - EoSD - Septette for the Dead Princess ][ black.mid";
     let sfz = vec!["/home/jim/Black MIDIs/SoundFonts/MBMS Soundfonts/CFaz Keys IV Concert Grand Piano/.PianoSamples/cfaz.sfz"];
     let out = "out.wav";
 
-    let render_time = render_to_file(config, midi, sfz, out);
+    let callback = |stats: XSynthRenderStats| {
+        print!("\rMIDI position: {}", stats.progress);
+    };
 
-    println!("Render Time: {render_time} seconds");
+    let render_time = Instant::now();
+
+    xsynth_renderer(midi, out)
+        .with_config(Default::default())
+        .add_soundfonts(sfz)
+        .with_progress_callback(callback)
+        .run();
+
+    println!("\nDone! Render time: {} seconds", render_time.elapsed().as_secs());
 }

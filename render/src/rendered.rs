@@ -93,7 +93,23 @@ impl XSynthRender {
         }
     }
 
-    pub fn finalize(self) {
+    pub fn finalize(mut self) {
+        loop {
+            let mut output_vec = vec![0.0];
+            output_vec.resize(self.config.sample_rate as usize, 0.0);
+            self.channel_group.read_samples(&mut output_vec);
+            let mut is_empty = true;
+            for s in output_vec {
+                if s != 0.0 {
+                    is_empty = false;
+                    break;
+                }
+            }
+            if is_empty {
+                break;
+            }
+
+        }
         self.audio_writer.finalize();
     }
 }
