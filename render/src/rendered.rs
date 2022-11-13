@@ -108,7 +108,6 @@ impl XSynthRender {
             if is_empty {
                 break;
             }
-
         }
         self.audio_writer.finalize();
     }

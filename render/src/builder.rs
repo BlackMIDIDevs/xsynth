@@ -107,9 +107,7 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
                 pos += batch.delta;
             }
             for e in batch.iter_events() {
-                (self.stats_callback)(XSynthRenderStats{
-                    progress: pos,
-                });
+                (self.stats_callback)(XSynthRenderStats { progress: pos });
                 match e.as_event() {
                     Event::NoteOn(e) => {
                         synth.send_event(SynthEvent::Channel(

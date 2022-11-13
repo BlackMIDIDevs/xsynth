@@ -1,5 +1,5 @@
-use xsynth_render::builder::{xsynth_renderer, XSynthRenderStats};
 use std::time::Instant;
+use xsynth_render::builder::{xsynth_renderer, XSynthRenderStats};
 
 fn main() {
     let midi = "/home/jim/Black MIDIs/MIDI Files/Infernis/Impossible Piano - EoSD - Septette for the Dead Princess ][ black.mid";
@@ -18,5 +18,8 @@ fn main() {
         .with_progress_callback(callback)
         .run();
 
-    println!("\nDone! Render time: {} seconds", render_time.elapsed().as_secs());
+    println!(
+        "\nDone! Render time: {} seconds",
+        render_time.elapsed().as_secs()
+    );
 }

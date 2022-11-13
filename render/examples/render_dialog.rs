@@ -1,11 +1,17 @@
-use xsynth_render::{XSynthRenderConfig, xsynth_renderer, XSynthRenderStats};
+use xsynth_render::{xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
 
-use midi_toolkit::{sequence::event::get_channels_array_statistics, io::MIDIFile};
+use midi_toolkit::{io::MIDIFile, sequence::event::get_channels_array_statistics};
 
-use std::{time::Instant, io, io::Write, io::prelude::*, thread, sync::{Arc, atomic::Ordering}};
+use std::{
+    io,
+    io::prelude::*,
+    io::Write,
+    sync::{atomic::Ordering, Arc},
+    thread,
+    time::Instant,
+};
 
 use atomic_float::AtomicF64;
-
 
 fn main() {
     println!("--- FILE PATHS ---");
@@ -37,7 +43,7 @@ fn main() {
     let position_thread = position.clone();
     let length = get_midi_length(&midi_path);
 
-    thread::spawn(move || { loop {
+    thread::spawn(move || loop {
         let pos = position_thread.load(Ordering::Relaxed);
         let progress = (pos / length) * 100.0 + 0.0004;
         print!("\rProgress: [");
@@ -52,7 +58,7 @@ fn main() {
         if progress >= 100.0 {
             break;
         }
-    }});
+    });
 
     xsynth_renderer(&midi_path, &out_path)
         .with_config(config)
@@ -60,7 +66,10 @@ fn main() {
         .with_progress_callback(callback)
         .run();
 
-    println!("\n--- RENDER FINISHED ---\nRender time: {} seconds", render_time.elapsed().as_secs());
+    println!(
+        "\n--- RENDER FINISHED ---\nRender time: {} seconds",
+        render_time.elapsed().as_secs()
+    );
     pause();
 }
 
