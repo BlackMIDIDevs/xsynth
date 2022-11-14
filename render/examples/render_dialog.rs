@@ -6,7 +6,10 @@ use std::{
     io,
     io::prelude::*,
     io::Write,
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
     thread,
     time::Instant,
 };
@@ -30,12 +33,15 @@ fn main() {
 
     let render_time = Instant::now();
     let position = Arc::new(AtomicF64::new(0.0));
+    let voices = Arc::new(AtomicU64::new(0));
 
     let callback = |stats: XSynthRenderStats| {
         position.store(stats.progress, Ordering::Relaxed);
+        voices.store(stats.voice_count, Ordering::Relaxed);
     };
 
     let position_thread = position.clone();
+    let voices_thread = voices.clone();
     let length = get_midi_length(&midi_path);
 
     thread::spawn(move || loop {
@@ -49,7 +55,8 @@ fn main() {
         for _ in 0..(20 - bars) {
             print!(" ");
         }
-        print!("] {:.3}%", progress);
+        print!("] {:.3}% | ", progress);
+        print!("Voice Count: {}", voices_thread.load(Ordering::Relaxed));
         if progress >= 100.0 {
             break;
         }

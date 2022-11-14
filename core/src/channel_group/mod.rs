@@ -6,6 +6,8 @@ use crate::{
     AudioPipe, AudioStreamParams,
 };
 
+use to_vec::ToVec;
+
 mod events;
 pub use events::*;
 use rayon::prelude::*;
@@ -131,6 +133,15 @@ impl ChannelGroup {
                 vec.clear();
             }
         });
+    }
+
+    pub fn voice_count(&self) -> u64 {
+        let mut vc = 0;
+        let channel_stats = self.channels.iter().map(|c| c.get_channel_stats()).to_vec();
+        for c in channel_stats.iter() {
+            vc += c.voice_count();
+        }
+        vc
     }
 }
 

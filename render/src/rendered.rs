@@ -111,4 +111,8 @@ impl XSynthRender {
         }
         self.audio_writer.finalize();
     }
+
+    pub fn voice_count(&self) -> u64 {
+        self.channel_group.voice_count()
+    }
 }
