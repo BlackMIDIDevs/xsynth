@@ -9,11 +9,11 @@ use core::{
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 use midi_toolkit::{
-    events::{Event, MIDIEvent},
+    events::Event,
     io::MIDIFile,
     pipe,
     sequence::{
-        event::{cancel_tempo_events, convert_events_into_batches, scale_event_time},
+        event::{cancel_tempo_events, scale_event_time},
         unwrap_items, TimeCaster,
     },
 };

@@ -10,7 +10,7 @@ use core::{
 };
 
 use midi_toolkit::{
-    events::{Event, MIDIEvent, MIDIEventEnum},
+    events::{Event, MIDIEventEnum},
     io::MIDIFile,
     pipe,
     sequence::{
