@@ -8,6 +8,8 @@ use symphonia::core::{codecs::DecoderOptions, errors::Error};
 
 use thiserror::Error;
 
+use crate::ChannelCount;
+
 use self::resample::SincResampler;
 
 pub mod resample;
@@ -22,9 +24,12 @@ pub enum AudioLoadError {
 
     #[error("Audio decoding failed")]
     AudioDecodingFailed(#[from] Error),
+
+    #[error("Audio file has an invalid channel count")]
+    InvalidChannelCount,
 }
 
-fn resample_vecs(vecs: Vec<Vec<f32>>, sample_rate: f32, new_sample_rate: f32) -> Vec<Arc<[f32]>> {
+fn resample_vecs(vecs: Vec<Vec<f32>>, sample_rate: f32, new_sample_rate: f32) -> Arc<[Arc<[f32]>]> {
     let resampler = SincResampler::new(10000, sample_rate, 32);
 
     vecs.into_iter()
@@ -35,7 +40,7 @@ fn resample_vecs(vecs: Vec<Vec<f32>>, sample_rate: f32, new_sample_rate: f32) ->
 pub fn load_audio_file(
     path: &PathBuf,
     new_sample_rate: f32,
-) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
+) -> Result<Arc<[Arc<[f32]>]>, AudioLoadError> {
     let extension = path.extension().and_then(|ext| ext.to_str());
 
     let file = Box::new(File::open(path).unwrap());
@@ -67,6 +72,9 @@ pub fn load_audio_file(
 
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
     let channel_count = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
+
+    let channel_count_value = ChannelCount::from_count(channel_count as u16)
+        .ok_or(AudioLoadError::InvalidChannelCount)?;
 
     // Create a decoder for the track.
     let mut decoder = symphonia::default::get_codecs()
@@ -108,7 +116,14 @@ pub fn load_audio_file(
         }
     }
 
-    Ok(builder.finish(sample_rate as f32, new_sample_rate))
+    let built = builder.finish(sample_rate as f32, new_sample_rate);
+
+    Ok(match channel_count_value {
+        ChannelCount::Mono => vec![built[0].clone(), built[0].clone()]
+            .into_iter()
+            .collect(),
+        ChannelCount::Stereo => built,
+    })
 }
 
 struct BuilderVecs {
@@ -152,7 +167,7 @@ impl BuilderVecs {
         }
     }
 
-    fn finish(self, sample_rate: f32, new_sample_rate: f32) -> Vec<Arc<[f32]>> {
+    fn finish(self, sample_rate: f32, new_sample_rate: f32) -> Arc<[Arc<[f32]>]> {
         let mut vecs = self.vecs;
         for chan in vecs.iter_mut() {
             chan.shrink_to_fit();

@@ -24,10 +24,10 @@ pub struct XSynthRender {
 
 impl XSynthRender {
     pub fn new(config: XSynthRenderConfig, out_path: PathBuf) -> Self {
-        let audio_params = AudioStreamParams::new(config.sample_rate, config.audio_channels);
+        let audio_params = AudioStreamParams::new(config.sample_rate, config.audio_channels.into());
         let chgroup_config = ChannelGroupConfig {
             channel_count: config.channel_count,
-            audio_params: audio_params.clone(),
+            audio_params,
             use_threadpool: config.use_threadpool,
         };
         let channel_group = ChannelGroup::new(chgroup_config);
@@ -54,7 +54,7 @@ impl XSynthRender {
     }
 
     pub fn get_params(&self) -> AudioStreamParams {
-        self.audio_params.clone()
+        self.audio_params
     }
 
     pub fn send_event(&mut self, event: SynthEvent) {

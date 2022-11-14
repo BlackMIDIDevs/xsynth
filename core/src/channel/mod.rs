@@ -93,8 +93,7 @@ struct VoiceChannelData {
 
 impl VoiceChannelData {
     pub fn new(
-        sample_rate: u32,
-        channels: u16,
+        stream_params: AudioStreamParams,
         threadpool: Option<Arc<rayon::ThreadPool>>,
     ) -> VoiceChannelData {
         fn fill_key_array<T, F: Fn(u8) -> T>(func: F) -> Vec<T> {
@@ -105,7 +104,7 @@ impl VoiceChannelData {
             vec
         }
 
-        let params = VoiceChannelParams::new(sample_rate, channels);
+        let params = VoiceChannelParams::new(stream_params);
         let shared_voice_counter = params.stats.voice_counter.clone();
 
         VoiceChannelData {
@@ -347,11 +346,10 @@ impl VoiceChannelData {
 
 impl VoiceChannel {
     pub fn new(
-        sample_rate: u32,
-        channels: u16,
+        stream_params: AudioStreamParams,
         threadpool: Option<Arc<rayon::ThreadPool>>,
     ) -> VoiceChannel {
-        let data = VoiceChannelData::new(sample_rate, channels, threadpool);
+        let data = VoiceChannelData::new(stream_params, threadpool);
 
         let constants = data.params.read().unwrap().constant.clone();
 

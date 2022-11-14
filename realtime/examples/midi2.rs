@@ -10,7 +10,7 @@ use core::{
 };
 
 use midi_toolkit::{
-    events::{Event, MIDIEvent},
+    events::{Event, MIDIEvent, MIDIEventEnum},
     io::MIDIFile,
     pipe,
     sequence::{
@@ -29,7 +29,7 @@ fn main() {
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
             "D:/Midis/Loud and Proud Remastered/Axley Presets/Loud and Proud Remastered.sfz",
-            params.clone(),
+            params,
         )
         .unwrap(),
     )];
@@ -64,15 +64,15 @@ fn main() {
     let now = Instant::now() - Duration::from_secs_f64(0.0);
     let mut time = 0.0;
     for e in collected.into_iter() {
-        if e.delta() != 0.0 {
-            time += e.delta();
+        if e.delta != 0.0 {
+            time += e.delta;
             let diff = time - now.elapsed().as_secs_f64();
             if diff > 0.0 {
                 spin_sleep::sleep(Duration::from_secs_f64(diff));
             }
         }
 
-        match e {
+        match e.as_event() {
             Event::NoteOn(e) => {
                 sender.send_event(SynthEvent::Channel(
                     e.channel as u32,
