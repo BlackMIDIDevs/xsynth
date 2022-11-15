@@ -134,11 +134,10 @@ impl ChannelGroup {
     }
 
     pub fn voice_count(&self) -> u64 {
-        let mut vc = 0;
-        for c in self.channels.iter() {
-            vc += c.get_channel_stats().voice_count();
-        }
-        vc
+        self.channels
+            .iter()
+            .map(|c| c.get_channel_stats().voice_count())
+            .sum()
     }
 }
 
