@@ -80,6 +80,8 @@ impl VoiceBuffer {
                 self.held_by_damper.remove(index);
             }
         }
+
+        self.try_shrink_buffer();
     }
 
     pub fn kill_all_voices(&mut self) {
@@ -109,7 +111,7 @@ impl VoiceBuffer {
 
     /// Releases the next voice, and all subsequent voices that have the same ID.
     pub fn release_next_voice(&mut self) -> Option<u8> {
-        if !self.damper_held {
+        let released_vel = if !self.damper_held {
             let mut id: Option<usize> = None;
             let mut vel = None;
 
@@ -148,7 +150,11 @@ impl VoiceBuffer {
             }
 
             None
-        }
+        };
+
+        self.try_shrink_buffer();
+
+        released_vel
     }
 
     pub fn remove_ended_voices(&mut self) {
@@ -189,5 +195,11 @@ impl VoiceBuffer {
             self.held_by_damper.clear();
         }
         self.damper_held = damper;
+    }
+
+    pub fn try_shrink_buffer(&mut self) {
+        if self.buffer.len() > 4 && self.buffer.len() < self.buffer.capacity() / 2 {
+            self.buffer.shrink_to_fit();
+        }
     }
 }
