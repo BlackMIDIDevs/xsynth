@@ -41,11 +41,7 @@ impl ChannelGroup {
         };
 
         for _ in 0..config.channel_count {
-            channels.push(VoiceChannel::new(
-                config.audio_params.sample_rate,
-                config.audio_params.channels,
-                pool.clone(),
-            ));
+            channels.push(VoiceChannel::new(config.audio_params, pool.clone()));
             channel_events_cache.push(Vec::new());
             sample_cache_vecs.push(Vec::new());
         }

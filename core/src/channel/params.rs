@@ -39,16 +39,14 @@ impl Default for VoiceChannelStats {
 }
 
 impl VoiceChannelParams {
-    pub fn new(sample_rate: u32, channels: u16) -> Self {
+    pub fn new(stream_params: AudioStreamParams) -> Self {
         let channel_sf = ChannelSoundfont::new();
 
         Self {
             stats: VoiceChannelStats::new(),
             layers: Some(4),
             channel_sf,
-            constant: VoiceChannelConst {
-                stream_params: AudioStreamParams::new(sample_rate, channels),
-            },
+            constant: VoiceChannelConst { stream_params },
         }
     }
 }

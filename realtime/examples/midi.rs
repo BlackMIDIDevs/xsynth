@@ -9,11 +9,11 @@ use core::{
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 use midi_toolkit::{
-    events::{Event, MIDIEvent},
+    events::Event,
     io::MIDIFile,
     pipe,
     sequence::{
-        event::{cancel_tempo_events, convert_events_into_batches, scale_event_time},
+        event::{cancel_tempo_events, scale_event_time},
         unwrap_items, TimeCaster,
     },
 };
@@ -29,7 +29,7 @@ fn main() {
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
             "D:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
-            params.clone(),
+            params,
         )
         .unwrap(),
     )];
@@ -52,38 +52,25 @@ fn main() {
 
     let ppq = midi.ppq();
     let merged = pipe!(
-        midi.iter_all_events_merged()
+        midi.iter_all_events_merged_batches()
         |>TimeCaster::<f64>::cast_event_delta()
         |>cancel_tempo_events(250000)
-        |>convert_events_into_batches()
         |>scale_event_time(1.0 / ppq as f64)
         |>unwrap_items()
     );
 
-    let (tx, rx) = crossbeam_channel::unbounded();
-    let max_channel_len = midi.ppq() as usize * 120;
-
-    thread::spawn(move || {
-        for e in merged {
-            tx.send(e).unwrap();
-            if tx.len() > max_channel_len {
-                thread::sleep(Duration::from_millis(100));
-            }
-        }
-    });
-
     let now = Instant::now() - Duration::from_secs_f64(0.0);
     let mut time = 0.0;
-    while let Ok(batch) = rx.recv() {
-        if batch.delta() != 0.0 {
-            time += batch.delta();
+    for batch in merged {
+        if batch.delta != 0.0 {
+            time += batch.delta;
             let diff = time - now.elapsed().as_secs_f64();
             if diff > 0.0 {
                 spin_sleep::sleep(Duration::from_secs_f64(diff));
             }
         }
 
-        for e in batch.into_iter() {
+        for e in batch.iter_inner() {
             match e {
                 Event::NoteOn(e) => {
                     sender.send_event(SynthEvent::Channel(

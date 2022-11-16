@@ -15,7 +15,7 @@ fn main() {
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
             "D:/Midis/Loud and Proud Remastered/Axley Presets/Loud and Proud Remastered.sfz",
-            params.clone(),
+            params,
         )
         .unwrap(),
     )];
