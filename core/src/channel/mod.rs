@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    sync::{atomic::AtomicU64, Arc, Mutex, RwLock},
+    sync::{atomic::AtomicU64, Arc},
 };
 
 use crate::{
@@ -11,10 +11,10 @@ use crate::{
 
 use self::{
     key::KeyData,
-    params::{VoiceChannelConst, VoiceChannelParams, VoiceChannelStatsReader},
+    params::{VoiceChannelParams, VoiceChannelStatsReader},
 };
 
-use super::{soundfont::SoundfontBase, AudioPipe};
+use super::AudioPipe;
 
 use atomic_refcell::AtomicRefCell;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -28,13 +28,6 @@ mod voice_spawner;
 
 mod event;
 pub use event::*;
-
-#[derive(Clone)]
-pub struct VoiceChannel {
-    data: Arc<Mutex<VoiceChannelData>>,
-
-    constants: VoiceChannelConst,
-}
 
 struct Key {
     data: SingleBorrowRefCell<KeyData>,
@@ -78,10 +71,10 @@ impl ControlEventData {
     }
 }
 
-struct VoiceChannelData {
+pub struct VoiceChannel {
     key_voices: Arc<Vec<Key>>,
-    params: Arc<RwLock<VoiceChannelParams>>,
 
+    params: VoiceChannelParams,
     threadpool: Option<Arc<rayon::ThreadPool>>,
 
     /// The helper struct for keeping track of MIDI control event data
@@ -91,11 +84,11 @@ struct VoiceChannelData {
     voice_control_data: AtomicRefCell<VoiceControlData>,
 }
 
-impl VoiceChannelData {
+impl VoiceChannel {
     pub fn new(
         stream_params: AudioStreamParams,
         threadpool: Option<Arc<rayon::ThreadPool>>,
-    ) -> VoiceChannelData {
+    ) -> VoiceChannel {
         fn fill_key_array<T, F: Fn(u8) -> T>(func: F) -> Vec<T> {
             let mut vec = Vec::with_capacity(128);
             for i in 0..128 {
@@ -107,8 +100,8 @@ impl VoiceChannelData {
         let params = VoiceChannelParams::new(stream_params);
         let shared_voice_counter = params.stats.voice_counter.clone();
 
-        VoiceChannelData {
-            params: Arc::new(RwLock::new(params)),
+        VoiceChannel {
+            params,
             key_voices: Arc::new(fill_key_array(|i| {
                 Key::new(i, shared_voice_counter.clone())
             })),
@@ -123,8 +116,7 @@ impl VoiceChannelData {
     fn apply_channel_effects(&self, out: &mut [f32]) {
         #![allow(unused_variables)]
 
-        let params = self.params.read().unwrap();
-        let stream_params = &params.constant.stream_params;
+        let stream_params = &self.params.constant.stream_params;
         let control = self.control_event_data.borrow();
 
         // Volume
@@ -176,14 +168,13 @@ impl VoiceChannelData {
             key: &Key,
             len: usize,
             control: &VoiceControlData,
-            params: &Arc<RwLock<VoiceChannelParams>>,
+            params: &VoiceChannelParams,
         ) {
             let mut events = key.event_cache.borrow();
 
             let mut audio_cache = key.audio_cache.borrow();
             let mut data = key.data.borrow();
 
-            let params = params.read().unwrap();
             for e in events.drain(..) {
                 data.send_event(e, control, &params.channel_sf, params.layers);
             }
@@ -197,13 +188,12 @@ impl VoiceChannelData {
         match self.threadpool.as_ref() {
             Some(pool) => {
                 let len = out.len();
-                let params = self.params.clone();
                 let key_voices = self.key_voices.clone();
                 let control = self.voice_control_data.borrow();
+                let params = &self.params;
                 pool.install(|| {
-                    let params = params.clone();
                     key_voices.par_iter().for_each(move |key| {
-                        render_for_key(key, len, &control, &params);
+                        render_for_key(key, len, &control, params);
                     });
                 });
 
@@ -235,25 +225,6 @@ impl VoiceChannelData {
         for key in self.key_voices.iter() {
             let mut data = key.data.borrow();
             data.process_controls(&controls);
-        }
-    }
-
-    pub fn set_soundfonts(&self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
-        self.params
-            .write()
-            .unwrap()
-            .channel_sf
-            .set_soundfonts(soundfonts)
-    }
-
-    pub fn process_config_event(&self, event: ChannelConfigEvent) {
-        match event {
-            ChannelConfigEvent::SetSoundfonts(soundfonts) => {
-                self.set_soundfonts(soundfonts);
-            }
-            ChannelConfigEvent::SetLayerCount(count) => {
-                self.params.write().unwrap().layers = count;
-            }
         }
     }
 
@@ -342,30 +313,13 @@ impl VoiceChannelData {
             }
         }
     }
-}
 
-impl VoiceChannel {
-    pub fn new(
-        stream_params: AudioStreamParams,
-        threadpool: Option<Arc<rayon::ThreadPool>>,
-    ) -> VoiceChannel {
-        let data = VoiceChannelData::new(stream_params, threadpool);
-
-        let constants = data.params.read().unwrap().constant.clone();
-
-        VoiceChannel {
-            data: Arc::new(Mutex::new(data)),
-            constants,
-        }
-    }
-
-    pub fn process_event(&self, event: ChannelEvent) {
+    pub fn process_event(&mut self, event: ChannelEvent) {
         self.push_events_iter(std::iter::once(event));
     }
 
-    pub fn push_events_iter<T: Iterator<Item = ChannelEvent>>(&self, iter: T) {
-        let data = self.data.lock().unwrap();
-        let mut key_events = data
+    pub fn push_events_iter<T: Iterator<Item = ChannelEvent>>(&mut self, iter: T) {
+        let mut key_events = self
             .key_voices
             .iter()
             .map(|k| k.event_cache.borrow())
@@ -398,28 +352,26 @@ impl VoiceChannel {
                         }
                     }
                     ChannelAudioEvent::Control(control) => {
-                        data.process_control_event(control);
+                        self.process_control_event(control);
                     }
                 },
-                ChannelEvent::Config(config) => data.process_config_event(config),
+                ChannelEvent::Config(config) => self.params.process_config_event(config),
             }
         }
     }
 
     pub fn get_channel_stats(&self) -> VoiceChannelStatsReader {
-        let data = self.data.lock().unwrap();
-        let stats = data.params.read().unwrap().stats.clone();
+        let stats = self.params.stats.clone();
         VoiceChannelStatsReader::new(stats)
     }
 }
 
 impl AudioPipe for VoiceChannel {
     fn stream_params(&self) -> &AudioStreamParams {
-        &self.constants.stream_params
+        &self.params.constant.stream_params
     }
 
     fn read_samples_unchecked(&mut self, out: &mut [f32]) {
-        let mut data = self.data.lock().unwrap();
-        data.push_key_events_and_render(out);
+        self.push_key_events_and_render(out);
     }
 }

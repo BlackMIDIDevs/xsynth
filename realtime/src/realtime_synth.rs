@@ -12,7 +12,6 @@ use cpal::{
     Device, PauseStreamError, PlayStreamError, Sample, Stream, SupportedStreamConfig,
 };
 use crossbeam_channel::{bounded, unbounded};
-use to_vec::ToVec;
 
 use core::{
     channel::VoiceChannel,
@@ -64,8 +63,6 @@ impl RealtimeSynthStatsReader {
 }
 
 pub struct RealtimeSynth {
-    // Kept for ownership
-    _channels: Vec<VoiceChannel>,
     buffered_renderer: Arc<Mutex<BufferedRenderer>>,
 
     stream: Stream,
@@ -109,7 +106,7 @@ impl RealtimeSynth {
         device: &Device,
         stream_config: SupportedStreamConfig,
     ) -> Self {
-        let mut channels = Vec::new();
+        let mut channel_stats = Vec::new();
         let mut senders = Vec::new();
         let mut command_senders = Vec::new();
 
@@ -126,7 +123,9 @@ impl RealtimeSynth {
 
         for _ in 0u32..(config.channel_count) {
             let mut channel = VoiceChannel::new(stream_params, pool.clone());
-            channels.push(channel.clone());
+            let stats = channel.get_channel_stats();
+            channel_stats.push(stats);
+
             let (event_sender, event_receiver) = unbounded();
             senders.push(event_sender);
 
@@ -155,7 +154,6 @@ impl RealtimeSynth {
         let stats = RealtimeSynthStats::new();
 
         let total_voice_count = stats.voice_count.clone();
-        let channel_stats = channels.iter().map(|c| c.get_channel_stats()).to_vec();
 
         let channel_count = config.channel_count;
         let render = FunctionAudioPipe::new(stream_params, move |out| {
@@ -218,7 +216,6 @@ impl RealtimeSynth {
         let max_nps = Arc::new(ReadWriteAtomicU64::new(10000));
 
         Self {
-            _channels: channels,
             buffered_renderer: buffered,
 
             event_senders: RealtimeEventSender::new(senders, max_nps),

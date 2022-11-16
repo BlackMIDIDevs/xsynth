@@ -41,7 +41,7 @@ pub fn main() {
     println!("Running benches");
 
     let make_new_channel = || {
-        let channel = VoiceChannel::new(stream_params, None);
+        let mut channel = VoiceChannel::new(stream_params, None);
         channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
             soundfonts.clone(),
         )));
@@ -57,7 +57,7 @@ pub fn main() {
 }
 
 fn bench_events(make_new_channel: impl FnMut() -> VoiceChannel) {
-    run_bench("Push Events", 100, make_new_channel, |channel| {
+    run_bench("Push Events", 100, make_new_channel, |mut channel| {
         for _ in 0..1000 {
             for i in 0..127 {
                 channel.process_event(ChannelEvent::Audio(ChannelAudioEvent::NoteOn {
