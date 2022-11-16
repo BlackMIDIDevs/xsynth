@@ -20,3 +20,4 @@ symphonia = "0.5.1"
 
 [dev-dependencies]
 midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "51ff0dc" }
+rand = "0.8.5"

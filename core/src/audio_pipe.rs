@@ -30,10 +30,10 @@ impl<F: 'static + FnMut(&mut [f32]) + Send> AudioPipe for FunctionAudioPipe<F> {
 }
 
 impl<F: 'static + FnMut(&mut [f32]) + Send> FunctionAudioPipe<F> {
-    pub fn new(sample_rate: u32, channels: u16, func: F) -> Self {
+    pub fn new(stream_params: AudioStreamParams, func: F) -> Self {
         FunctionAudioPipe {
             func,
-            stream_params: AudioStreamParams::new(sample_rate, channels),
+            stream_params,
         }
     }
 }

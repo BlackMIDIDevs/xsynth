@@ -88,8 +88,7 @@ pub struct BufferedRenderer {
 impl BufferedRenderer {
     pub fn new<F: 'static + AudioPipe + Send>(
         mut render: F,
-        sample_rate: u32,
-        channels: u16,
+        stream_params: AudioStreamParams,
         render_size: usize,
     ) -> Self {
         let (tx, rx) = unbounded();
@@ -112,7 +111,8 @@ impl BufferedRenderer {
 
                 // The expected render time per iteration. It is slightly smaller (*90/100) than
                 // the real time so the render thread can catch up if it's behind.
-                let delay = Duration::from_secs(1) * size as u32 / sample_rate * 90 / 100;
+                let delay =
+                    Duration::from_secs(1) * size as u32 / stream_params.sample_rate * 90 / 100;
 
                 // If the render thread is ahead by over ~10%, wait until more samples are required.
                 loop {
@@ -129,7 +129,8 @@ impl BufferedRenderer {
                 let end = start + delay;
 
                 // Create the vec and write the samples
-                let mut vec = vec![Default::default(); size * channels as usize];
+                let mut vec =
+                    vec![Default::default(); size * stream_params.channels.count() as usize];
                 render.read_samples(&mut vec);
 
                 // Send the samples, break if the pipe is broken
@@ -168,7 +169,7 @@ impl BufferedRenderer {
             },
             receive: rx,
             remainder: Vec::new(),
-            stream_params: AudioStreamParams::new(sample_rate, channels),
+            stream_params,
         }
     }
 
