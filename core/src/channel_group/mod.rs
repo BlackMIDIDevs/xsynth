@@ -128,6 +128,13 @@ impl ChannelGroup {
             }
         });
     }
+
+    pub fn voice_count(&self) -> u64 {
+        self.channels
+            .iter()
+            .map(|c| c.get_channel_stats().voice_count())
+            .sum()
+    }
 }
 
 impl AudioPipe for ChannelGroup {

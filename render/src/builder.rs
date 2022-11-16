@@ -23,7 +23,7 @@ use midi_toolkit::{
 
 pub struct XSynthRenderStats {
     pub progress: f64,
-    // pub voice_count: usize,
+    pub voice_count: u64,
     // pub render_time: f64,
 }
 
@@ -31,6 +31,7 @@ pub struct XSynthRenderBuilder<'a, StatsCallback: FnMut(XSynthRenderStats)> {
     config: XSynthRenderConfig,
     midi_path: &'a str,
     soundfont_paths: Vec<&'a str>,
+    layer_count: Option<usize>,
     out_path: &'a str,
     stats_callback: StatsCallback,
 }
@@ -43,6 +44,7 @@ pub fn xsynth_renderer<'a>(
         config: XSynthRenderConfig::default(),
         midi_path,
         soundfont_paths: vec![],
+        layer_count: Some(4),
         out_path,
         stats_callback: |_| {},
     }
@@ -86,6 +88,11 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
         self
     }
 
+    pub fn with_layer_count(mut self, layers: Option<usize>) -> Self {
+        self.layer_count = layers;
+        self
+    }
+
     // Set up functions
     pub fn add_soundfonts(mut self, soundfont_paths: impl IntoIterator<Item = &'a str>) -> Self {
         self.soundfont_paths.extend(soundfont_paths);
@@ -105,6 +112,7 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
             config: self.config,
             midi_path: self.midi_path,
             soundfont_paths: self.soundfont_paths,
+            layer_count: self.layer_count,
             out_path: self.out_path,
             stats_callback,
         }
@@ -122,6 +130,10 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
 
         synth.send_event(SynthEvent::ChannelConfig(
             ChannelConfigEvent::SetSoundfonts(soundfonts),
+        ));
+
+        synth.send_event(SynthEvent::ChannelConfig(
+            ChannelConfigEvent::SetLayerCount(self.layer_count),
         ));
 
         let midi = MIDIFile::open(self.midi_path, None).unwrap();
@@ -143,7 +155,10 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
                 pos += batch.delta;
             }
             for e in batch.iter_events() {
-                (self.stats_callback)(XSynthRenderStats { progress: pos });
+                (self.stats_callback)(XSynthRenderStats {
+                    progress: pos,
+                    voice_count: synth.voice_count(),
+                });
                 match e.as_event() {
                     Event::NoteOn(e) => {
                         synth.send_event(SynthEvent::Channel(
