@@ -18,7 +18,7 @@ use super::{
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber,
         SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
-        Voice, VoiceBase, VoiceCombineSIMD,
+        Voice, VoiceBase, VoiceCombineSIMD, EnvelopePart,
     },
 };
 use crate::{helpers::FREQS, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
@@ -121,6 +121,13 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     }
 }
 
+fn apply_envelope_overrides(params: Arc<EnvelopeParameters>, control: &VoiceControlData) -> Arc<EnvelopeParameters> {
+    if let Some(attack) = control.attack {
+        params.parts[1] = EnvelopePart::lerp(1.0, (attack * 48000.0) as u32);
+    }
+    params.clone()
+}
+
 fn key_vel_to_index(key: u8, vel: u8) -> usize {
     (key as usize) * 128 + (vel as usize)
 }
@@ -143,7 +150,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release / 4.0,
+        release: (env.ampeg_release / 4.0).max(0.001),
     }
 }
 

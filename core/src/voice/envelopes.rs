@@ -208,7 +208,7 @@ impl EnvelopeDescriptor {
 #[derive(Debug, Clone)]
 pub struct EnvelopeParameters {
     start: f32,
-    parts: [EnvelopePart; 7],
+    pub parts: [EnvelopePart; 7],
 }
 
 impl EnvelopeParameters {
