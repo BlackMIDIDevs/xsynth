@@ -159,7 +159,7 @@ pub struct RegionParams {
 fn get_group_level(group_type: SfzGroupType) -> Option<usize> {
     match group_type {
         SfzGroupType::Control => Some(1),
-        SfzGroupType::Master => Some(2),
+        SfzGroupType::Global => Some(2),
         SfzGroupType::Group => Some(3),
         SfzGroupType::Region => Some(4),
         SfzGroupType::Other => None,
