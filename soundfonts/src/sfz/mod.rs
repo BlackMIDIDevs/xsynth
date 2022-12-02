@@ -30,7 +30,7 @@ impl Default for AmpegEnvelopeParams {
             ampeg_attack: 0.0,
             ampeg_hold: 0.0,
             ampeg_decay: 0.0,
-            ampeg_sustain: 1.0,
+            ampeg_sustain: 100.0,
             ampeg_release: 0.001,
         }
     }
