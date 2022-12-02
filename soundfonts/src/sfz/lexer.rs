@@ -132,7 +132,7 @@ fn parse_equals(parser: &mut StringParser) -> Option<()> {
     Some(())
 }
 
-fn parse_basic_tag_name<'a>(parser: &mut StringParser<'a>, tag_name: &str) -> Option<()> {
+fn parse_basic_tag_name(parser: &mut StringParser, tag_name: &str) -> Option<()> {
     parser.parse_literal(tag_name)?;
     parse_equals(parser);
     Some(())
