@@ -52,15 +52,22 @@ impl<'a> StringParser<'a> {
     }
 
     fn parse_until_space(&mut self) -> String {
-        let space_regex = regex!("([\n\r ])|($)");
+        let space_regex = regex!(r#"[^\s"']+|"([^"]*)"|'([^']*)'"#);
         let next_space = space_regex
             .find(self.input)
-            .map(|v| v.start())
+            .map(|v| v.end())
             .unwrap_or(self.input.len());
-
-        let result = &self.input[..next_space];
+        let mut result = &self.input[..next_space];
         let remaining = &self.input[next_space..];
         self.input = remaining;
+
+        let len = result.len();
+        if len != 0
+            && ((&result[..1] == "\"" && &result[len - 1..] == "\"")
+                || (&result[..1] == "'" && &result[len - 1..] == "'"))
+        {
+            result = &result[1..len - 1];
+        }
         result.to_owned()
     }
 
@@ -115,7 +122,7 @@ macro_rules! try_parse_float {
 pub enum SfzGroupType {
     Region,
     Group,
-    Master,
+    Global,
     Control,
     Other,
 }
@@ -125,7 +132,7 @@ fn parse_equals(parser: &mut StringParser) -> Option<()> {
     Some(())
 }
 
-fn parse_basic_tag_name<'a>(parser: &mut StringParser<'a>, tag_name: &str) -> Option<()> {
+fn parse_basic_tag_name(parser: &mut StringParser, tag_name: &str) -> Option<()> {
     parser.parse_literal(tag_name)?;
     parse_equals(parser);
     Some(())
@@ -216,7 +223,7 @@ fn parse_ampeg_envelope(parser: &mut StringParser) -> Option<SfzAmpegEnvelope> {
 fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
     try_parse!(parser, SfzRegionFlags::Sample, String, parser, {
         parse_basic_tag_name(parser, "sample")?;
-        Some(parser.parse_until_line_end().replace('\\', "/"))
+        Some(parser.parse_until_space().replace('\\', "/"))
     });
 
     try_parse_basic_tag!(parser, SfzRegionFlags::Lovel, u8, "lovel", parse_vel_number);
@@ -248,7 +255,7 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
 
     try_parse!(parser, SfzRegionFlags::DefaultPath, String, parser, {
         parse_basic_tag_name(parser, "default_path")?;
-        Some(parser.parse_until_line_end())
+        Some(parser.parse_until_space())
     });
 
     try_parse!(
@@ -273,8 +280,9 @@ fn parse_next_token(parser: &mut StringParser) -> Option<SfzToken> {
         match group_name.as_ref() {
             "region" => Some(SfzGroupType::Region),
             "group" => Some(SfzGroupType::Group),
-            "master" => Some(SfzGroupType::Master),
+            "master" => Some(SfzGroupType::Global),
             "control" => Some(SfzGroupType::Control),
+            "global" => Some(SfzGroupType::Global),
             _ => Some(SfzGroupType::Other),
         }
     });
