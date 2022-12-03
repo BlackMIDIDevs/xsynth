@@ -110,7 +110,11 @@ impl RegionParamsBuilder {
             self.sample?.into()
         };
 
-        let sample_path = base_path.join(relative_sample_path);
+        let mut sample_path = base_path.join(relative_sample_path);
+        match sample_path.canonicalize() {
+            Ok(path) => sample_path = path,
+            Err(_) => return None,
+        }
 
         let keyrange: RangeInclusive<u8>;
 
