@@ -255,7 +255,7 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
 
     try_parse!(parser, SfzRegionFlags::DefaultPath, String, parser, {
         parse_basic_tag_name(parser, "default_path")?;
-        Some(parser.parse_until_space())
+        Some(parser.parse_until_space().replace('\\', "/"))
     });
 
     try_parse!(
