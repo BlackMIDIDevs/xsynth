@@ -3,6 +3,7 @@ use std::{
     io,
     marker::PhantomData,
     path::PathBuf,
+    sync::{Arc, RwLock},
 };
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};

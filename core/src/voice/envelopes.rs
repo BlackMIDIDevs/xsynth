@@ -1,5 +1,3 @@
-use std::sync::{Arc, RwLock};
-
 use simdeez::Simd;
 
 use crate::voice::VoiceControlData;
