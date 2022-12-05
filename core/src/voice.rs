@@ -29,6 +29,7 @@ pub struct VoiceControlData {
     pub voice_pitch_multiplier: f32,
     pub cutoff: f32,
     pub attack: Option<f32>,
+    pub release: Option<f32>,
 }
 
 impl VoiceControlData {
@@ -37,6 +38,7 @@ impl VoiceControlData {
             voice_pitch_multiplier: 1.0,
             cutoff: 20000.0,
             attack: None,
+            release: None,
         }
     }
 }

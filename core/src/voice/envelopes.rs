@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use simdeez::Simd;
 
@@ -244,6 +244,10 @@ impl EnvelopeParameters {
             }
         }
     }
+
+    pub fn set_stage_data<T: Simd>(&mut self, part: usize, data: EnvelopePart) {
+        self.parts[part] = data;
+    }
 }
 
 enum StageData<T: Simd> {
@@ -257,13 +261,13 @@ struct VoiceEnvelopeState<T: Simd> {
 }
 
 pub struct SIMDVoiceEnvelope<T: Simd> {
-    params: Arc<EnvelopeParameters>,
+    params: Arc<RwLock<EnvelopeParameters>>,
     state: VoiceEnvelopeState<T>,
 }
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
-    pub fn new(params: Arc<EnvelopeParameters>) -> Self {
-        let state = params.get_stage_data(EnvelopeStage::Delay, params.start);
+    pub fn new(params: Arc<RwLock<EnvelopeParameters>>) -> Self {
+        let state = params.read().unwrap().get_stage_data(EnvelopeStage::Delay, params.read().unwrap().start);
 
         SIMDVoiceEnvelope { params, state }
     }
@@ -285,6 +289,8 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         let amp = self.get_value_at_current_time();
         self.state = self
             .params
+            .read()
+            .unwrap()
             .get_stage_data(self.current_stage().next_stage(), amp);
     }
 
@@ -324,7 +330,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
 
     fn signal_release(&mut self) {
         let amp = self.get_value_at_current_time();
-        self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
+        self.state = self.params.read().unwrap().get_stage_data(EnvelopeStage::Release, amp);
     }
 
     fn process_controls(&mut self, _control: &VoiceControlData) {}

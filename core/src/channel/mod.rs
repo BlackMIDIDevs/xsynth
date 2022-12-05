@@ -258,9 +258,19 @@ impl VoiceChannel {
                         key.data.borrow().set_damper(damper);
                     }
                 }
+                0x48 => {
+                    // Release
+                    let release = value as f32 / 128.0;
+                    let release = release.powi(4);
+                    let release = release * 4.0;
+                    self.voice_control_data.borrow_mut().release = Some(release.max(0.001));
+                    self.propagate_voice_controls();
+                }
                 0x49 => {
                     // Attack
                     let attack = value as f32 / 128.0;
+                    let attack = attack.powi(4);
+                    let attack = attack / 2.0;
                     self.voice_control_data.borrow_mut().attack = Some(attack);
                     self.propagate_voice_controls();
                 }
