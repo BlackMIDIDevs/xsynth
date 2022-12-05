@@ -145,7 +145,7 @@ impl<T: Simd> StageTime<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum EnvelopePart {
     Lerp {
         target: f32,   // Target value by the end of the envelope part
@@ -205,7 +205,7 @@ impl EnvelopeDescriptor {
 /// The raw envelope parameters used to generate the envelope.
 /// Is a separate struct to EnvelopeDescriptor for performance reasons.
 /// Use EnvelopeDescriptor to generate the EnvelopeParameters struct.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EnvelopeParameters {
     start: f32,
     pub parts: [EnvelopePart; 7],
@@ -245,8 +245,13 @@ impl EnvelopeParameters {
         }
     }
 
-    pub fn set_stage_data<T: Simd>(&mut self, part: usize, data: EnvelopePart) {
+    pub fn modify_and_return_stage_data<T: Simd>(
+        mut self,
+        part: usize,
+        data: EnvelopePart,
+    ) -> Self {
         self.parts[part] = data;
+        self
     }
 }
 
@@ -261,16 +266,13 @@ struct VoiceEnvelopeState<T: Simd> {
 }
 
 pub struct SIMDVoiceEnvelope<T: Simd> {
-    params: Arc<RwLock<EnvelopeParameters>>,
+    params: EnvelopeParameters,
     state: VoiceEnvelopeState<T>,
 }
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
-    pub fn new(params: Arc<RwLock<EnvelopeParameters>>) -> Self {
-        let state = params
-            .read()
-            .unwrap()
-            .get_stage_data(EnvelopeStage::Delay, params.read().unwrap().start);
+    pub fn new(params: EnvelopeParameters) -> Self {
+        let state = params.get_stage_data(EnvelopeStage::Delay, params.start);
 
         SIMDVoiceEnvelope { params, state }
     }
@@ -292,8 +294,6 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         let amp = self.get_value_at_current_time();
         self.state = self
             .params
-            .read()
-            .unwrap()
             .get_stage_data(self.current_stage().next_stage(), amp);
     }
 
@@ -333,11 +333,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
 
     fn signal_release(&mut self) {
         let amp = self.get_value_at_current_time();
-        self.state = self
-            .params
-            .read()
-            .unwrap()
-            .get_stage_data(EnvelopeStage::Release, amp);
+        self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
     }
 
     fn process_controls(&mut self, _control: &VoiceControlData) {}

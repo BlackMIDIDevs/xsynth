@@ -91,35 +91,29 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         }
     }
 
-    fn apply_envelope_overrides(
-        &self,
-        control: &VoiceControlData,
-    ) -> Arc<RwLock<EnvelopeParameters>> {
+    fn apply_envelope_overrides(&self, control: &VoiceControlData) -> EnvelopeParameters {
+        let mut params = self
+            .volume_envelope_params
+            .clone()
+            .write()
+            .unwrap()
+            .to_owned();
         if let Some(attack) = control.attack {
-            self.volume_envelope_params
-                .write()
-                .unwrap()
-                .set_stage_data::<S>(
-                    1,
-                    EnvelopePart::lerp(
-                        1.0,
-                        (attack * self.stream_params.sample_rate as f32) as u32,
-                    ),
-                );
+            params = params.modify_and_return_stage_data::<S>(
+                1,
+                EnvelopePart::lerp(1.0, (attack * self.stream_params.sample_rate as f32) as u32),
+            );
         }
         if let Some(release) = control.release {
-            self.volume_envelope_params
-                .write()
-                .unwrap()
-                .set_stage_data::<S>(
-                    5,
-                    EnvelopePart::lerp(
-                        0.0,
-                        (release * self.stream_params.sample_rate as f32) as u32,
-                    ),
-                );
+            params = params.modify_and_return_stage_data::<S>(
+                5,
+                EnvelopePart::lerp(
+                    0.0,
+                    (release * self.stream_params.sample_rate as f32) as u32,
+                ),
+            );
         }
-        self.volume_envelope_params.clone()
+        params
     }
 }
 
