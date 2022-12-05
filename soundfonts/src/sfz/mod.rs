@@ -30,7 +30,7 @@ impl Default for AmpegEnvelopeParams {
             ampeg_attack: 0.0,
             ampeg_hold: 0.0,
             ampeg_decay: 0.0,
-            ampeg_sustain: 1.0,
+            ampeg_sustain: 100.0,
             ampeg_release: 0.001,
         }
     }
@@ -110,7 +110,11 @@ impl RegionParamsBuilder {
             self.sample?.into()
         };
 
-        let sample_path = base_path.join(relative_sample_path);
+        let mut sample_path = base_path.join(relative_sample_path);
+        match sample_path.canonicalize() {
+            Ok(path) => sample_path = path,
+            Err(_) => return None,
+        }
 
         let keyrange: RangeInclusive<u8>;
 
@@ -159,7 +163,7 @@ pub struct RegionParams {
 fn get_group_level(group_type: SfzGroupType) -> Option<usize> {
     match group_type {
         SfzGroupType::Control => Some(1),
-        SfzGroupType::Master => Some(2),
+        SfzGroupType::Global => Some(2),
         SfzGroupType::Group => Some(3),
         SfzGroupType::Region => Some(4),
         SfzGroupType::Other => None,
