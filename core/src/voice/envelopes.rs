@@ -267,7 +267,10 @@ pub struct SIMDVoiceEnvelope<T: Simd> {
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
     pub fn new(params: Arc<RwLock<EnvelopeParameters>>) -> Self {
-        let state = params.read().unwrap().get_stage_data(EnvelopeStage::Delay, params.read().unwrap().start);
+        let state = params
+            .read()
+            .unwrap()
+            .get_stage_data(EnvelopeStage::Delay, params.read().unwrap().start);
 
         SIMDVoiceEnvelope { params, state }
     }
@@ -330,7 +333,11 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
 
     fn signal_release(&mut self) {
         let amp = self.get_value_at_current_time();
-        self.state = self.params.read().unwrap().get_stage_data(EnvelopeStage::Release, amp);
+        self.state = self
+            .params
+            .read()
+            .unwrap()
+            .get_stage_data(EnvelopeStage::Release, amp);
     }
 
     fn process_controls(&mut self, _control: &VoiceControlData) {}

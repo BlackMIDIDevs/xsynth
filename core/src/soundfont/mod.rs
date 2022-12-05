@@ -16,9 +16,9 @@ use self::audio::{load_audio_file, AudioLoadError};
 use super::{
     voice::VoiceControlData,
     voice::{
-        BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber,
+        BufferSamplers, EnvelopeParameters, EnvelopePart, SIMDConstant, SIMDNearestSampleGrabber,
         SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
-        Voice, VoiceBase, VoiceCombineSIMD, EnvelopePart,
+        Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{helpers::FREQS, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
@@ -72,7 +72,11 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
 }
 
 impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
-    pub fn new(params: &SampleVoiceSpawnerParams, vel: u8, stream_params: AudioStreamParams) -> Self {
+    pub fn new(
+        params: &SampleVoiceSpawnerParams,
+        vel: u8,
+        stream_params: AudioStreamParams,
+    ) -> Self {
         let amp = 1.04f32.powf(vel as f32 - 127.0);
 
         Self {
@@ -87,12 +91,33 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         }
     }
 
-    fn apply_envelope_overrides(&self, control: &VoiceControlData) -> Arc<RwLock<EnvelopeParameters>> {
+    fn apply_envelope_overrides(
+        &self,
+        control: &VoiceControlData,
+    ) -> Arc<RwLock<EnvelopeParameters>> {
         if let Some(attack) = control.attack {
-            self.volume_envelope_params.write().unwrap().set_stage_data::<S>(1, EnvelopePart::lerp(1.0, (attack * self.stream_params.sample_rate as f32) as u32));
+            self.volume_envelope_params
+                .write()
+                .unwrap()
+                .set_stage_data::<S>(
+                    1,
+                    EnvelopePart::lerp(
+                        1.0,
+                        (attack * self.stream_params.sample_rate as f32) as u32,
+                    ),
+                );
         }
         if let Some(release) = control.release {
-            self.volume_envelope_params.write().unwrap().set_stage_data::<S>(5, EnvelopePart::lerp(0.0, (release * self.stream_params.sample_rate as f32) as u32));
+            self.volume_envelope_params
+                .write()
+                .unwrap()
+                .set_stage_data::<S>(
+                    5,
+                    EnvelopePart::lerp(
+                        0.0,
+                        (release * self.stream_params.sample_rate as f32) as u32,
+                    ),
+                );
         }
         self.volume_envelope_params.clone()
     }
@@ -206,7 +231,9 @@ impl SampleSoundfont {
             if !exists {
                 unique_envelope_params.push((
                     envelope_descriptor,
-                    Arc::new(RwLock::new(envelope_descriptor.to_envelope_params(stream_params.sample_rate))),
+                    Arc::new(RwLock::new(
+                        envelope_descriptor.to_envelope_params(stream_params.sample_rate),
+                    )),
                 ));
             }
         }
@@ -280,7 +307,11 @@ impl SoundfontBase for SampleSoundfont {
                 let index = key_vel_to_index(key, vel);
                 let spawner_params = sf.spawner_params_list[index].as_ref();
                 if let Some(spawner_params) = spawner_params {
-                    vec![Box::new(SampledVoiceSpawner::<S>::new(spawner_params, vel, sf.stream_params))]
+                    vec![Box::new(SampledVoiceSpawner::<S>::new(
+                        spawner_params,
+                        vel,
+                        sf.stream_params,
+                    ))]
                 } else {
                     vec![]
                 }
