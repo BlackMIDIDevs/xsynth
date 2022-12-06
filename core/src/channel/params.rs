@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::AudioStreamParams;
 
-use super::channel_sf::ChannelSoundfont;
+use super::{channel_sf::ChannelSoundfont, ChannelConfigEvent};
 
 #[derive(Debug, Clone)]
 pub struct VoiceChannelStats {
@@ -39,16 +39,25 @@ impl Default for VoiceChannelStats {
 }
 
 impl VoiceChannelParams {
-    pub fn new(sample_rate: u32, channels: u16) -> Self {
+    pub fn new(stream_params: AudioStreamParams) -> Self {
         let channel_sf = ChannelSoundfont::new();
 
         Self {
             stats: VoiceChannelStats::new(),
             layers: Some(4),
             channel_sf,
-            constant: VoiceChannelConst {
-                stream_params: AudioStreamParams::new(sample_rate, channels),
-            },
+            constant: VoiceChannelConst { stream_params },
+        }
+    }
+
+    pub fn process_config_event(&mut self, event: ChannelConfigEvent) {
+        match event {
+            ChannelConfigEvent::SetSoundfonts(soundfonts) => {
+                self.channel_sf.set_soundfonts(soundfonts)
+            }
+            ChannelConfigEvent::SetLayerCount(count) => {
+                self.layers = count;
+            }
         }
     }
 }

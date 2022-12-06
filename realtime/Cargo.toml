@@ -8,19 +8,20 @@ edition = "2018"
 [dependencies]
 atomic_refcell = "0.1.7"
 bytemuck = "1.7.2"
-cpal = "0.13.3"
+cpal = "0.14.1"
 crossbeam-channel = "0.5.1"
 lazy_static = "1.4.0"
-midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "f30ca8a" }
 rayon = "1.5.3"
 simdeez = { git = "https://github.com/arduano/simdeez", rev = "d72e9a1" }
-sofiza = { git = "https://github.com/arduano/sofiza", rev = "4a013a6" }
-soundfont = "0.0.0"
 spin_sleep = "1.0.0"
 to_vec = "0.1.0"
 wav = "1.0.0"
 core = { path = "../core", package = "xsynth-core" }
+
+[dev-dependencies]
+sofiza = { git = "https://github.com/arduano/sofiza", rev = "4a013a6" }
+midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "907dec1" }
 gen-iter = "0.2.1"
 
 [build-dependencies]
-cbindgen = "0.20.0"
+cbindgen = "0.24.3"

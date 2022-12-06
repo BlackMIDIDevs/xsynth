@@ -12,7 +12,6 @@ use cpal::{
     Device, PauseStreamError, PlayStreamError, Sample, Stream, SupportedStreamConfig,
 };
 use crossbeam_channel::{bounded, unbounded};
-use to_vec::ToVec;
 
 use core::{
     channel::VoiceChannel,
@@ -64,8 +63,6 @@ impl RealtimeSynthStatsReader {
 }
 
 pub struct RealtimeSynth {
-    // Kept for ownership
-    _channels: Vec<VoiceChannel>,
     buffered_renderer: Arc<Mutex<BufferedRenderer>>,
 
     stream: Stream,
@@ -109,12 +106,12 @@ impl RealtimeSynth {
         device: &Device,
         stream_config: SupportedStreamConfig,
     ) -> Self {
-        let mut channels = Vec::new();
+        let mut channel_stats = Vec::new();
         let mut senders = Vec::new();
         let mut command_senders = Vec::new();
 
         let sample_rate = stream_config.sample_rate().0;
-        let audio_channels = stream_config.channels();
+        let stream_params = AudioStreamParams::new(sample_rate, stream_config.channels().into());
 
         let pool = if config.use_threadpool {
             Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()))
@@ -125,8 +122,10 @@ impl RealtimeSynth {
         let (output_sender, output_receiver) = bounded::<Vec<f32>>(config.channel_count as usize);
 
         for _ in 0u32..(config.channel_count) {
-            let mut channel = VoiceChannel::new(sample_rate, audio_channels, pool.clone());
-            channels.push(channel.clone());
+            let mut channel = VoiceChannel::new(stream_params, pool.clone());
+            let stats = channel.get_channel_stats();
+            channel_stats.push(stats);
+
             let (event_sender, event_receiver) = unbounded();
             senders.push(event_sender);
 
@@ -155,10 +154,9 @@ impl RealtimeSynth {
         let stats = RealtimeSynthStats::new();
 
         let total_voice_count = stats.voice_count.clone();
-        let channel_stats = channels.iter().map(|c| c.get_channel_stats()).to_vec();
 
         let channel_count = config.channel_count;
-        let render = FunctionAudioPipe::new(sample_rate, audio_channels, move |out| {
+        let render = FunctionAudioPipe::new(stream_params, move |out| {
             for sender in command_senders.iter() {
                 let mut buf = vec_cache.pop_front().unwrap();
                 prepapre_cache_vec(&mut buf, out.len(), 0.0);
@@ -178,8 +176,7 @@ impl RealtimeSynth {
 
         let buffered = Arc::new(Mutex::new(BufferedRenderer::new(
             render,
-            sample_rate,
-            audio_channels,
+            stream_params,
             (sample_rate as f64 * config.render_window_ms / 1000.0) as usize,
         )));
 
@@ -188,7 +185,7 @@ impl RealtimeSynth {
             stream_config: SupportedStreamConfig,
             buffered: Arc<Mutex<BufferedRenderer>>,
         ) -> Stream {
-            let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+            let err_fn = |err| eprintln!("an error occurred on stream: {err}");
             let mut output_vec = Vec::new();
 
             let mut limiter = VolumeLimiter::new(stream_config.channels());
@@ -219,13 +216,12 @@ impl RealtimeSynth {
         let max_nps = Arc::new(ReadWriteAtomicU64::new(10000));
 
         Self {
-            _channels: channels,
             buffered_renderer: buffered,
 
             event_senders: RealtimeEventSender::new(senders, max_nps),
             stream,
             stats,
-            stream_params: AudioStreamParams::new(sample_rate, audio_channels),
+            stream_params,
         }
     }
 
@@ -243,8 +239,8 @@ impl RealtimeSynth {
         RealtimeSynthStatsReader::new(self.stats.clone(), buffered_stats)
     }
 
-    pub fn stream_params(&self) -> &AudioStreamParams {
-        &self.stream_params
+    pub fn stream_params(&self) -> AudioStreamParams {
+        self.stream_params
     }
 
     pub fn pause(&mut self) -> Result<(), PauseStreamError> {

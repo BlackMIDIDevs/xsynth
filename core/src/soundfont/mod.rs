@@ -21,7 +21,7 @@ use super::{
         Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
-use crate::{helpers::FREQS, voice::EnvelopeDescriptor, AudioStreamParams};
+use crate::{helpers::FREQS, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
 
 pub mod audio;
 
@@ -40,7 +40,7 @@ struct SampleVoiceSpawnerParams {
     speed_mult: f32,
     cutoff: Option<f32>,
     envelope: Arc<EnvelopeParameters>,
-    sample: Vec<Arc<[f32]>>,
+    sample: Arc<[Arc<[f32]>]>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -65,7 +65,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     cutoff: Option<f32>,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
-    samples: Vec<Arc<[f32]>>,
+    samples: Arc<[Arc<[f32]>]>,
     vel: u8,
     _s: PhantomData<S>,
 }
@@ -88,7 +88,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult as f32);
+        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult);
 
         let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
 
@@ -161,6 +161,10 @@ impl SampleSoundfont {
         sfz_path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
     ) -> Result<Self, LoadSfzError> {
+        if stream_params.channels == ChannelCount::Mono {
+            panic!("Mono output is currently not supported");
+        }
+
         let regions = soundfonts::sfz::parse_soundfont(sfz_path.into())?;
 
         // Find the unique samples that we need to parse and convert

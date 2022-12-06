@@ -1,65 +1,18 @@
-use std::{
-    fs::File,
-    io,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs::File, io, path::PathBuf, sync::Arc};
 
-use flac::{ErrorKind, StreamReader};
+use symphonia::core::formats::FormatOptions;
+use symphonia::core::{audio::AudioBuffer, conv::IntoSample, probe::Hint, sample::Sample};
+use symphonia::core::{audio::AudioBufferRef, meta::MetadataOptions};
+use symphonia::core::{audio::Signal, io::MediaSourceStream};
+use symphonia::core::{codecs::DecoderOptions, errors::Error};
+
 use thiserror::Error;
-use wav::BitDepth;
+
+use crate::ChannelCount;
 
 use self::resample::SincResampler;
 
 pub mod resample;
-
-fn build_arrays<T: Copy>(
-    iter: impl Iterator<Item = T>,
-    channels: u16,
-    cast: impl Fn(T) -> f32,
-) -> Vec<Vec<f32>> {
-    let mut chans = Vec::new();
-    for _ in 0..channels {
-        chans.push(Vec::new());
-    }
-
-    for (i, sample) in iter.enumerate() {
-        let v = cast(sample);
-        chans[i % channels as usize].push(v);
-    }
-
-    for chan in chans.iter_mut() {
-        chan.shrink_to_fit();
-    }
-
-    chans
-}
-
-fn extract_samples(data: BitDepth, channels: u16) -> Vec<Vec<f32>> {
-    if let Some(data) = data.as_eight() {
-        return build_arrays(data.iter().copied(), channels, |v| {
-            (v as f32 - 128.0) / 128.0
-        });
-    }
-
-    if let Some(data) = data.as_sixteen() {
-        return build_arrays(data.iter().copied(), channels, |v| {
-            (v as f32) / i16::MAX as f32
-        });
-    }
-
-    if let Some(data) = data.as_thirty_two_float() {
-        return build_arrays(data.iter().copied(), channels, |v| v);
-    }
-
-    if let Some(data) = data.as_twenty_four() {
-        return build_arrays(data.iter().copied(), channels, |v| {
-            v as f32 / (1 << 23) as f32
-        });
-    }
-
-    panic!()
-}
 
 #[derive(Debug, Error)]
 pub enum AudioLoadError {
@@ -69,11 +22,14 @@ pub enum AudioLoadError {
     #[error("Unknown audio sample file extension")]
     UnknownExtension,
 
-    #[error("Error parsing FLAC file")]
-    FlacParseError,
+    #[error("Audio decoding failed")]
+    AudioDecodingFailed(#[from] Error),
+
+    #[error("Audio file has an invalid channel count")]
+    InvalidChannelCount,
 }
 
-fn resample_vecs(vecs: Vec<Vec<f32>>, sample_rate: f32, new_sample_rate: f32) -> Vec<Arc<[f32]>> {
+fn resample_vecs(vecs: Vec<Vec<f32>>, sample_rate: f32, new_sample_rate: f32) -> Arc<[Arc<[f32]>]> {
     let resampler = SincResampler::new(10000, sample_rate, 32);
 
     vecs.into_iter()
@@ -84,53 +40,139 @@ fn resample_vecs(vecs: Vec<Vec<f32>>, sample_rate: f32, new_sample_rate: f32) ->
 pub fn load_audio_file(
     path: &PathBuf,
     new_sample_rate: f32,
-) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
-    let extension = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .ok_or(AudioLoadError::UnknownExtension)?;
+) -> Result<Arc<[Arc<[f32]>]>, AudioLoadError> {
+    let extension = path.extension().and_then(|ext| ext.to_str());
 
-    match extension {
-        "wav" => Ok(load_wav(path, new_sample_rate)?),
-        "flac" => Ok(load_flac(path, new_sample_rate)?),
-        _ => Err(AudioLoadError::UnknownExtension),
+    let file = Box::new(File::open(path).unwrap());
+
+    // Create the media source stream using the boxed media source from above.
+    let mss = MediaSourceStream::new(file, Default::default());
+
+    // Create a hint to help the format registry guess what format reader is appropriate.
+    let mut hint = Hint::new();
+    if let Some(extension) = extension {
+        hint.with_extension(extension);
     }
-}
 
-fn load_wav(path: &PathBuf, new_sample_rate: f32) -> io::Result<Vec<Arc<[f32]>>> {
-    let mut reader = File::open(path)?;
-    let (header, data) = wav::read(&mut reader)?;
+    // Use the default options when reading and decoding.
+    let format_opts: FormatOptions = Default::default();
+    let metadata_opts: MetadataOptions = Default::default();
+    let decoder_opts: DecoderOptions = Default::default();
 
-    let vecs = extract_samples(data, header.channel_count);
+    // Probe the media source stream for a format.
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &format_opts, &metadata_opts)
+        .unwrap();
 
-    Ok(resample_vecs(
-        vecs,
-        header.sampling_rate as f32,
-        new_sample_rate,
-    ))
-}
+    // Get the format reader yielded by the probe operation.
+    let mut format = probed.format;
 
-fn load_flac(path: &Path, new_sample_rate: f32) -> Result<Vec<Arc<[f32]>>, AudioLoadError> {
-    let path = path.to_str().ok_or(AudioLoadError::UnknownExtension)?;
+    // Get the default track.
+    let track = format.default_track().unwrap();
 
-    match StreamReader::<File>::from_file(path) {
-        Ok(mut stream) => {
-            // Copy of `StreamInfo` to help convert to a different audio format.
-            let info = stream.info();
+    let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
+    let channel_count = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
 
-            let bit_div = 1 << info.bits_per_sample;
+    let channel_count_value = ChannelCount::from_count(channel_count as u16)
+        .ok_or(AudioLoadError::InvalidChannelCount)?;
 
-            let vecs = build_arrays(stream.iter::<i32>(), info.channels as u16, |val| {
-                (val as f32) / bit_div as f32
-            });
+    // Create a decoder for the track.
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&track.codec_params, &decoder_opts)
+        .unwrap();
 
-            Ok(resample_vecs(
-                vecs,
-                info.sample_rate as f32,
-                new_sample_rate,
-            ))
+    // Store the track identifier, we'll use it to filter packets.
+    let track_id = track.id;
+
+    // Builder for the parsed audio buffers
+    let mut builder = BuilderVecs::new(channel_count);
+
+    loop {
+        // Get the next packet from the format reader.
+        let packet = match format.next_packet() {
+            Err(symphonia::core::errors::Error::IoError(error))
+                if error.kind() == std::io::ErrorKind::UnexpectedEof =>
+            {
+                // Audio source ended. Currently the lib has no cleaner way of detecting this.
+                break;
+            }
+            Err(error) => return Err(error.into()),
+            Ok(packet) => packet,
+        };
+
+        // If the packet does not belong to the selected track, skip it.
+        if packet.track_id() != track_id {
+            continue;
         }
-        Err(ErrorKind::IO(io_err)) => Err(io::Error::from(io_err).into()),
-        Err(_) => Err(AudioLoadError::FlacParseError),
+
+        // Decode the packet into audio samples, ignoring any decode errors.
+        match decoder.decode(&packet) {
+            Ok(audio_buf) => {
+                builder.push(audio_buf);
+            }
+
+            Err(Error::DecodeError(_)) => (),
+            Err(e) => return Err(e.into()),
+        }
+    }
+
+    let built = builder.finish(sample_rate as f32, new_sample_rate);
+
+    Ok(match channel_count_value {
+        ChannelCount::Mono => vec![built[0].clone(), built[0].clone()]
+            .into_iter()
+            .collect(),
+        ChannelCount::Stereo => built,
+    })
+}
+
+struct BuilderVecs {
+    vecs: Vec<Vec<f32>>,
+}
+
+impl BuilderVecs {
+    fn new(channels: usize) -> Self {
+        let mut vecs = Vec::new();
+        for _ in 0..channels {
+            vecs.push(Vec::new());
+        }
+
+        Self { vecs }
+    }
+
+    fn push(&mut self, buffer: AudioBufferRef) {
+        match buffer {
+            AudioBufferRef::U8(buf) => self.push_buffer(&buf),
+            AudioBufferRef::U16(buf) => self.push_buffer(&buf),
+            AudioBufferRef::U24(buf) => self.push_buffer(&buf),
+            AudioBufferRef::U32(buf) => self.push_buffer(&buf),
+            AudioBufferRef::S8(buf) => self.push_buffer(&buf),
+            AudioBufferRef::S16(buf) => self.push_buffer(&buf),
+            AudioBufferRef::S24(buf) => self.push_buffer(&buf),
+            AudioBufferRef::S32(buf) => self.push_buffer(&buf),
+            AudioBufferRef::F32(buf) => self.push_buffer(&buf),
+            AudioBufferRef::F64(buf) => self.push_buffer(&buf),
+        }
+    }
+
+    fn push_buffer(&mut self, buffer: &AudioBuffer<impl Sample + IntoSample<f32>>) {
+        let channels = buffer.spec().channels.count();
+
+        for c in 0..channels {
+            let channel = buffer.chan(c);
+            self.vecs[c].reserve(channel.len());
+            for &sample in channel.iter() {
+                self.vecs[c].push(sample.into_sample());
+            }
+        }
+    }
+
+    fn finish(self, sample_rate: f32, new_sample_rate: f32) -> Arc<[Arc<[f32]>]> {
+        let mut vecs = self.vecs;
+        for chan in vecs.iter_mut() {
+            chan.shrink_to_fit();
+        }
+
+        resample_vecs(vecs, sample_rate, new_sample_rate)
     }
 }

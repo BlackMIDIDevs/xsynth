@@ -72,7 +72,7 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32 {
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
     SampleSoundfont::new(
       "E:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
-      params.clone(),
+      params,
     )
     .unwrap(),
   )];

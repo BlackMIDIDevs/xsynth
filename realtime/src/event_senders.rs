@@ -131,6 +131,10 @@ impl EventSender {
     pub fn send_audio(&mut self, event: ChannelAudioEvent) {
         match &event {
             ChannelAudioEvent::NoteOn { vel, key } => {
+                if *key > 127 {
+                    return;
+                }
+
                 let nps = self.nps.calculate_nps();
                 if should_send_for_vel_and_nps(*vel, nps, self.max_nps.read()) {
                     self.sender.send(ChannelEvent::Audio(event)).ok();
@@ -140,6 +144,10 @@ impl EventSender {
                 }
             }
             ChannelAudioEvent::NoteOff { key } => {
+                if *key > 127 {
+                    return;
+                }
+
                 if self.skipped_notes[*key as usize] > 0 {
                     self.skipped_notes[*key as usize] -= 1;
                 } else {
