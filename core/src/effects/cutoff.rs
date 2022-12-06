@@ -1,15 +1,21 @@
-pub struct SingleChannelCutoff {
-    previous: f32,
+pub struct SingleChannelMultiPassLPF {
+    previous: Vec<f32>,
+    passes: usize,
     alpha: f32,
     sample_rate: f32,
 }
 
-impl SingleChannelCutoff {
-    pub fn new(cutoff: f32, sample_rate: f32) -> SingleChannelCutoff {
+impl SingleChannelMultiPassLPF {
+    pub fn new(cutoff: f32, sample_rate: f32, passes: usize) -> SingleChannelMultiPassLPF {
         let alpha = Self::calculate_alpha(cutoff, sample_rate);
+        let mut previous = Vec::new();
+        for _ in 0..passes {
+            previous.push(0.0);
+        }
 
-        SingleChannelCutoff {
-            previous: 0.0,
+        SingleChannelMultiPassLPF {
+            previous,
+            passes,
             alpha,
             sample_rate,
         }
@@ -27,24 +33,27 @@ impl SingleChannelCutoff {
     }
 
     pub fn cutoff_sample(&mut self, val: f32) -> f32 {
-        let val = self.alpha * val + (1.0 - self.alpha) * self.previous;
-        self.previous = val;
-        val
+        let mut out = val;
+        for i in 0..self.passes {
+            out = self.alpha * out + (1.0 - self.alpha) * self.previous[i];
+            self.previous[i] = out;
+        }
+        out
     }
 }
 
-pub struct CutoffFilter {
-    channels: Vec<SingleChannelCutoff>,
+pub struct MultiPassLPF {
+    channels: Vec<SingleChannelMultiPassLPF>,
     channel_count: usize,
 }
 
-impl CutoffFilter {
-    pub fn new(channel_count: u16, cutoff: f32, sample_rate: f32) -> CutoffFilter {
+impl MultiPassLPF {
+    pub fn new(channel_count: u16, cutoff: f32, sample_rate: f32, passes: usize) -> MultiPassLPF {
         let mut limiters = Vec::new();
         for _ in 0..channel_count {
-            limiters.push(SingleChannelCutoff::new(cutoff, sample_rate));
+            limiters.push(SingleChannelMultiPassLPF::new(cutoff, sample_rate, passes));
         }
-        CutoffFilter {
+        MultiPassLPF {
             channels: limiters,
             channel_count: channel_count as usize,
         }

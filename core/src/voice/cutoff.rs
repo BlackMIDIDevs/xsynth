@@ -3,21 +3,20 @@ use std::marker::PhantomData;
 use simdeez::Simd;
 
 use crate::{
-    effects::SingleChannelCutoff,
+    effects::SingleChannelMultiPassLPF,
     voice::{SIMDVoiceGenerator, VoiceControlData},
 };
 
 use super::{SIMDSampleStereo, VoiceGeneratorBase};
 
-/// SIMD voice generator combiner based on a passed in function
 pub struct SIMDStereoVoiceCutoff<S, V>
 where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     v: V,
-    cutoff1: SingleChannelCutoff,
-    cutoff2: SingleChannelCutoff,
+    cutoff1: SingleChannelMultiPassLPF,
+    cutoff2: SingleChannelMultiPassLPF,
     _s: PhantomData<S>,
 }
 
@@ -26,11 +25,11 @@ where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
-    pub fn new(v: V, sample_rate: f32, initial_cutoff: f32) -> Self {
+    pub fn new(v: V, sample_rate: f32, initial_cutoff: f32, passes: usize) -> Self {
         SIMDStereoVoiceCutoff {
             v,
-            cutoff1: SingleChannelCutoff::new(initial_cutoff, sample_rate),
-            cutoff2: SingleChannelCutoff::new(initial_cutoff, sample_rate),
+            cutoff1: SingleChannelMultiPassLPF::new(initial_cutoff, sample_rate, passes),
+            cutoff2: SingleChannelMultiPassLPF::new(initial_cutoff, sample_rate, passes),
             _s: PhantomData,
         }
     }

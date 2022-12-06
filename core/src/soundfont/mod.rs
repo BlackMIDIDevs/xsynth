@@ -164,7 +164,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.apply_envelope(gen);
 
         if let Some(cutoff) = self.cutoff {
-            let gen = SIMDStereoVoiceCutoff::new(gen, self.sample_rate, cutoff);
+            let gen = SIMDStereoVoiceCutoff::new(gen, self.sample_rate, cutoff, 2);
             self.convert_to_voice(gen)
         } else {
             self.convert_to_voice(gen)
@@ -274,7 +274,12 @@ impl SampleSoundfont {
                         .1
                         .clone();
 
-                    let cutoff = region.cutoff; // TODO: fil_veltrack
+                    let cutoff = if let Some(cutoff) = region.cutoff {
+                        let mult = (cutoff * core::f32::consts::PI / 40000.0).sin().powf(0.8);
+                        Some(23000.0 * mult)
+                    } else {
+                        None
+                    };
 
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                         envelope: envelope_params,
