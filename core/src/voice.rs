@@ -28,19 +28,14 @@ pub use control::*;
 mod cutoff;
 pub use cutoff::*;
 
-//mod cutoff;
-//pub use cutoff::*;
-
 pub struct VoiceControlData {
     pub voice_pitch_multiplier: f32,
-    pub cutoff: f32,
 }
 
 impl VoiceControlData {
     pub fn new_defaults() -> Self {
         VoiceControlData {
             voice_pitch_multiplier: 1.0,
-            cutoff: 20000.0,
         }
     }
 }

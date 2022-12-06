@@ -2,49 +2,44 @@ use std::marker::PhantomData;
 
 use simdeez::Simd;
 
-use crate::voice::{SIMDSample, SIMDVoiceGenerator, VoiceControlData};
+use crate::{
+    effects::SingleChannelCutoff,
+    voice::{SIMDVoiceGenerator, VoiceControlData},
+};
 
-use super::VoiceGeneratorBase;
+use super::{SIMDSampleStereo, VoiceGeneratorBase};
 
 /// SIMD voice generator combiner based on a passed in function
-pub struct SIMDVoiceCutoff<T, TO, V, F>
+pub struct SIMDStereoVoiceCutoff<S, V>
 where
-    T: Simd,
-    TO: SIMDSample<T>,
-    V: SIMDVoiceGenerator<T, TO>,
-    F: Fn(TO, f32) -> TO,
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     v: V,
-    freq: f32,
-    func: F,
-    _t: PhantomData<T>,
-    _to: PhantomData<TO>,
+    cutoff1: SingleChannelCutoff,
+    cutoff2: SingleChannelCutoff,
+    _s: PhantomData<S>,
 }
 
-impl<T, TO, V, F> SIMDVoiceCutoff<T, TO, V, F>
+impl<S, V> SIMDStereoVoiceCutoff<S, V>
 where
-    T: Simd,
-    TO: SIMDSample<T>,
-    V: SIMDVoiceGenerator<T, TO>,
-    F: Fn(TO, f32) -> TO,
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
-    pub fn new(v: V, freq: f32, func: F) -> Self {
-        SIMDVoiceCutoff {
+    pub fn new(v: V, sample_rate: f32, initial_cutoff: f32) -> Self {
+        SIMDStereoVoiceCutoff {
             v,
-            func,
-            freq,
-            _t: PhantomData,
-            _to: PhantomData,
+            cutoff1: SingleChannelCutoff::new(initial_cutoff, sample_rate),
+            cutoff2: SingleChannelCutoff::new(initial_cutoff, sample_rate),
+            _s: PhantomData,
         }
     }
 }
 
-impl<T, TO, V, F> VoiceGeneratorBase for SIMDVoiceCutoff<T, TO, V, F>
+impl<S, V> VoiceGeneratorBase for SIMDStereoVoiceCutoff<S, V>
 where
-    T: Simd,
-    TO: SIMDSample<T>,
-    V: SIMDVoiceGenerator<T, TO>,
-    F: Sync + Send + Fn(TO, f32) -> TO,
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     fn ended(&self) -> bool {
         self.v.ended()
@@ -59,46 +54,17 @@ where
     }
 }
 
-impl<T, TO, V, F> SIMDVoiceGenerator<T, TO> for SIMDVoiceCutoff<T, TO, V, F>
+impl<S, V> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for SIMDStereoVoiceCutoff<S, V>
 where
-    T: Simd,
-    TO: SIMDSample<T>,
-    V: SIMDVoiceGenerator<T, TO>,
-    F: Sync + Send + Fn(TO, f32) -> TO,
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
-    fn next_sample(&mut self) -> TO {
-        (self.func)(self.v.next_sample(), self.freq)
-    }
-}
-
-/// Parent struct for base SIMD voice combination functions
-pub struct VoiceCutoffSIMD<T: Simd>(PhantomData<T>);
-
-impl<T: Simd> VoiceCutoffSIMD<T> {
-    pub fn cutoff<TO, V>(voice: V, freq: f32) -> impl SIMDVoiceGenerator<T, TO>
-    where
-        TO: SIMDSample<T>,
-        V: SIMDVoiceGenerator<T, TO>,
-    {
-        #[inline(always)]
-        fn cutoff<T, TO>(a: TO, freq: f32) -> TO
-        where
-            T: Simd,
-            TO: SIMDSample<T>,
-        {
-            let rc = 1.0 / (freq * 2.0 * core::f32::consts::PI);
-            let dt = 1.0 / 48000 as f32;
-            let alpha = dt / (rc + dt);
-
-            a[0] *= alpha;
-
-            for i in 1..T::VF32_WIDTH {
-                a[i] = a[i - 1] + alpha * (a[i] - a[i - 1]);
-            }
-
-            a
+    fn next_sample(&mut self) -> SIMDSampleStereo<S> {
+        let mut next_sample = self.v.next_sample();
+        for i in 0..S::VF32_WIDTH {
+            next_sample.0[i] = self.cutoff1.cutoff_sample(next_sample.0[i]);
+            next_sample.1[i] = self.cutoff2.cutoff_sample(next_sample.1[i]);
         }
-
-        SIMDVoiceCutoff::new(voice, freq, cutoff)
+        next_sample
     }
 }

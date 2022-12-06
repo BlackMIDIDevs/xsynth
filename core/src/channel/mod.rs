@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    effects::CutoffFilter,
     helpers::{prepapre_cache_vec, sum_simd},
     voice::VoiceControlData,
     AudioStreamParams, SingleBorrowRefCell,
@@ -85,7 +86,8 @@ pub struct VoiceChannel {
     /// Processed control data, ready to feed to voices
     voice_control_data: AtomicRefCell<VoiceControlData>,
 
-    last_buffer: Option<Vec<f32>>,
+    // Effects
+    cutoff: CutoffFilter,
 }
 
 impl VoiceChannel {
@@ -115,12 +117,15 @@ impl VoiceChannel {
             control_event_data: RefCell::new(ControlEventData::new_defaults()),
             voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
 
-            last_buffer: None,
+            cutoff: CutoffFilter::new(
+                stream_params.channels.count(),
+                20000.0,
+                stream_params.sample_rate as f32,
+            ),
         }
     }
 
-    fn apply_channel_effects(&self, out: &mut [f32]) {
-        let stream_params = &self.params.constant.stream_params;
+    fn apply_channel_effects(&mut self, out: &mut [f32]) {
         let control = self.control_event_data.borrow();
 
         // Volume
@@ -138,27 +143,8 @@ impl VoiceChannel {
 
         // Cutoff
         if let Some(cutoff) = control.cutoff {
-            let rc = 1.0 / (cutoff * 2.0 * core::f32::consts::PI);
-            let dt = 1.0 / stream_params.sample_rate as f32;
-            let alpha = dt / (rc + dt);
-
-            if let Some(last) = &self.last_buffer {
-                for i in 0..2 {
-                    out[i] = last[i] + alpha * (out[i] - last[i]);
-                }
-            } else {
-                out[0] *= alpha;
-                out[1] *= alpha;
-            }
-
-            for i in 2..out.len() {
-                out[i] = out[i - 2] + alpha * (out[i] - out[i - 2]);
-            }
-
-            let mut cache: Vec<f32> = Vec::new();
-            cache.push(out[out.len() - 2]);
-            cache.push(out[out.len() - 1]);
-            self.last_buffer = Some(cache);
+            self.cutoff.set_cutoff(cutoff);
+            self.cutoff.cutoff_samples(out);
         }
     }
 
