@@ -72,7 +72,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
 
 impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
     pub fn new(params: &SampleVoiceSpawnerParams, vel: u8) -> Self {
-        let amp = 1.04f32.powf(vel as f32 - 127.0);
+        let amp = (vel as f32 / 127.0).powi(2);
 
         Self {
             speed_mult: params.speed_mult,
