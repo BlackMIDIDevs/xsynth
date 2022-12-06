@@ -31,6 +31,8 @@ use crate::{
     AudioStreamParams, ChannelCount,
 };
 
+use soundfonts::FilterType;
+
 pub mod audio;
 
 pub trait VoiceSpawner: Sync + Send {
@@ -48,6 +50,7 @@ struct SampleVoiceSpawnerParams {
     speed_mult: f32,
     sample_rate: f32,
     cutoff: Option<f32>,
+    filter_type: FilterType,
     envelope: Arc<EnvelopeParameters>,
     sample: Arc<[Arc<[f32]>]>,
 }
@@ -72,6 +75,7 @@ impl SampleCache {
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
     cutoff: Option<f32>,
+    filter_type: FilterType,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Arc<[Arc<[f32]>]>,
@@ -87,6 +91,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         Self {
             speed_mult: params.speed_mult,
             cutoff: params.cutoff,
+            filter_type: params.filter_type,
             amp,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
@@ -164,7 +169,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.apply_envelope(gen);
 
         if let Some(cutoff) = self.cutoff {
-            let gen = SIMDStereoVoiceCutoff::new(gen, self.sample_rate, cutoff, 2);
+            let gen = SIMDStereoVoiceCutoff::new(gen, self.filter_type, self.sample_rate, cutoff);
             self.convert_to_voice(gen)
         } else {
             self.convert_to_voice(gen)
@@ -285,6 +290,7 @@ impl SampleSoundfont {
                         envelope: envelope_params,
                         speed_mult,
                         cutoff,
+                        filter_type: region.filter_type,
                         sample: samples[&params].clone(),
                         sample_rate: stream_params.sample_rate as f32,
                     });

@@ -1,20 +1,34 @@
-pub struct SingleChannelMultiPassLPF {
+use soundfonts::FilterType;
+
+pub struct SingleChannelMultiPassFilter {
+    filter_type: FilterType,
     previous: Vec<f32>,
+    previous_unedited: Vec<f32>,
     passes: usize,
     alpha: f32,
     sample_rate: f32,
 }
 
-impl SingleChannelMultiPassLPF {
-    pub fn new(cutoff: f32, sample_rate: f32, passes: usize) -> SingleChannelMultiPassLPF {
-        let alpha = Self::calculate_alpha(cutoff, sample_rate);
+impl SingleChannelMultiPassFilter {
+    pub fn new(filter_type: FilterType, cutoff: f32, sample_rate: f32) -> SingleChannelMultiPassFilter {
+        let alpha = Self::calculate_alpha(filter_type, cutoff, sample_rate);
+        let passes = match filter_type {
+            FilterType::LowPass { passes } => passes,
+            FilterType::HighPass { passes } => passes,
+        };
         let mut previous = Vec::new();
         for _ in 0..passes {
             previous.push(0.0);
         }
+        let mut previous_unedited = Vec::new();
+        for _ in 0..passes {
+            previous_unedited.push(0.0);
+        }
 
-        SingleChannelMultiPassLPF {
+        SingleChannelMultiPassFilter {
+            filter_type,
             previous,
+            previous_unedited,
             passes,
             alpha,
             sample_rate,
@@ -22,38 +36,55 @@ impl SingleChannelMultiPassLPF {
     }
 
     pub fn set_cutoff(&mut self, cutoff: f32) {
-        self.alpha = Self::calculate_alpha(cutoff, self.sample_rate);
+        self.alpha = Self::calculate_alpha(self.filter_type, cutoff, self.sample_rate);
     }
 
-    fn calculate_alpha(cutoff: f32, sample_rate: f32) -> f32 {
+    fn calculate_alpha(filter_type: FilterType, cutoff: f32, sample_rate: f32) -> f32 {
         let rc = 1.0 / (cutoff * 2.0 * core::f32::consts::PI);
         let dt = 1.0 / sample_rate;
-        let alpha = dt / (rc + dt);
-        alpha
+
+        match filter_type {
+            FilterType::LowPass { .. } => dt / (rc + dt),
+            FilterType::HighPass { .. } => rc / (rc + dt),
+        }
     }
 
-    pub fn cutoff_sample(&mut self, val: f32) -> f32 {
+    pub fn process_sample(&mut self, val: f32) -> f32 {
         let mut out = val;
-        for i in 0..self.passes {
-            out = self.alpha * out + (1.0 - self.alpha) * self.previous[i];
-            self.previous[i] = out;
+        match self.filter_type {
+            FilterType::LowPass { .. } => {
+                for i in 0..self.passes {
+                    out = self.alpha * out + (1.0 - self.alpha) * self.previous[i];
+                    self.previous[i] = out;
+                }
+            },
+            FilterType::HighPass { .. } => {
+                for i in 0..self.passes {
+                    out = self.alpha * (self.previous[i] + out - self.previous_unedited[i]);
+                    self.previous[i] = out;
+                }
+                self.previous_unedited[0] = val;
+                for i in 0..self.previous.len()-1 {
+                    self.previous_unedited[i+1] = self.previous[i];
+                }
+            },
         }
         out
     }
 }
 
-pub struct MultiPassLPF {
-    channels: Vec<SingleChannelMultiPassLPF>,
+pub struct MultiPassFilter {
+    channels: Vec<SingleChannelMultiPassFilter>,
     channel_count: usize,
 }
 
-impl MultiPassLPF {
-    pub fn new(channel_count: u16, cutoff: f32, sample_rate: f32, passes: usize) -> MultiPassLPF {
+impl MultiPassFilter {
+    pub fn new(filter_type: FilterType, channel_count: u16, cutoff: f32, sample_rate: f32) -> MultiPassFilter {
         let mut limiters = Vec::new();
         for _ in 0..channel_count {
-            limiters.push(SingleChannelMultiPassLPF::new(cutoff, sample_rate, passes));
+            limiters.push(SingleChannelMultiPassFilter::new(filter_type, cutoff, sample_rate));
         }
-        MultiPassLPF {
+        MultiPassFilter {
             channels: limiters,
             channel_count: channel_count as usize,
         }
@@ -61,7 +92,7 @@ impl MultiPassLPF {
 
     pub fn cutoff_samples(&mut self, sample: &mut [f32]) {
         for (i, s) in sample.iter_mut().enumerate() {
-            *s = self.channels[i % self.channel_count].cutoff_sample(*s);
+            *s = self.channels[i % self.channel_count].process_sample(*s);
         }
     }
 

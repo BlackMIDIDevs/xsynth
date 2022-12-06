@@ -9,6 +9,8 @@ use self::lexer::{
     parse_all_tokens, SfzAmpegEnvelope, SfzGroupType, SfzLoopMode, SfzRegionFlags, SfzToken,
 };
 
+use crate::FilterType;
+
 mod lexer;
 
 #[derive(Debug, Clone)]
@@ -63,6 +65,7 @@ pub struct RegionParamsBuilder {
     default_path: Option<String>,
     loop_mode: SfzLoopMode,
     cutoff: Option<f32>,
+    filter_type: FilterType,
     ampeg_envelope: AmpegEnvelopeParams,
 }
 
@@ -80,6 +83,7 @@ impl Default for RegionParamsBuilder {
             default_path: None,
             loop_mode: SfzLoopMode::NoLoop,
             cutoff: None,
+            filter_type: FilterType::LowPass { passes: 2 },
             ampeg_envelope: AmpegEnvelopeParams::default(),
         }
     }
@@ -98,6 +102,7 @@ impl RegionParamsBuilder {
             SfzRegionFlags::Sample(val) => self.sample = Some(val),
             SfzRegionFlags::LoopMode(val) => self.loop_mode = val,
             SfzRegionFlags::Cutoff(val) => self.cutoff = Some(val),
+            SfzRegionFlags::FilterType(val) => self.filter_type = val,
             SfzRegionFlags::DefaultPath(val) => self.default_path = Some(val),
             SfzRegionFlags::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
         }
@@ -143,6 +148,7 @@ impl RegionParamsBuilder {
             sample_path,
             loop_mode: self.loop_mode,
             cutoff: self.cutoff,
+            filter_type: self.filter_type,
             ampeg_envelope: self.ampeg_envelope,
         })
     }
@@ -157,6 +163,7 @@ pub struct RegionParams {
     pub sample_path: PathBuf,
     pub loop_mode: SfzLoopMode,
     pub cutoff: Option<f32>,
+    pub filter_type: FilterType,
     pub ampeg_envelope: AmpegEnvelopeParams,
 }
 

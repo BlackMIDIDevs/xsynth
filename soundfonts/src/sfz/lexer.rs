@@ -1,5 +1,7 @@
 use std::{fs, io, path::Path};
 
+use crate::FilterType;
+
 use lazy_regex::{regex, Regex};
 
 #[derive(Debug, Clone)]
@@ -179,6 +181,7 @@ pub enum SfzRegionFlags {
     Sample(String),
     LoopMode(SfzLoopMode),
     Cutoff(f32),
+    FilterType(FilterType),
     DefaultPath(String),
     AmpegEnvelope(SfzAmpegEnvelope),
 }
@@ -240,6 +243,22 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
     );
     try_parse_basic_tag!(parser, SfzRegionFlags::Key, u8, "key", parse_key_number);
     try_parse_basic_tag!(parser, SfzRegionFlags::Cutoff, f32, "cutoff", parse_float);
+
+    try_parse!(parser, SfzRegionFlags::FilterType, FilterType, parser, {
+        parse_basic_tag_name(parser, "fil_type")?;
+        let group_name = parser.parse_regex(regex!(r"^\w+"))?;
+        match group_name.as_ref() {
+            "lpf_1p" => Some(FilterType::LowPass{passes: 1}),
+            "lpf_2p" => Some(FilterType::LowPass{passes: 2}),
+            "lpf_4p" => Some(FilterType::LowPass{passes: 4}),
+            "lpf_6p" => Some(FilterType::LowPass{passes: 6}),
+            "hpf_1p" => Some(FilterType::HighPass{passes: 1}),
+            "hpf_2p" => Some(FilterType::HighPass{passes: 2}),
+            "hpf_4p" => Some(FilterType::HighPass{passes: 4}),
+            "hpf_6p" => Some(FilterType::HighPass{passes: 6}),
+            _ => Some(FilterType::LowPass{passes: 2}),
+        }
+    });
 
     try_parse!(parser, SfzRegionFlags::LoopMode, SfzLoopMode, parser, {
         parse_basic_tag_name(parser, "loop_mode")?;

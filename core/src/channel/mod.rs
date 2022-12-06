@@ -4,11 +4,13 @@ use std::{
 };
 
 use crate::{
-    effects::MultiPassLPF,
+    effects::MultiPassFilter,
     helpers::{prepapre_cache_vec, sum_simd},
     voice::VoiceControlData,
     AudioStreamParams, SingleBorrowRefCell,
 };
+
+use soundfonts::FilterType;
 
 use self::{
     key::KeyData,
@@ -87,7 +89,7 @@ pub struct VoiceChannel {
     voice_control_data: AtomicRefCell<VoiceControlData>,
 
     // Effects
-    cutoff: MultiPassLPF,
+    cutoff: MultiPassFilter,
 }
 
 impl VoiceChannel {
@@ -117,11 +119,11 @@ impl VoiceChannel {
             control_event_data: RefCell::new(ControlEventData::new_defaults()),
             voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
 
-            cutoff: MultiPassLPF::new(
+            cutoff: MultiPassFilter::new(
+                FilterType::LowPass { passes: 2 },
                 stream_params.channels.count(),
                 20000.0,
                 stream_params.sample_rate as f32,
-                2,
             ),
         }
     }
