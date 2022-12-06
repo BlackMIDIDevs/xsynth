@@ -1,0 +1,26 @@
+[package]
+name = "daw-plugin"
+version = "0.1.0"
+edition = "2021"
+authors = ["Arduano <your@email.com>"]
+license = "GPLv3"
+homepage = "https://youtu.be/dQw4w9WgXcQ"
+description = "A short description of your plugin"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = [
+    "assert_process_allocs",
+] }
+core = { path = "../core", package = "xsynth-core" }
+
+[profile.release]
+lto = "thin"
+strip = "symbols"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = "none"

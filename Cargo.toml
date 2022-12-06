@@ -1,6 +1,15 @@
 [workspace]
 
-members = ["core", "realtime", "kdmapi", "soundfonts", "render"]
+members = [
+    "core",
+    "realtime",
+    "kdmapi",
+    "soundfonts",
+    "render",
+
+    "daw-plugin",
+    "daw-plugin/xtask",
+]
 
 [profile.release]
 codegen-units = 1
