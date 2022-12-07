@@ -278,7 +278,7 @@ impl VoiceChannel {
                 }
                 0x4A => {
                     // Cutoff
-                    let cutoff = (value as f32 / 127.0) * 18000.0;
+                    let cutoff = (value as f32 / 64.0).min(1.0).powf(0.85) * 22000.0;
                     self.control_event_data.borrow_mut().cutoff = Some(cutoff)
                 }
                 _ => {}
