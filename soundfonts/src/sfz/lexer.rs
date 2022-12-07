@@ -307,15 +307,15 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         parse_basic_tag_name(parser, "fil_type")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
         let fil_type = match group_name.as_ref() {
-            "lpf_1p" => Some(FilterType::LowPass{passes: 1}),
-            "lpf_2p" => Some(FilterType::LowPass{passes: 2}),
-            "lpf_4p" => Some(FilterType::LowPass{passes: 4}),
-            "lpf_6p" => Some(FilterType::LowPass{passes: 6}),
-            "hpf_1p" => Some(FilterType::HighPass{passes: 1}),
-            "hpf_2p" => Some(FilterType::HighPass{passes: 2}),
-            "hpf_4p" => Some(FilterType::HighPass{passes: 4}),
-            "hpf_6p" => Some(FilterType::HighPass{passes: 6}),
-            _ => Some(FilterType::LowPass{passes: 2}),
+            "lpf_1p" => FilterType::LowPass{passes: 1},
+            "lpf_2p" => FilterType::LowPass{passes: 2},
+            "lpf_4p" => FilterType::LowPass{passes: 4},
+            "lpf_6p" => FilterType::LowPass{passes: 6},
+            "hpf_1p" => FilterType::HighPass{passes: 1},
+            "hpf_2p" => FilterType::HighPass{passes: 2},
+            "hpf_4p" => FilterType::HighPass{passes: 4},
+            "hpf_6p" => FilterType::HighPass{passes: 6},
+            _ => FilterType::LowPass{passes: 2},
         };
         Some(SfzRegionFlags::FilterType(fil_type))
     });
