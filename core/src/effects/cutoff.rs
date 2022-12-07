@@ -4,7 +4,6 @@ pub struct SingleChannelMultiPassFilter {
     filter_type: FilterType,
     previous: Vec<f32>,
     previous_unedited: Vec<f32>,
-    passes: usize,
     alpha: f32,
     sample_rate: f32,
 }
@@ -29,7 +28,6 @@ impl SingleChannelMultiPassFilter {
             filter_type,
             previous,
             previous_unedited,
-            passes,
             alpha,
             sample_rate,
         }
@@ -52,14 +50,14 @@ impl SingleChannelMultiPassFilter {
     pub fn process_sample(&mut self, val: f32) -> f32 {
         let mut out = val;
         match self.filter_type {
-            FilterType::LowPass { .. } => {
-                for i in 0..self.passes {
+            FilterType::LowPass { passes } => {
+                for i in 0..passes {
                     out = self.alpha * out + (1.0 - self.alpha) * self.previous[i];
                     self.previous[i] = out;
                 }
             },
-            FilterType::HighPass { .. } => {
-                for i in 0..self.passes {
+            FilterType::HighPass { passes } => {
+                for i in 0..passes {
                     out = self.alpha * (self.previous[i] + out - self.previous_unedited[i]);
                     self.previous[i] = out;
                 }
