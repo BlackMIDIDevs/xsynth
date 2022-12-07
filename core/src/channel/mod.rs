@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    effects::MultiPassFilter,
+    effects::AudioFilter,
     helpers::{prepapre_cache_vec, sum_simd},
     voice::VoiceControlData,
     AudioStreamParams, SingleBorrowRefCell,
@@ -89,7 +89,7 @@ pub struct VoiceChannel {
     voice_control_data: AtomicRefCell<VoiceControlData>,
 
     // Effects
-    cutoff: MultiPassFilter,
+    cutoff: AudioFilter,
 }
 
 impl VoiceChannel {
@@ -119,7 +119,7 @@ impl VoiceChannel {
             control_event_data: RefCell::new(ControlEventData::new_defaults()),
             voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
 
-            cutoff: MultiPassFilter::new(
+            cutoff: AudioFilter::new(
                 FilterType::LowPass { passes: 2 },
                 stream_params.channels.count(),
                 20000.0,
@@ -147,7 +147,7 @@ impl VoiceChannel {
         // Cutoff
         if let Some(cutoff) = control.cutoff {
             self.cutoff.set_cutoff(cutoff);
-            self.cutoff.cutoff_samples(out);
+            self.cutoff.process_samples(out);
         }
     }
 

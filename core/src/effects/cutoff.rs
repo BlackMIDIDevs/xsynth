@@ -1,6 +1,6 @@
 use soundfonts::FilterType;
 
-pub struct SingleChannelMultiPassFilter {
+pub struct SingleChannelFilter {
     filter_type: FilterType,
     previous: Vec<f32>,
     previous_unedited: Vec<f32>,
@@ -8,8 +8,8 @@ pub struct SingleChannelMultiPassFilter {
     sample_rate: f32,
 }
 
-impl SingleChannelMultiPassFilter {
-    pub fn new(filter_type: FilterType, cutoff: f32, sample_rate: f32) -> SingleChannelMultiPassFilter {
+impl SingleChannelFilter {
+    pub fn new(filter_type: FilterType, cutoff: f32, sample_rate: f32) -> Self {
         let alpha = Self::calculate_alpha(filter_type, cutoff, sample_rate);
         let passes = match filter_type {
             FilterType::LowPass { passes } => passes,
@@ -24,7 +24,7 @@ impl SingleChannelMultiPassFilter {
             previous_unedited.push(0.0);
         }
 
-        SingleChannelMultiPassFilter {
+        Self {
             filter_type,
             previous,
             previous_unedited,
@@ -71,24 +71,24 @@ impl SingleChannelMultiPassFilter {
     }
 }
 
-pub struct MultiPassFilter {
-    channels: Vec<SingleChannelMultiPassFilter>,
+pub struct AudioFilter {
+    channels: Vec<SingleChannelFilter>,
     channel_count: usize,
 }
 
-impl MultiPassFilter {
-    pub fn new(filter_type: FilterType, channel_count: u16, cutoff: f32, sample_rate: f32) -> MultiPassFilter {
+impl AudioFilter {
+    pub fn new(filter_type: FilterType, channel_count: u16, cutoff: f32, sample_rate: f32) -> Self {
         let mut limiters = Vec::new();
         for _ in 0..channel_count {
-            limiters.push(SingleChannelMultiPassFilter::new(filter_type, cutoff, sample_rate));
+            limiters.push(SingleChannelFilter::new(filter_type, cutoff, sample_rate));
         }
-        MultiPassFilter {
+        Self {
             channels: limiters,
             channel_count: channel_count as usize,
         }
     }
 
-    pub fn cutoff_samples(&mut self, sample: &mut [f32]) {
+    pub fn process_samples(&mut self, sample: &mut [f32]) {
         for (i, s) in sample.iter_mut().enumerate() {
             *s = self.channels[i % self.channel_count].process_sample(*s);
         }
