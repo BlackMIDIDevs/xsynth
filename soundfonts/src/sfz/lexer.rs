@@ -82,42 +82,14 @@ impl<'a> StringParser<'a> {
     }
 }
 
-macro_rules! try_parse {
-    ($parser:expr, $parse_fn:expr) => {
-        let mut new_parser = $parser.clone();
-        if let Some(token) = $parse_fn(&mut new_parser) {
-            *$parser = new_parser;
+macro_rules! parse {
+    ($parser:expr, $parse:expr) => {
+        let old_parser = $parser.clone();
+        if let Some(token) = $parse() {
             return Some(token);
         }
+        *$parser = old_parser;
     };
-    ($parser:expr, $parse_fn:expr, $enum_val:expr) => {
-        let mut new_parser = $parser.clone();
-        if let Some(token) = $parse_fn(&mut new_parser) {
-            *$parser = new_parser;
-            return Some($enum_val(token));
-        }
-    };
-    ($parser:expr, $enum_val:expr, $val:ty, $parser_ident:ident, $parse_fn:tt) => {{
-        fn parse_tag<'a>($parser_ident: &mut StringParser<'a>) -> Option<$val> {
-            $parse_fn
-        }
-        try_parse!($parser, parse_tag, $enum_val);
-    }};
-}
-
-macro_rules! try_parse_basic_tag {
-    ($parser:expr, $enum_val:expr, $val:ty, $name:expr, $parse_fn:expr) => {{
-        try_parse!($parser, $enum_val, $val, parser, {
-            parse_basic_tag_name(parser, $name)?;
-            $parse_fn(parser)
-        });
-    }};
-}
-
-macro_rules! try_parse_float {
-    ($parser:expr, $enum_val:expr, $name:expr) => {{
-        try_parse_basic_tag!($parser, $enum_val, f32, $name, parse_float);
-    }};
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -211,43 +183,130 @@ pub enum SfzMetaToken {
     Comment,
 }
 
+fn parse_float_tag<T, F: Fn(f32) -> T>(
+    parser: &mut StringParser,
+    wrap: F,
+    tag_name: &str,
+) -> Option<T> {
+    parse_basic_tag(parser, wrap, tag_name, parse_float)
+}
+
+fn parse_basic_tag<V, T, F: Fn(V) -> T>(
+    parser: &mut StringParser,
+    wrap: F,
+    tag_name: &str,
+    parse_value: impl Fn(&mut StringParser) -> Option<V>,
+) -> Option<T> {
+    parse!(parser, || {
+        parse_basic_tag_name(parser, tag_name)?;
+        let value = parse_value(parser)?;
+        Some(wrap(value))
+    });
+
+    None
+}
+
 fn parse_ampeg_envelope(parser: &mut StringParser) -> Option<SfzAmpegEnvelope> {
-    try_parse_float!(parser, SfzAmpegEnvelope::AmpegStart, "ampeg_start");
-    try_parse_float!(parser, SfzAmpegEnvelope::AmpegDelay, "ampeg_delay");
-    try_parse_float!(parser, SfzAmpegEnvelope::AmpegAttack, "ampeg_attack");
-    try_parse_float!(parser, SfzAmpegEnvelope::AmpegHold, "ampeg_hold");
-    try_parse_float!(parser, SfzAmpegEnvelope::AmpegDecay, "ampeg_decay");
-    try_parse_float!(parser, SfzAmpegEnvelope::AmpegSustain, "ampeg_sustain");
-    try_parse_float!(parser, SfzAmpegEnvelope::AmpegRelease, "ampeg_release");
+    parse!(parser, || parse_float_tag(
+        parser,
+        SfzAmpegEnvelope::AmpegStart,
+        "ampeg_start"
+    ));
+    parse!(parser, || parse_float_tag(
+        parser,
+        SfzAmpegEnvelope::AmpegDelay,
+        "ampeg_delay"
+    ));
+    parse!(parser, || parse_float_tag(
+        parser,
+        SfzAmpegEnvelope::AmpegAttack,
+        "ampeg_attack"
+    ));
+    parse!(parser, || parse_float_tag(
+        parser,
+        SfzAmpegEnvelope::AmpegHold,
+        "ampeg_hold"
+    ));
+    parse!(parser, || parse_float_tag(
+        parser,
+        SfzAmpegEnvelope::AmpegDecay,
+        "ampeg_decay"
+    ));
+    parse!(parser, || parse_float_tag(
+        parser,
+        SfzAmpegEnvelope::AmpegSustain,
+        "ampeg_sustain"
+    ));
+    parse!(parser, || parse_float_tag(
+        parser,
+        SfzAmpegEnvelope::AmpegRelease,
+        "ampeg_release"
+    ));
 
     None
 }
 
 fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
-    try_parse!(parser, SfzRegionFlags::Sample, String, parser, {
+    parse!(parser, || {
         parse_basic_tag_name(parser, "sample")?;
-        Some(parser.parse_until_space().replace('\\', "/"))
+        Some(SfzRegionFlags::Sample(
+            parser.parse_until_space().replace('\\', "/"),
+        ))
     });
 
-    try_parse_basic_tag!(parser, SfzRegionFlags::Lovel, u8, "lovel", parse_vel_number);
-    try_parse_basic_tag!(parser, SfzRegionFlags::Hivel, u8, "hivel", parse_vel_number);
-    try_parse_basic_tag!(parser, SfzRegionFlags::Lokey, u8, "lokey", parse_key_number);
-    try_parse_basic_tag!(parser, SfzRegionFlags::Hikey, u8, "hikey", parse_key_number);
-    try_parse_basic_tag!(parser, SfzRegionFlags::Pan, i8, "pan", parse_pan_number);
-    try_parse_basic_tag!(
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::Lovel,
+        "lovel",
+        parse_vel_number
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::Hivel,
+        "hivel",
+        parse_vel_number
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::Lokey,
+        "lokey",
+        parse_key_number
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::Hikey,
+        "hikey",
+        parse_key_number
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::Pan,
+        "pan",
+        parse_pan_number
+    ));
+    parse!(parser, || parse_basic_tag(
         parser,
         SfzRegionFlags::PitchKeycenter,
-        u8,
         "pitch_keycenter",
         parse_key_number
-    );
-    try_parse_basic_tag!(parser, SfzRegionFlags::Key, u8, "key", parse_key_number);
-    try_parse_basic_tag!(parser, SfzRegionFlags::Cutoff, f32, "cutoff", parse_float);
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::Key,
+        "key",
+        parse_key_number
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::Cutoff,
+        "cutoff",
+        parse_float
+    ));
 
-    try_parse!(parser, SfzRegionFlags::FilterType, FilterType, parser, {
+    parse!(parser, || {
         parse_basic_tag_name(parser, "fil_type")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
-        match group_name.as_ref() {
+        let fil_type = match group_name.as_ref() {
             "lpf_1p" => Some(FilterType::LowPass{passes: 1}),
             "lpf_2p" => Some(FilterType::LowPass{passes: 2}),
             "lpf_4p" => Some(FilterType::LowPass{passes: 4}),
@@ -257,76 +316,73 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
             "hpf_4p" => Some(FilterType::HighPass{passes: 4}),
             "hpf_6p" => Some(FilterType::HighPass{passes: 6}),
             _ => Some(FilterType::LowPass{passes: 2}),
-        }
+        };
+        Some(SfzRegionFlags::FilterType(fil_type))
     });
 
-    try_parse!(parser, SfzRegionFlags::LoopMode, SfzLoopMode, parser, {
+    parse!(parser, || {
         parse_basic_tag_name(parser, "loop_mode")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
-        match group_name.as_ref() {
-            "no_loop" => Some(SfzLoopMode::NoLoop),
-            "one_shot" => Some(SfzLoopMode::OneShot),
-            "loop_continuous" => Some(SfzLoopMode::LoopContinuous),
-            "loop_sustain" => Some(SfzLoopMode::LoopSustain),
-            _ => Some(SfzLoopMode::Other),
-        }
+        let mode = match group_name.as_ref() {
+            "no_loop" => SfzLoopMode::NoLoop,
+           "one_shot" => SfzLoopMode::OneShot,
+           "loop_continuous" => SfzLoopMode::LoopContinuous,
+           "loop_sustain" => SfzLoopMode::LoopSustain,
+           _ => SfzLoopMode::Other,
+        };
+        Some(SfzRegionFlags::LoopMode(mode))
     });
 
-    try_parse!(parser, SfzRegionFlags::DefaultPath, String, parser, {
+    parse!(parser, || {
         parse_basic_tag_name(parser, "default_path")?;
-        Some(parser.parse_until_space().replace('\\', "/"))
+        Some(SfzRegionFlags::DefaultPath(parser.parse_until_space()))
     });
 
-    try_parse!(
-        parser,
-        SfzRegionFlags::AmpegEnvelope,
-        SfzAmpegEnvelope,
-        parser,
-        {
-            let envelope = parse_ampeg_envelope(parser)?;
-            Some(envelope)
-        }
-    );
+    parse!(parser, || {
+        let envelope = parse_ampeg_envelope(parser)?;
+        Some(SfzRegionFlags::AmpegEnvelope(envelope))
+    });
 
     None
 }
 
 fn parse_next_token(parser: &mut StringParser) -> Option<SfzToken> {
-    try_parse!(parser, SfzToken::Group, SfzGroupType, parser, {
+    parse!(parser, || {
         parser.parse_literal("<")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
         parser.parse_literal(">")?;
-        match group_name.as_ref() {
-            "region" => Some(SfzGroupType::Region),
-            "group" => Some(SfzGroupType::Group),
-            "master" => Some(SfzGroupType::Global),
-            "control" => Some(SfzGroupType::Control),
-            "global" => Some(SfzGroupType::Global),
-            _ => Some(SfzGroupType::Other),
-        }
+        let group = match group_name.as_ref() {
+            "region" => SfzGroupType::Region,
+            "group" => SfzGroupType::Group,
+            "master" => SfzGroupType::Global,
+            "control" => SfzGroupType::Control,
+            "global" => SfzGroupType::Global,
+            _ => SfzGroupType::Other,
+        };
+        Some(SfzToken::Group(group))
     });
 
-    try_parse!(parser, SfzToken::RegionFlag, SfzRegionFlags, parser, {
+    parse!(parser, || {
         let envelope = parse_region_flags(parser)?;
-        Some(envelope)
+        Some(SfzToken::RegionFlag(envelope))
     });
 
     None
 }
 
 fn parse_next_meta_token(parser: &mut StringParser) -> Option<SfzMetaToken> {
-    try_parse!(parser, SfzMetaToken::InnerToken, SfzToken, parser, {
+    parse!(parser, || {
         let token = parse_next_token(parser)?;
-        Some(token)
+        Some(SfzMetaToken::InnerToken(token))
     });
 
-    try_parse!(parser, SfzMetaToken::Import, String, parser, {
+    parse!(parser, || {
         parser.parse_literal("#include")?;
         parser.parse_regex(regex!("[ ]*"))?;
         parser.parse_literal("\"")?;
         let path = parser.parse_regex(regex!("[^\"]+"))?;
         parser.parse_literal("\"")?;
-        Some(path.replace('\\', "/"))
+        Some(SfzMetaToken::Import(path.replace('\\', "/")))
     });
 
     let mut comment_parser = parser.clone();
