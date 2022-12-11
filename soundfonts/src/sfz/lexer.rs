@@ -127,6 +127,11 @@ fn parse_pan_number(parser: &mut StringParser<'_>) -> Option<i8> {
     num.parse().ok()
 }
 
+fn parse_i16(parser: &mut StringParser<'_>) -> Option<i16> {
+    let num = parser.parse_regex(regex!(r"[\-\d]+"))?;
+    num.parse().ok()
+}
+
 fn parse_float(parser: &mut StringParser<'_>) -> Option<f32> {
     let num = parser.parse_regex(regex!(r"[\-\d\.]+"))?;
     num.parse().ok()
@@ -153,6 +158,9 @@ pub enum SfzRegionFlags {
     Sample(String),
     LoopMode(SfzLoopMode),
     Cutoff(f32),
+    FilVeltrack(i16),
+    FilKeycenter(u8),
+    FilKeytrack(i16),
     FilterType(FilterType),
     DefaultPath(String),
     AmpegEnvelope(SfzAmpegEnvelope),
@@ -301,6 +309,24 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         SfzRegionFlags::Cutoff,
         "cutoff",
         parse_float
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::FilVeltrack,
+        "fil_veltrack",
+        parse_i16
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::FilKeytrack,
+        "fil_keytrack",
+        parse_i16
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::FilKeycenter,
+        "fil_keycenter",
+        parse_key_number
     ));
 
     parse!(parser, || {
