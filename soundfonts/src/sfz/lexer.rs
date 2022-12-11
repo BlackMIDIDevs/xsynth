@@ -333,15 +333,15 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         parse_basic_tag_name(parser, "fil_type")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
         let fil_type = match group_name.as_ref() {
-            "lpf_1p" => FilterType::LowPass{passes: 1},
-            "lpf_2p" => FilterType::LowPass{passes: 2},
-            "lpf_4p" => FilterType::LowPass{passes: 4},
-            "lpf_6p" => FilterType::LowPass{passes: 6},
-            "hpf_1p" => FilterType::HighPass{passes: 1},
-            "hpf_2p" => FilterType::HighPass{passes: 2},
-            "hpf_4p" => FilterType::HighPass{passes: 4},
-            "hpf_6p" => FilterType::HighPass{passes: 6},
-            _ => FilterType::LowPass{passes: 2},
+            "lpf_1p" => FilterType::LowPass { passes: 1 },
+            "lpf_2p" => FilterType::LowPass { passes: 2 },
+            "lpf_4p" => FilterType::LowPass { passes: 4 },
+            "lpf_6p" => FilterType::LowPass { passes: 6 },
+            "hpf_1p" => FilterType::HighPass { passes: 1 },
+            "hpf_2p" => FilterType::HighPass { passes: 2 },
+            "hpf_4p" => FilterType::HighPass { passes: 4 },
+            "hpf_6p" => FilterType::HighPass { passes: 6 },
+            _ => FilterType::LowPass { passes: 2 },
         };
         Some(SfzRegionFlags::FilterType(fil_type))
     });
@@ -351,17 +351,19 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
         let mode = match group_name.as_ref() {
             "no_loop" => SfzLoopMode::NoLoop,
-           "one_shot" => SfzLoopMode::OneShot,
-           "loop_continuous" => SfzLoopMode::LoopContinuous,
-           "loop_sustain" => SfzLoopMode::LoopSustain,
-           _ => SfzLoopMode::Other,
+            "one_shot" => SfzLoopMode::OneShot,
+            "loop_continuous" => SfzLoopMode::LoopContinuous,
+            "loop_sustain" => SfzLoopMode::LoopSustain,
+            _ => SfzLoopMode::Other,
         };
         Some(SfzRegionFlags::LoopMode(mode))
     });
 
     parse!(parser, || {
         parse_basic_tag_name(parser, "default_path")?;
-        Some(SfzRegionFlags::DefaultPath(parser.parse_until_space().replace('\\', "/")))
+        Some(SfzRegionFlags::DefaultPath(
+            parser.parse_until_space().replace('\\', "/"),
+        ))
     });
 
     parse!(parser, || {

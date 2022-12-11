@@ -34,7 +34,6 @@ where
             cutoff2: SingleChannelFilter::new(filter_type, initial_cutoff, sample_rate),
             _s: PhantomData,
         }
-
     }
 }
 

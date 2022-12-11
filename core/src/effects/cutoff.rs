@@ -15,14 +15,8 @@ impl SingleChannelFilter {
             FilterType::LowPass { passes } => passes,
             FilterType::HighPass { passes } => passes,
         };
-        let mut previous = Vec::new();
-        for _ in 0..passes {
-            previous.push(0.0);
-        }
-        let mut previous_unedited = Vec::new();
-        for _ in 0..passes {
-            previous_unedited.push(0.0);
-        }
+        let previous = vec![0.0; passes];
+        let previous_unedited = vec![0.0; passes];
 
         Self {
             filter_type,
@@ -55,17 +49,17 @@ impl SingleChannelFilter {
                     out = self.alpha * out + (1.0 - self.alpha) * self.previous[i];
                     self.previous[i] = out;
                 }
-            },
+            }
             FilterType::HighPass { passes } => {
                 for i in 0..passes {
                     out = self.alpha * (self.previous[i] + out - self.previous_unedited[i]);
                     self.previous[i] = out;
                 }
                 self.previous_unedited[0] = val;
-                for i in 0..self.previous.len()-1 {
-                    self.previous_unedited[i+1] = self.previous[i];
+                for i in 0..self.previous.len() - 1 {
+                    self.previous_unedited[i + 1] = self.previous[i];
                 }
-            },
+            }
         }
         out
     }

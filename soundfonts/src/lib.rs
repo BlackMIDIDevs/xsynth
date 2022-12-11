@@ -2,12 +2,12 @@ pub mod sfz;
 
 #[derive(Debug, Clone, Copy)]
 pub enum FilterType {
-    LowPass {passes: usize},
-    HighPass {passes: usize},
+    LowPass { passes: usize },
+    HighPass { passes: usize },
 }
 
 impl Default for FilterType {
     fn default() -> Self {
-        FilterType::LowPass {passes: 2}
+        FilterType::LowPass { passes: 2 }
     }
 }
