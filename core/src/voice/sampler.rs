@@ -193,14 +193,17 @@ where
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     Grabber: SIMDSampleGrabber<S>,
 {
+    #[inline(always)]
     fn ended(&self) -> bool {
         self.grabber_left.is_past_end(self.time) || self.grabber_right.is_past_end(self.time)
     }
 
+    #[inline(always)]
     fn signal_release(&mut self) {
         self.pitch_gen.signal_release();
     }
 
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.pitch_gen.process_controls(control);
     }
@@ -213,6 +216,7 @@ where
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     Grabber: SIMDSampleGrabber<S>,
 {
+    #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         let speed = self.pitch_gen.next_sample().0;
         let mut indexes = unsafe { S::set1_epi32(0) };

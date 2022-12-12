@@ -42,14 +42,17 @@ where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
+    #[inline(always)]
     fn ended(&self) -> bool {
         self.v.ended()
     }
 
+    #[inline(always)]
     fn signal_release(&mut self) {
         self.v.signal_release();
     }
 
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.v.process_controls(control);
     }
@@ -60,6 +63,7 @@ where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
+    #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         let mut next_sample = self.v.next_sample();
         for i in 0..S::VF32_WIDTH {

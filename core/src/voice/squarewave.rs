@@ -39,14 +39,17 @@ where
     S: Simd,
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
 {
+    #[inline(always)]
     fn ended(&self) -> bool {
         false
     }
 
+    #[inline(always)]
     fn signal_release(&mut self) {
         self.pitch_gen.signal_release();
     }
 
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.pitch_gen.process_controls(control);
     }
@@ -57,6 +60,7 @@ where
     S: Simd,
     Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
 {
+    #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<S> {
         let mut values = unsafe { S::set1_ps(0.0) };
         let pitch_step = self.pitch_gen.next_sample().0;

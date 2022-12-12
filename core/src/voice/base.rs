@@ -34,6 +34,7 @@ where
         self.sample_generator.signal_release()
     }
 
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.sample_generator.process_controls(control)
     }
