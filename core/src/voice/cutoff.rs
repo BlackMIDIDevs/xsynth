@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use simdeez::Simd;
 
 use crate::{
-    effects::SingleChannelFilter,
+    effects::AudioFilter,
     voice::{SIMDVoiceGenerator, VoiceControlData},
 };
 
@@ -17,8 +17,8 @@ where
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     v: V,
-    cutoff1: SingleChannelFilter,
-    cutoff2: SingleChannelFilter,
+    cutoff1: AudioFilter,
+    cutoff2: AudioFilter,
     _s: PhantomData<S>,
 }
 
@@ -30,8 +30,8 @@ where
     pub fn new(v: V, filter_type: FilterType, sample_rate: f32, initial_cutoff: f32) -> Self {
         SIMDStereoVoiceCutoff {
             v,
-            cutoff1: SingleChannelFilter::new(filter_type, initial_cutoff, sample_rate),
-            cutoff2: SingleChannelFilter::new(filter_type, initial_cutoff, sample_rate),
+            cutoff1: AudioFilter::new(filter_type, 1, initial_cutoff, sample_rate),
+            cutoff2: AudioFilter::new(filter_type, 1, initial_cutoff, sample_rate),
             _s: PhantomData,
         }
     }
@@ -62,10 +62,8 @@ where
 {
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         let mut next_sample = self.v.next_sample();
-        for i in 0..S::VF32_WIDTH {
-            next_sample.0[i] = self.cutoff1.process_sample(next_sample.0[i]);
-            next_sample.1[i] = self.cutoff2.process_sample(next_sample.1[i]);
-        }
+        self.cutoff1.process_samples_simd::<S>(&mut next_sample.0);
+        self.cutoff2.process_samples_simd::<S>(&mut next_sample.1);
         next_sample
     }
 }

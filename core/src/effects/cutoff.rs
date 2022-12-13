@@ -1,9 +1,11 @@
 use soundfonts::FilterType;
 
+use simdeez::Simd;
+
 pub struct SingleChannelFilter {
     filter_type: FilterType,
-    previous: Vec<f32>,
-    previous_unedited: Vec<f32>,
+    previous: f32,
+    previous_unedited: f32,
     alpha: f32,
     sample_rate: f32,
 }
@@ -11,17 +13,11 @@ pub struct SingleChannelFilter {
 impl SingleChannelFilter {
     pub fn new(filter_type: FilterType, cutoff: f32, sample_rate: f32) -> Self {
         let alpha = Self::calculate_alpha(filter_type, cutoff, sample_rate);
-        let passes = match filter_type {
-            FilterType::LowPass { passes } => passes,
-            FilterType::HighPass { passes } => passes,
-        };
-        let previous = vec![0.0; passes];
-        let previous_unedited = vec![0.0; passes];
 
         Self {
             filter_type,
-            previous,
-            previous_unedited,
+            previous: 0.0,
+            previous_unedited: 0.0,
             alpha,
             sample_rate,
         }
@@ -44,21 +40,14 @@ impl SingleChannelFilter {
     pub fn process_sample(&mut self, val: f32) -> f32 {
         let mut out = val;
         match self.filter_type {
-            FilterType::LowPass { passes } => {
-                for i in 0..passes {
-                    out = self.alpha * out + (1.0 - self.alpha) * self.previous[i];
-                    self.previous[i] = out;
-                }
+            FilterType::LowPass { .. } => {
+                out = self.alpha * out + (1.0 - self.alpha) * self.previous;
+                self.previous = out;
             }
-            FilterType::HighPass { passes } => {
-                for i in 0..passes {
-                    out = self.alpha * (self.previous[i] + out - self.previous_unedited[i]);
-                    self.previous[i] = out;
-                }
-                self.previous_unedited[0] = val;
-                for i in 0..self.previous.len() - 1 {
-                    self.previous_unedited[i + 1] = self.previous[i];
-                }
+            FilterType::HighPass { .. } => {
+                out = self.alpha * (self.previous + out - self.previous_unedited);
+                self.previous = out;
+                self.previous_unedited = val;
             }
         }
         out
@@ -67,24 +56,41 @@ impl SingleChannelFilter {
 
 pub struct AudioFilter {
     channels: Vec<SingleChannelFilter>,
+    passes: usize,
     channel_count: usize,
 }
 
 impl AudioFilter {
     pub fn new(filter_type: FilterType, channel_count: u16, cutoff: f32, sample_rate: f32) -> Self {
         let mut limiters = Vec::new();
-        for _ in 0..channel_count {
+        let passes = match filter_type {
+            FilterType::LowPass { passes } => passes,
+            FilterType::HighPass { passes } => passes,
+        };
+        for _ in 0..channel_count * passes as u16 {
             limiters.push(SingleChannelFilter::new(filter_type, cutoff, sample_rate));
         }
         Self {
             channels: limiters,
+            passes,
             channel_count: channel_count as usize,
         }
     }
 
     pub fn process_samples(&mut self, sample: &mut [f32]) {
-        for (i, s) in sample.iter_mut().enumerate() {
-            *s = self.channels[i % self.channel_count].process_sample(*s);
+        for p in 0..self.passes {
+            for (i, s) in sample.iter_mut().enumerate() {
+                *s = self.channels[p + i % self.channel_count].process_sample(*s);
+            }
+        }
+    }
+
+    pub fn process_samples_simd<S: Simd>(&mut self, sample: &mut <S as Simd>::Vf32) {
+        // Only mono
+        for p in 0..self.passes {
+            for i in 0..S::VF32_WIDTH {
+                sample[i] = self.channels[p].process_sample(sample[i]);
+            }
         }
     }
 
