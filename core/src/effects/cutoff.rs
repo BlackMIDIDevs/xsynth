@@ -1,3 +1,4 @@
+use simdeez::Simd;
 use soundfonts::FilterType;
 
 pub struct SingleChannelFilter {
@@ -45,19 +46,43 @@ impl SingleChannelFilter {
         let mut out = val;
         match self.filter_type {
             FilterType::LowPass { passes } => {
-                for i in 0..passes {
-                    out = self.alpha * out + (1.0 - self.alpha) * self.previous[i];
-                    self.previous[i] = out;
+                for pass in 0..passes {
+                    out = self.alpha * out + (1.0 - self.alpha) * self.previous[pass];
+                    self.previous[pass] = out;
                 }
             }
             FilterType::HighPass { passes } => {
-                for i in 0..passes {
-                    out = self.alpha * (self.previous[i] + out - self.previous_unedited[i]);
-                    self.previous[i] = out;
+                for pass in 0..passes {
+                    let previous = out;
+                    out = self.alpha * (self.previous[pass] + out - self.previous_unedited[pass]);
+                    self.previous[pass] = out;
+                    self.previous_unedited[pass] = previous;
                 }
-                self.previous_unedited[0] = val;
-                for i in 0..self.previous.len() - 1 {
-                    self.previous_unedited[i + 1] = self.previous[i];
+            }
+        }
+        out
+    }
+
+    pub fn process_sample_simd<S: Simd>(&mut self, val: S::Vf32) -> S::Vf32 {
+        let mut out = val;
+        match self.filter_type {
+            FilterType::LowPass { passes } => {
+                for pass in 0..passes {
+                    for i in 0..S::VF32_WIDTH {
+                        out[i] = self.alpha * out[i] + (1.0 - self.alpha) * self.previous[pass];
+                        self.previous[pass] = out[i];
+                    }
+                }
+            }
+            FilterType::HighPass { passes } => {
+                for pass in 0..passes {
+                    for i in 0..S::VF32_WIDTH {
+                        let previous = out[i];
+                        out[i] = self.alpha
+                            * (self.previous[pass] + out[i] - self.previous_unedited[pass]);
+                        self.previous[pass] = out[i];
+                        self.previous_unedited[pass] = previous;
+                    }
                 }
             }
         }

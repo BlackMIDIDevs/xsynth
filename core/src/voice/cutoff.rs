@@ -66,10 +66,8 @@ where
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         let mut next_sample = self.v.next_sample();
-        for i in 0..S::VF32_WIDTH {
-            next_sample.0[i] = self.cutoff1.process_sample(next_sample.0[i]);
-            next_sample.1[i] = self.cutoff2.process_sample(next_sample.1[i]);
-        }
+        next_sample.0 = self.cutoff1.process_sample_simd::<S>(next_sample.0);
+        next_sample.1 = self.cutoff2.process_sample_simd::<S>(next_sample.1);
         next_sample
     }
 }
