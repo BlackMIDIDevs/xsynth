@@ -1,11 +1,12 @@
+use simdeez::Simd;
 use soundfonts::FilterType;
 
 use simdeez::Simd;
 
 pub struct SingleChannelFilter {
     filter_type: FilterType,
-    previous: f32,
-    previous_unedited: f32,
+    previous: Vec<f32>,
+    previous_unedited: Vec<f32>,
     alpha: f32,
     sample_rate: f32,
 }
@@ -14,10 +15,15 @@ impl SingleChannelFilter {
     pub fn new(filter_type: FilterType, cutoff: f32, sample_rate: f32) -> Self {
         let alpha = Self::calculate_alpha(filter_type, cutoff, sample_rate);
 
+        let passes = match filter_type {
+            FilterType::LowPass { passes } => passes,
+            FilterType::HighPass { passes } => passes,
+        };
+
         Self {
             filter_type,
-            previous: 0.0,
-            previous_unedited: 0.0,
+            previous: vec![0.0; passes],
+            previous_unedited: vec![0.0; passes],
             alpha,
             sample_rate,
         }
@@ -40,14 +46,45 @@ impl SingleChannelFilter {
     pub fn process_sample(&mut self, val: f32) -> f32 {
         let mut out = val;
         match self.filter_type {
-            FilterType::LowPass { .. } => {
-                out = self.alpha * out + (1.0 - self.alpha) * self.previous;
-                self.previous = out;
+            FilterType::LowPass { passes } => {
+                for pass in 0..passes {
+                    out = self.alpha * out + (1.0 - self.alpha) * self.previous[pass];
+                    self.previous[pass] = out;
+                }
             }
-            FilterType::HighPass { .. } => {
-                out = self.alpha * (self.previous + out - self.previous_unedited);
-                self.previous = out;
-                self.previous_unedited = val;
+            FilterType::HighPass { passes } => {
+                for pass in 0..passes {
+                    let previous = out;
+                    out = self.alpha * (self.previous[pass] + out - self.previous_unedited[pass]);
+                    self.previous[pass] = out;
+                    self.previous_unedited[pass] = previous;
+                }
+            }
+        }
+        out
+    }
+
+    pub fn process_sample_simd<S: Simd>(&mut self, val: S::Vf32) -> S::Vf32 {
+        let mut out = val;
+        match self.filter_type {
+            FilterType::LowPass { passes } => {
+                for pass in 0..passes {
+                    for i in 0..S::VF32_WIDTH {
+                        out[i] = self.alpha * out[i] + (1.0 - self.alpha) * self.previous[pass];
+                        self.previous[pass] = out[i];
+                    }
+                }
+            }
+            FilterType::HighPass { passes } => {
+                for pass in 0..passes {
+                    for i in 0..S::VF32_WIDTH {
+                        let previous = out[i];
+                        out[i] = self.alpha
+                            * (self.previous[pass] + out[i] - self.previous_unedited[pass]);
+                        self.previous[pass] = out[i];
+                        self.previous_unedited[pass] = previous;
+                    }
+                }
             }
         }
         out

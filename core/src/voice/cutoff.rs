@@ -42,14 +42,17 @@ where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
+    #[inline(always)]
     fn ended(&self) -> bool {
         self.v.ended()
     }
 
+    #[inline(always)]
     fn signal_release(&mut self) {
         self.v.signal_release();
     }
 
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.v.process_controls(control);
     }
@@ -60,10 +63,11 @@ where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
+    #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         let mut next_sample = self.v.next_sample();
-        self.cutoff1.process_samples_simd::<S>(&mut next_sample.0);
-        self.cutoff2.process_samples_simd::<S>(&mut next_sample.1);
+        next_sample.0 = self.cutoff1.process_sample_simd::<S>(next_sample.0);
+        next_sample.1 = self.cutoff2.process_sample_simd::<S>(next_sample.1);
         next_sample
     }
 }
