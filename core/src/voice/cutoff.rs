@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use simdeez::Simd;
 
 use crate::{
-    effects::AudioFilter,
+    effects::SingleChannelFilter,
     voice::{SIMDVoiceGenerator, VoiceControlData},
 };
 
@@ -17,8 +17,8 @@ where
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     v: V,
-    cutoff1: AudioFilter,
-    cutoff2: AudioFilter,
+    cutoff1: SingleChannelFilter,
+    cutoff2: SingleChannelFilter,
     _s: PhantomData<S>,
 }
 
@@ -30,8 +30,8 @@ where
     pub fn new(v: V, filter_type: FilterType, sample_rate: f32, initial_cutoff: f32) -> Self {
         SIMDStereoVoiceCutoff {
             v,
-            cutoff1: AudioFilter::new(filter_type, 1, initial_cutoff, sample_rate),
-            cutoff2: AudioFilter::new(filter_type, 1, initial_cutoff, sample_rate),
+            cutoff1: SingleChannelFilter::new(filter_type, initial_cutoff, sample_rate),
+            cutoff2: SingleChannelFilter::new(filter_type, initial_cutoff, sample_rate),
             _s: PhantomData,
         }
     }
