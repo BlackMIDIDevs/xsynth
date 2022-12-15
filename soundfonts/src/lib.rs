@@ -1,13 +1,23 @@
 pub mod sfz;
 
 #[derive(Debug, Clone, Copy)]
+pub enum CutoffPassCount {
+    One,
+    Two,
+    Four,
+    Six,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum FilterType {
-    LowPass { passes: usize },
-    HighPass { passes: usize },
+    LowPass { passes: CutoffPassCount },
+    HighPass { passes: CutoffPassCount },
 }
 
 impl Default for FilterType {
     fn default() -> Self {
-        FilterType::LowPass { passes: 2 }
+        FilterType::LowPass {
+            passes: CutoffPassCount::Two,
+        }
     }
 }

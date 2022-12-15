@@ -9,7 +9,7 @@ use std::{
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
-use soundfonts::sfz::RegionParams;
+use soundfonts::{sfz::RegionParams, CutoffPassCount};
 use thiserror::Error;
 
 use self::audio::{load_audio_file, AudioLoadError};
@@ -23,6 +23,7 @@ use super::{
     },
 };
 use crate::{
+    effects::{FourPassCutoff, Highpass, Lowpass, OnePassCutoff, SixPassCutoff, TwoPassCutoff},
     helpers::FREQS,
     voice::{
         EnvelopeDescriptor, SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff,
@@ -169,8 +170,80 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.apply_envelope(gen);
 
         if let Some(cutoff) = self.cutoff {
-            let gen = SIMDStereoVoiceCutoff::new(gen, self.filter_type, self.sample_rate, cutoff);
-            self.convert_to_voice(gen)
+            match self.filter_type {
+                FilterType::LowPass {
+                    passes: CutoffPassCount::One,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        OnePassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::LowPass {
+                    passes: CutoffPassCount::Two,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        TwoPassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::LowPass {
+                    passes: CutoffPassCount::Four,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        FourPassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::LowPass {
+                    passes: CutoffPassCount::Six,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        SixPassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::One,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        OnePassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::Two,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        TwoPassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::Four,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        FourPassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::Six,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        SixPassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+            }
         } else {
             self.convert_to_voice(gen)
         }
