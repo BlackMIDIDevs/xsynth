@@ -1,5 +1,7 @@
 use std::{fs, io, path::Path};
 
+use crate::{CutoffPassCount, FilterType};
+
 use lazy_regex::{regex, Regex};
 
 #[derive(Debug, Clone)]
@@ -125,6 +127,11 @@ fn parse_pan_number(parser: &mut StringParser<'_>) -> Option<i8> {
     num.parse().ok()
 }
 
+fn parse_i16(parser: &mut StringParser<'_>) -> Option<i16> {
+    let num = parser.parse_regex(regex!(r"[\-\d]+"))?;
+    num.parse().ok()
+}
+
 fn parse_float(parser: &mut StringParser<'_>) -> Option<f32> {
     let num = parser.parse_regex(regex!(r"[\-\d\.]+"))?;
     num.parse().ok()
@@ -151,6 +158,10 @@ pub enum SfzRegionFlags {
     Sample(String),
     LoopMode(SfzLoopMode),
     Cutoff(f32),
+    FilVeltrack(i16),
+    FilKeycenter(u8),
+    FilKeytrack(i16),
+    FilterType(FilterType),
     DefaultPath(String),
     AmpegEnvelope(SfzAmpegEnvelope),
 }
@@ -299,6 +310,59 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         "cutoff",
         parse_float
     ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::FilVeltrack,
+        "fil_veltrack",
+        parse_i16
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::FilKeytrack,
+        "fil_keytrack",
+        parse_i16
+    ));
+    parse!(parser, || parse_basic_tag(
+        parser,
+        SfzRegionFlags::FilKeycenter,
+        "fil_keycenter",
+        parse_key_number
+    ));
+
+    parse!(parser, || {
+        parse_basic_tag_name(parser, "fil_type")?;
+        let group_name = parser.parse_regex(regex!(r"^\w+"))?;
+        let fil_type = match group_name.as_ref() {
+            "lpf_1p" => FilterType::LowPass {
+                passes: CutoffPassCount::One,
+            },
+            "lpf_2p" => FilterType::LowPass {
+                passes: CutoffPassCount::Two,
+            },
+            "lpf_4p" => FilterType::LowPass {
+                passes: CutoffPassCount::Four,
+            },
+            "lpf_6p" => FilterType::LowPass {
+                passes: CutoffPassCount::Six,
+            },
+            "hpf_1p" => FilterType::HighPass {
+                passes: CutoffPassCount::One,
+            },
+            "hpf_2p" => FilterType::HighPass {
+                passes: CutoffPassCount::Two,
+            },
+            "hpf_4p" => FilterType::HighPass {
+                passes: CutoffPassCount::Four,
+            },
+            "hpf_6p" => FilterType::HighPass {
+                passes: CutoffPassCount::Six,
+            },
+            _ => FilterType::LowPass {
+                passes: CutoffPassCount::Two,
+            },
+        };
+        Some(SfzRegionFlags::FilterType(fil_type))
+    });
 
     parse!(parser, || {
         parse_basic_tag_name(parser, "loop_mode")?;
@@ -315,7 +379,9 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
 
     parse!(parser, || {
         parse_basic_tag_name(parser, "default_path")?;
-        Some(SfzRegionFlags::DefaultPath(parser.parse_until_space()))
+        Some(SfzRegionFlags::DefaultPath(
+            parser.parse_until_space().replace('\\', "/"),
+        ))
     });
 
     parse!(parser, || {

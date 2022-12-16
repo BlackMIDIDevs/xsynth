@@ -2,13 +2,14 @@ use std::{
     collections::{HashMap, HashSet},
     io,
     marker::PhantomData,
+    ops::Mul,
     path::PathBuf,
     sync::Arc,
 };
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
-use soundfonts::sfz::RegionParams;
+use soundfonts::{sfz::RegionParams, CutoffPassCount};
 use thiserror::Error;
 
 use self::audio::{load_audio_file, AudioLoadError};
@@ -21,7 +22,17 @@ use super::{
         Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
-use crate::{helpers::FREQS, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
+use crate::{
+    effects::{Highpass, Lowpass, MultiPassCutoff},
+    helpers::FREQS,
+    voice::{
+        EnvelopeDescriptor, SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff,
+        SIMDVoiceGenerator,
+    },
+    AudioStreamParams, ChannelCount,
+};
+
+use soundfonts::FilterType;
 
 pub mod audio;
 
@@ -38,7 +49,9 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
 
 struct SampleVoiceSpawnerParams {
     speed_mult: f32,
+    sample_rate: f32,
     cutoff: Option<f32>,
+    filter_type: FilterType,
     envelope: Arc<EnvelopeParameters>,
     sample: Arc<[Arc<[f32]>]>,
 }
@@ -63,9 +76,11 @@ impl SampleCache {
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
     cutoff: Option<f32>,
+    filter_type: FilterType,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Arc<[Arc<[f32]>]>,
+    sample_rate: f32,
     vel: u8,
     _s: PhantomData<S>,
 }
@@ -77,27 +92,30 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         Self {
             speed_mult: params.speed_mult,
             cutoff: params.cutoff,
+            filter_type: params.filter_type,
             amp,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
+            sample_rate: params.sample_rate,
             vel,
             _s: PhantomData,
         }
     }
-}
 
-impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
-    fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
+    fn create_pitch_fac(
+        &self,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, SIMDSampleMono<S>> {
         let pitch_fac = SIMDConstant::<S>::new(self.speed_mult);
-
         let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
-
         let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
+        pitch_fac
+    }
 
-        if let Some(cutoff) = self.cutoff {
-            let _cutoff = SIMDConstant::<S>::new(cutoff);
-        }
-
+    fn get_sampler(
+        &self,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
         let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
             self.samples[0].clone(),
         )));
@@ -105,19 +123,130 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
             self.samples[1].clone(),
         )));
 
+        let pitch_fac = self.create_pitch_fac(control);
+
         let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
+        sampler
+    }
 
+    fn apply_velocity<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
+    where
+        Sample: SIMDSample<S>,
+        SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
+        Gen: SIMDVoiceGenerator<S, Sample>,
+    {
         let amp = SIMDConstant::<S>::new(self.amp);
+        let amp = VoiceCombineSIMD::mult(amp, gen);
+        amp
+    }
 
+    fn apply_envelope<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
+    where
+        Sample: SIMDSample<S>,
+        SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
+        Gen: SIMDVoiceGenerator<S, Sample>,
+    {
         let volume_envelope = SIMDVoiceEnvelope::new(self.volume_envelope_params.clone());
+        let amp = VoiceCombineSIMD::mult(volume_envelope, gen);
+        amp
+    }
 
-        let modulated = VoiceCombineSIMD::mult(amp, sampler);
-        let modulated = VoiceCombineSIMD::mult(volume_envelope, modulated);
-
-        let flattened = SIMDStereoVoice::new(modulated);
+    fn convert_to_voice<Gen>(&self, gen: Gen) -> Box<dyn Voice>
+    where
+        Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
+    {
+        let flattened = SIMDStereoVoice::new(gen);
         let base = VoiceBase::new(self.vel, flattened);
 
         Box::new(base)
+    }
+}
+
+impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
+    fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
+        let gen = self.get_sampler(control);
+
+        let gen = self.apply_velocity(gen);
+        let gen = self.apply_envelope(gen);
+
+        if let Some(cutoff) = self.cutoff {
+            match self.filter_type {
+                FilterType::LowPass {
+                    passes: CutoffPassCount::One,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Lowpass, 1>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::LowPass {
+                    passes: CutoffPassCount::Two,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Lowpass, 2>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::LowPass {
+                    passes: CutoffPassCount::Four,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Lowpass, 4>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::LowPass {
+                    passes: CutoffPassCount::Six,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Lowpass, 6>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::One,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Highpass, 1>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::Two,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Highpass, 2>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::Four,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Highpass, 4>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+                FilterType::HighPass {
+                    passes: CutoffPassCount::Six,
+                } => {
+                    let gen = SIMDStereoVoiceCutoff::new(
+                        gen,
+                        MultiPassCutoff::<Highpass, 6>::new(cutoff, self.sample_rate),
+                    );
+                    self.convert_to_voice(gen)
+                }
+            }
+        } else {
+            self.convert_to_voice(gen)
+        }
     }
 }
 
@@ -223,13 +352,27 @@ impl SampleSoundfont {
                         .1
                         .clone();
 
-                    let cutoff = region.cutoff; // TODO: fil_veltrack
+                    let mut cutoff = None;
+                    if let Some(cutoff_t) = region.cutoff {
+                        if cutoff_t < 1.0 {
+                            cutoff = None
+                        } else {
+                            let mut cutoff_t =
+                                cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0);
+                            let cents = vel as f32 / 127.0 * region.fil_veltrack as f32
+                                + (key - region.fil_keycenter) as f32 * region.fil_keytrack as f32;
+                            cutoff_t *= 2.0f32.powf(cents / 1200.0);
+                            cutoff = Some(cutoff_t);
+                        }
+                    }
 
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                         envelope: envelope_params,
                         speed_mult,
                         cutoff,
+                        filter_type: region.filter_type,
                         sample: samples[&params].clone(),
+                        sample_rate: stream_params.sample_rate as f32,
                     });
 
                     spawner_params_list[index] = Some(spawner_params.clone());

@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    effects::{Lowpass, MultiChannelCutoff, MultiPassCutoff},
     helpers::{prepapre_cache_vec, sum_simd},
     voice::VoiceControlData,
     AudioStreamParams, SingleBorrowRefCell,
@@ -54,6 +55,7 @@ struct ControlEventData {
     pitch_bend_value: f32,
     volume: f32, // 0.0 = silent, 1.0 = max volume
     pan: f32,    // 0.0 = left, 0.5 = center, 1.0 = right
+    cutoff: Option<f32>,
 }
 
 impl ControlEventData {
@@ -67,6 +69,7 @@ impl ControlEventData {
             pitch_bend_value: 0.0,
             volume: 1.0,
             pan: 0.5,
+            cutoff: None,
         }
     }
 }
@@ -82,6 +85,9 @@ pub struct VoiceChannel {
 
     /// Processed control data, ready to feed to voices
     voice_control_data: AtomicRefCell<VoiceControlData>,
+
+    // Effects
+    cutoff: MultiChannelCutoff<MultiPassCutoff<Lowpass, 2>>,
 }
 
 impl VoiceChannel {
@@ -110,13 +116,16 @@ impl VoiceChannel {
 
             control_event_data: RefCell::new(ControlEventData::new_defaults()),
             voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
+
+            cutoff: MultiChannelCutoff::new(
+                stream_params.channels.count() as usize,
+                20000.0,
+                stream_params.sample_rate as f32,
+            ),
         }
     }
 
-    fn apply_channel_effects(&self, out: &mut [f32]) {
-        #![allow(unused_variables)]
-
-        let stream_params = &self.params.constant.stream_params;
+    fn apply_channel_effects(&mut self, out: &mut [f32]) {
         let control = self.control_event_data.borrow();
 
         // Volume
@@ -132,35 +141,11 @@ impl VoiceChannel {
             *sample *= ((1.0 - control.pan) * 2f32).min(1.0);
         }
 
-        // Cutoff, it doesn't work
-        //         let cutoff_freq = 2000.0;
-        //         let mut dn1 = 0.0;
-        //         let mut dn2 = 0.0;
-        //         let highpass = false;
-        //
-        //         for sample in out.iter_mut().skip(0).step_by(2) {
-        //             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
-        //             let tan = tanp.tan();
-        //             let a1 = (tan - 1.0) / (tan + 1.0);
-        //             let p = *sample;
-        //             *sample = a1 * p + dn1;
-        //             dn1 = p - a1 * p;
-        //             if highpass {
-        //                 *sample *= -1.0;
-        //             }
-        //         }
-        //
-        //         for sample in out.iter_mut().skip(1).step_by(2) {
-        //             let tanp: f32 = std::f32::consts::PI * (cutoff_freq / stream_params.sample_rate as f32);
-        //             let tan = tanp.tan();
-        //             let a1 = (tan - 1.0) / (tan + 1.0);
-        //             let p = *sample;
-        //             *sample = a1 * p + dn2;
-        //             dn2 = p - a1 * p;
-        //             if highpass {
-        //                 *sample *= -1.0;
-        //             }
-        //         }
+        // Cutoff
+        if let Some(cutoff) = control.cutoff {
+            self.cutoff.set_cutoff(cutoff);
+            self.cutoff.cutoff(out);
+        }
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
@@ -287,6 +272,11 @@ impl VoiceChannel {
                     for key in self.key_voices.iter() {
                         key.data.borrow().set_damper(damper);
                     }
+                }
+                0x4A => {
+                    // Cutoff
+                    let cutoff = (value as f32 / 64.0).min(1.0).powf(0.85) * 22000.0;
+                    self.control_event_data.borrow_mut().cutoff = Some(cutoff)
                 }
                 _ => {}
             },

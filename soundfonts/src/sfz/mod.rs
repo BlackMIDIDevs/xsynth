@@ -9,6 +9,8 @@ use self::lexer::{
     parse_all_tokens, SfzAmpegEnvelope, SfzGroupType, SfzLoopMode, SfzRegionFlags, SfzToken,
 };
 
+use crate::{CutoffPassCount, FilterType};
+
 mod lexer;
 
 #[derive(Debug, Clone)]
@@ -63,6 +65,10 @@ pub struct RegionParamsBuilder {
     default_path: Option<String>,
     loop_mode: SfzLoopMode,
     cutoff: Option<f32>,
+    fil_veltrack: i16,
+    fil_keycenter: u8,
+    fil_keytrack: i16,
+    filter_type: FilterType,
     ampeg_envelope: AmpegEnvelopeParams,
 }
 
@@ -80,6 +86,12 @@ impl Default for RegionParamsBuilder {
             default_path: None,
             loop_mode: SfzLoopMode::NoLoop,
             cutoff: None,
+            fil_veltrack: 0,
+            fil_keycenter: 60,
+            fil_keytrack: 0,
+            filter_type: FilterType::LowPass {
+                passes: CutoffPassCount::Two,
+            },
             ampeg_envelope: AmpegEnvelopeParams::default(),
         }
     }
@@ -98,6 +110,10 @@ impl RegionParamsBuilder {
             SfzRegionFlags::Sample(val) => self.sample = Some(val),
             SfzRegionFlags::LoopMode(val) => self.loop_mode = val,
             SfzRegionFlags::Cutoff(val) => self.cutoff = Some(val),
+            SfzRegionFlags::FilVeltrack(val) => self.fil_veltrack = val,
+            SfzRegionFlags::FilKeytrack(val) => self.fil_keytrack = val,
+            SfzRegionFlags::FilKeycenter(val) => self.fil_keycenter = val,
+            SfzRegionFlags::FilterType(val) => self.filter_type = val,
             SfzRegionFlags::DefaultPath(val) => self.default_path = Some(val),
             SfzRegionFlags::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
         }
@@ -143,6 +159,10 @@ impl RegionParamsBuilder {
             sample_path,
             loop_mode: self.loop_mode,
             cutoff: self.cutoff,
+            fil_veltrack: self.fil_veltrack.clamp(-9600, 9600),
+            fil_keycenter: self.fil_keycenter,
+            fil_keytrack: self.fil_keytrack.clamp(0, 1200),
+            filter_type: self.filter_type,
             ampeg_envelope: self.ampeg_envelope,
         })
     }
@@ -157,6 +177,10 @@ pub struct RegionParams {
     pub sample_path: PathBuf,
     pub loop_mode: SfzLoopMode,
     pub cutoff: Option<f32>,
+    pub fil_veltrack: i16,
+    pub fil_keycenter: u8,
+    pub fil_keytrack: i16,
+    pub filter_type: FilterType,
     pub ampeg_envelope: AmpegEnvelopeParams,
 }
 
