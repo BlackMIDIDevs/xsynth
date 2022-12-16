@@ -325,19 +325,23 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
 }
 
 impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
+    #[inline(always)]
     fn ended(&self) -> bool {
         self.state.current_stage == EnvelopeStage::Finished
     }
 
+    #[inline(always)]
     fn signal_release(&mut self) {
         let amp = self.get_value_at_current_time();
         self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
     }
 
+    #[inline(always)]
     fn process_controls(&mut self, _control: &VoiceControlData) {}
 }
 
 impl<T: Simd> SIMDVoiceGenerator<T, SIMDSampleMono<T>> for SIMDVoiceEnvelope<T> {
+    #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<T> {
         match &mut self.state.stage_data {
             StageData::Lerp(lerper, stage_time) => {

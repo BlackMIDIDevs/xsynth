@@ -154,15 +154,18 @@ where
     V2: SIMDVoiceGenerator<T, TO>,
     F: Sync + Send + Fn(TI, TO) -> TO,
 {
+    #[inline(always)]
     fn ended(&self) -> bool {
         self.v1.ended() || self.v2.ended()
     }
 
+    #[inline(always)]
     fn signal_release(&mut self) {
         self.v1.signal_release();
         self.v2.signal_release();
     }
 
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.v1.process_controls(control);
         self.v2.process_controls(control);
@@ -178,6 +181,7 @@ where
     V2: SIMDVoiceGenerator<T, TO>,
     F: Sync + Send + Fn(TI, TO) -> TO,
 {
+    #[inline(always)]
     fn next_sample(&mut self) -> TO {
         (self.func)(self.v1.next_sample(), self.v2.next_sample())
     }
