@@ -1,6 +1,8 @@
 use simdeez::Simd;
 
-pub trait FilterBase: Default + Clone {
+// IMPORTANT: The copy trait is necessary on these filters so that it can be initialized into a constant vector.
+
+pub trait FilterBase: Default + Clone + Copy {
     fn calculate_alpha(cutoff: f32, sample_rate: f32) -> f32;
 
     fn process_sample(&mut self, alpha: f32, val: f32) -> f32;
@@ -14,7 +16,7 @@ pub trait FilterBase: Default + Clone {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Copy)]
 pub struct Lowpass {
     previous: f32,
 }
@@ -33,7 +35,7 @@ impl FilterBase for Lowpass {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Copy)]
 pub struct Highpass {
     previous: f32,
     previous_unedited: f32,
@@ -62,67 +64,58 @@ pub trait CutoffFilterBase: Clone {
     fn process_sample_simd<S: Simd>(&mut self, val: S::Vf32) -> S::Vf32;
 }
 
-macro_rules! make_pass_cutoff {
-    ($name:ident, $passes:expr) => {
-        #[derive(Clone)]
-        pub struct $name<F: FilterBase> {
-            filter: [F; $passes],
-            alpha: f32,
-            sample_rate: f32,
-        }
-
-        impl<F: FilterBase> $name<F> {
-            pub fn new(cutoff: f32, sample_rate: f32) -> Self {
-                Self {
-                    filter: Default::default(),
-                    alpha: F::calculate_alpha(cutoff, sample_rate),
-                    sample_rate,
-                }
-            }
-
-            pub fn set_cutoff(&mut self, cutoff: f32) {
-                self.alpha = F::calculate_alpha(cutoff, self.sample_rate);
-            }
-
-            pub fn process_sample(&mut self, mut val: f32) -> f32 {
-                for pass in 0..($passes) {
-                    val = self.filter[pass].process_sample(self.alpha, val)
-                }
-                val
-            }
-
-            pub fn process_sample_simd<S: Simd>(&mut self, mut val: S::Vf32) -> S::Vf32 {
-                for pass in 0..($passes) {
-                    val = self.filter[pass].process_sample_simd::<S>(self.alpha, val)
-                }
-                val
-            }
-        }
-
-        impl<F: FilterBase> CutoffFilterBase for $name<F> {
-            fn new(cutoff: f32, sample_rate: f32) -> Self {
-                Self::new(cutoff, sample_rate)
-            }
-
-            fn set_cutoff(&mut self, cutoff: f32) {
-                self.set_cutoff(cutoff);
-            }
-
-            fn process_sample(&mut self, val: f32) -> f32 {
-                self.process_sample(val)
-            }
-
-            fn process_sample_simd<S: Simd>(&mut self, val: S::Vf32) -> S::Vf32 {
-                self.process_sample_simd::<S>(val)
-            }
-        }
-    };
+#[derive(Clone)]
+pub struct MultiPassCutoff<F: FilterBase, const N: usize> {
+    filter: [F; N],
+    alpha: f32,
+    sample_rate: f32,
 }
 
-make_pass_cutoff!(OnePassCutoff, 1);
-make_pass_cutoff!(TwoPassCutoff, 2);
-make_pass_cutoff!(FourPassCutoff, 4);
-make_pass_cutoff!(SixPassCutoff, 6);
+impl<F: FilterBase, const N: usize> MultiPassCutoff<F, N> {
+    pub fn new(cutoff: f32, sample_rate: f32) -> Self {
+        Self {
+            filter: [Default::default(); N],
+            alpha: F::calculate_alpha(cutoff, sample_rate),
+            sample_rate,
+        }
+    }
+
+    pub fn set_cutoff(&mut self, cutoff: f32) {
+        self.alpha = F::calculate_alpha(cutoff, self.sample_rate);
+    }
+
+    pub fn process_sample(&mut self, mut val: f32) -> f32 {
+        for pass in 0..(N) {
+            val = self.filter[pass].process_sample(self.alpha, val)
+        }
+        val
+    }
+
+    pub fn process_sample_simd<S: Simd>(&mut self, mut val: S::Vf32) -> S::Vf32 {
+        for pass in 0..(N) {
+            val = self.filter[pass].process_sample_simd::<S>(self.alpha, val)
+        }
+        val
+    }
+}
+
+impl<F: FilterBase, const N: usize> CutoffFilterBase for MultiPassCutoff<F, N> {
+    fn new(cutoff: f32, sample_rate: f32) -> Self {
+        Self::new(cutoff, sample_rate)
+    }
+
+    fn set_cutoff(&mut self, cutoff: f32) {
+        self.set_cutoff(cutoff);
+    }
+
+    fn process_sample(&mut self, val: f32) -> f32 {
+        self.process_sample(val)
+    }
+
+    fn process_sample_simd<S: Simd>(&mut self, val: S::Vf32) -> S::Vf32 {
+        self.process_sample_simd::<S>(val)
+    }
+}
 
 pub struct MultiChannelCutoff<F: CutoffFilterBase> {
     channels: Vec<F>,

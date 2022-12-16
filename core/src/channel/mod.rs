@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    effects::{Lowpass, MultiChannelCutoff, TwoPassCutoff},
+    effects::{Lowpass, MultiChannelCutoff, MultiPassCutoff},
     helpers::{prepapre_cache_vec, sum_simd},
     voice::VoiceControlData,
     AudioStreamParams, SingleBorrowRefCell,
@@ -87,7 +87,7 @@ pub struct VoiceChannel {
     voice_control_data: AtomicRefCell<VoiceControlData>,
 
     // Effects
-    cutoff: MultiChannelCutoff<TwoPassCutoff<Lowpass>>,
+    cutoff: MultiChannelCutoff<MultiPassCutoff<Lowpass, 2>>,
 }
 
 impl VoiceChannel {

@@ -23,7 +23,7 @@ use super::{
     },
 };
 use crate::{
-    effects::{FourPassCutoff, Highpass, Lowpass, OnePassCutoff, SixPassCutoff, TwoPassCutoff},
+    effects::{Highpass, Lowpass, MultiPassCutoff},
     helpers::FREQS,
     voice::{
         EnvelopeDescriptor, SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff,
@@ -176,7 +176,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        OnePassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Lowpass, 1>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
@@ -185,7 +185,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        TwoPassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Lowpass, 2>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
@@ -194,7 +194,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        FourPassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Lowpass, 4>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
@@ -203,7 +203,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        SixPassCutoff::<Lowpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Lowpass, 6>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
@@ -212,7 +212,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        OnePassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Highpass, 1>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
@@ -221,7 +221,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        TwoPassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Highpass, 2>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
@@ -230,7 +230,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        FourPassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Highpass, 4>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
@@ -239,7 +239,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 } => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        SixPassCutoff::<Highpass>::new(cutoff, self.sample_rate),
+                        MultiPassCutoff::<Highpass, 6>::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
