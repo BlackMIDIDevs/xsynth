@@ -243,13 +243,12 @@ impl EnvelopeParameters {
         }
     }
 
-    pub fn modify_and_return_stage_data<T: Simd>(
-        mut self,
+    pub fn modify_stage_data<T: Simd>(
+        &mut self,
         part: usize,
         data: EnvelopePart,
-    ) -> Self {
+    ) {
         self.parts[part] = data;
-        self
     }
 }
 

@@ -4,7 +4,7 @@ use std::{
     marker::PhantomData,
     ops::Mul,
     path::PathBuf,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -78,7 +78,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     cutoff: Option<f32>,
     filter_type: FilterType,
     amp: f32,
-    volume_envelope_params: Arc<RwLock<EnvelopeParameters>>,
+    volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Arc<[Arc<[f32]>]>,
     sample_rate: f32,
     vel: u8,
@@ -87,7 +87,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
 }
 
 impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
-    pub fn new(params: &SampleVoiceSpawnerParams, vel: u8) -> Self {
+    pub fn new(params: &SampleVoiceSpawnerParams, vel: u8, stream_params: AudioStreamParams) -> Self {
         let amp = (vel as f32 / 127.0).powi(2);
 
         Self {
@@ -103,32 +103,6 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             _s: PhantomData,
         }
     }
-
-    fn apply_envelope_overrides(&self, control: &VoiceControlData) -> EnvelopeParameters {
-        let mut params = self
-            .volume_envelope_params
-            .clone()
-            .write()
-            .unwrap()
-            .to_owned();
-        if let Some(attack) = control.attack {
-            params = params.modify_and_return_stage_data::<S>(
-                1,
-                EnvelopePart::lerp(1.0, (attack * self.stream_params.sample_rate as f32) as u32),
-            );
-        }
-        if let Some(release) = control.release {
-            params = params.modify_and_return_stage_data::<S>(
-                5,
-                EnvelopePart::lerp(
-                    0.0,
-                    (release * self.stream_params.sample_rate as f32) as u32,
-                ),
-            );
-        }
-        params
-    }
-}
 
     fn create_pitch_fac(
         &self,
@@ -168,13 +142,33 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         amp
     }
 
-    fn apply_envelope<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
+    fn apply_envelope<Gen, Sample>(&self, gen: Gen, control: &VoiceControlData) -> impl SIMDVoiceGenerator<S, Sample>
     where
         Sample: SIMDSample<S>,
         SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
-        let volume_envelope = SIMDVoiceEnvelope::new(self.volume_envelope_params.clone());
+        let mut params = *self
+            .volume_envelope_params
+            .clone();
+
+        if let Some(attack) = control.attack {
+            params.modify_stage_data::<S>(
+                1,
+                EnvelopePart::lerp(1.0, (attack * self.stream_params.sample_rate as f32) as u32),
+            );
+        }
+        if let Some(release) = control.release {
+            params.modify_stage_data::<S>(
+                5,
+                EnvelopePart::lerp(
+                    0.0,
+                    (release * self.stream_params.sample_rate as f32) as u32,
+                ),
+            );
+        }
+
+        let volume_envelope = SIMDVoiceEnvelope::new(params);
         let amp = VoiceCombineSIMD::mult(volume_envelope, gen);
         amp
     }
@@ -195,7 +189,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.get_sampler(control);
 
         let gen = self.apply_velocity(gen);
-        let gen = self.apply_envelope(gen);
+        let gen = self.apply_envelope(gen, control);
 
         if let Some(cutoff) = self.cutoff {
             match self.filter_type {
@@ -342,7 +336,7 @@ impl SampleSoundfont {
 
         // Find the unique envelope params
         let mut unique_envelope_params =
-            Vec::<(EnvelopeDescriptor, Arc<RwLock<EnvelopeParameters>>)>::new();
+            Vec::<(EnvelopeDescriptor, Arc<EnvelopeParameters>)>::new();
         for region in regions.iter() {
             let envelope_descriptor = envelope_descriptor_from_region_params(region);
             let exists = unique_envelope_params
@@ -351,9 +345,9 @@ impl SampleSoundfont {
             if !exists {
                 unique_envelope_params.push((
                     envelope_descriptor,
-                    Arc::new(RwLock::new(
+                    Arc::new(
                         envelope_descriptor.to_envelope_params(stream_params.sample_rate),
-                    )),
+                    ),
                 ));
             }
         }
