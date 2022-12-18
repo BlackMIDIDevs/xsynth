@@ -278,7 +278,7 @@ impl VoiceChannel {
                     if value > 1 {
                         let release = value as f32 / 128.0;
                         let release = release.powi(8);
-                        let release = release * 5.0;
+                        let release = release * 15.0;
                         self.voice_control_data.borrow_mut().release = Some(release.max(0.001));
                         self.propagate_voice_controls();
                     } else {

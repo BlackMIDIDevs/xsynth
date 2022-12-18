@@ -161,8 +161,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         if let Some(release) = control.release {
             params.modify_stage_data::<S>(
                 5,
-                EnvelopePart::lerp(
-                    0.0,
+                EnvelopePart::lerp_to_zero_sqrt(
                     (release * self.stream_params.sample_rate as f32) as u32,
                 ),
             );
@@ -294,7 +293,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: (env.ampeg_release / 4.0).max(0.001),
+        release: env.ampeg_release.max(0.01),
     }
 }
 
