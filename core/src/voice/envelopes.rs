@@ -179,7 +179,7 @@ pub enum EnvelopePart {
         duration: u32, // Duration in samples
     },
     LerpToZeroSqrt {
-        duration: u32
+        duration: u32,
     },
     Hold(f32),
 }
@@ -294,11 +294,7 @@ impl EnvelopeParameters {
         }
     }
 
-    pub fn modify_stage_data<T: Simd>(
-        &mut self,
-        part: usize,
-        data: EnvelopePart,
-    ) {
+    pub fn modify_stage_data<T: Simd>(&mut self, part: usize, data: EnvelopePart) {
         self.parts[part] = data;
     }
 }

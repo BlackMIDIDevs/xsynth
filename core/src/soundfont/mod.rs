@@ -87,7 +87,11 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
 }
 
 impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
-    pub fn new(params: &SampleVoiceSpawnerParams, vel: u8, stream_params: AudioStreamParams) -> Self {
+    pub fn new(
+        params: &SampleVoiceSpawnerParams,
+        vel: u8,
+        stream_params: AudioStreamParams,
+    ) -> Self {
         let amp = (vel as f32 / 127.0).powi(2);
 
         Self {
@@ -142,15 +146,17 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         amp
     }
 
-    fn apply_envelope<Gen, Sample>(&self, gen: Gen, control: &VoiceControlData) -> impl SIMDVoiceGenerator<S, Sample>
+    fn apply_envelope<Gen, Sample>(
+        &self,
+        gen: Gen,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, Sample>
     where
         Sample: SIMDSample<S>,
         SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
-        let mut params = *self
-            .volume_envelope_params
-            .clone();
+        let mut params = *self.volume_envelope_params.clone();
 
         if let Some(attack) = control.attack {
             params.modify_stage_data::<S>(
@@ -344,9 +350,7 @@ impl SampleSoundfont {
             if !exists {
                 unique_envelope_params.push((
                     envelope_descriptor,
-                    Arc::new(
-                        envelope_descriptor.to_envelope_params(stream_params.sample_rate),
-                    ),
+                    Arc::new(envelope_descriptor.to_envelope_params(stream_params.sample_rate)),
                 ));
             }
         }
