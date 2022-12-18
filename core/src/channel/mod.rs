@@ -275,19 +275,29 @@ impl VoiceChannel {
                 }
                 0x48 => {
                     // Release
-                    let release = value as f32 / 128.0;
-                    let release = release.powi(4);
-                    let release = release * 4.0;
-                    self.voice_control_data.borrow_mut().release = Some(release.max(0.001));
-                    self.propagate_voice_controls();
+                    if value > 1 {
+                        let release = value as f32 / 128.0;
+                        let release = release.powi(8);
+                        let release = release * 5.0;
+                        self.voice_control_data.borrow_mut().release = Some(release.max(0.001));
+                        self.propagate_voice_controls();
+                    } else {
+                        self.voice_control_data.borrow_mut().release = None;
+                        self.propagate_voice_controls();
+                    }
                 }
                 0x49 => {
                     // Attack
-                    let attack = value as f32 / 128.0;
-                    let attack = attack.powi(4);
-                    let attack = attack / 2.0;
-                    self.voice_control_data.borrow_mut().attack = Some(attack);
-                    self.propagate_voice_controls();
+                    if value > 1 {
+                        let attack = value as f32 / 128.0;
+                        let attack = attack.powf(8.5);
+                        let attack = attack * 20.0;
+                        self.voice_control_data.borrow_mut().attack = Some(attack);
+                        self.propagate_voice_controls();
+                    } else {
+                        self.voice_control_data.borrow_mut().attack = None;
+                        self.propagate_voice_controls();
+                    }
                 }
                 0x4A => {
                     // Cutoff
