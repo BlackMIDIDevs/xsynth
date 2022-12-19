@@ -182,7 +182,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             params.modify_stage_data::<S>(
                 5,
                 EnvelopePart::lerp_to_zero_sqrt(
-                    (out * self.stream_params.sample_rate as f32) as u32,
+                    (out.max(0.02) * self.stream_params.sample_rate as f32) as u32,
                 ),
             );
         }
@@ -313,7 +313,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release.max(0.01),
+        release: env.ampeg_release.max(0.02),
     }
 }
 
