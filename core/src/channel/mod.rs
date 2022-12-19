@@ -56,6 +56,7 @@ struct ControlEventData {
     volume: f32, // 0.0 = silent, 1.0 = max volume
     pan: f32,    // 0.0 = left, 0.5 = center, 1.0 = right
     cutoff: Option<f32>,
+    expression: f32,
 }
 
 impl ControlEventData {
@@ -70,6 +71,7 @@ impl ControlEventData {
             volume: 1.0,
             pan: 0.5,
             cutoff: None,
+            expression: 1.0,
         }
     }
 }
@@ -130,7 +132,7 @@ impl VoiceChannel {
 
         // Volume
         for sample in out.iter_mut() {
-            *sample *= control.volume;
+            *sample *= control.volume * control.expression;
         }
 
         // Panning
@@ -260,6 +262,11 @@ impl VoiceChannel {
                     // Pan
                     let pan: f32 = value as f32 / 128.0;
                     self.control_event_data.borrow_mut().pan = pan
+                }
+                0x0B => {
+                    // Expression
+                    let expr = value as f32 / 128.0;
+                    self.control_event_data.borrow_mut().expression = expr
                 }
                 0x40 => {
                     // Damper / Sustain
