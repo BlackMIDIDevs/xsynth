@@ -17,9 +17,9 @@ use self::audio::{load_audio_file, AudioLoadError};
 use super::{
     voice::VoiceControlData,
     voice::{
-        BufferSamplers, EnvelopeParameters, EnvelopePart, SIMDConstant, SIMDNearestSampleGrabber, EnvelopeStage,
-        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
-        Voice, VoiceBase, VoiceCombineSIMD,
+        BufferSamplers, EnvelopeParameters, EnvelopePart, EnvelopeStage, SIMDConstant,
+        SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
+        SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -159,11 +159,12 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let mut params = *self.volume_envelope_params.clone();
 
         if let Some(attack) = control.attack {
-            let duration = params.get_stage_duration::<S>(EnvelopeStage::Attack) as f32 / self.stream_params.sample_rate as f32;
+            let duration = params.get_stage_duration::<S>(EnvelopeStage::Attack) as f32
+                / self.stream_params.sample_rate as f32;
             let out: f32 = match attack {
                 0..=64 => (attack as f32 / 64.0).powi(5) * duration,
                 65..=128 => duration + ((attack as f32 - 64.0) / 64.0).powi(3) * 15.0,
-                _ => duration
+                _ => duration,
             };
             params.modify_stage_data::<S>(
                 1,
@@ -171,11 +172,12 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             );
         }
         if let Some(release) = control.release {
-            let duration = params.get_stage_duration::<S>(EnvelopeStage::Release) as f32 / self.stream_params.sample_rate as f32;
+            let duration = params.get_stage_duration::<S>(EnvelopeStage::Release) as f32
+                / self.stream_params.sample_rate as f32;
             let out: f32 = match release {
                 0..=64 => (release as f32 / 64.0).powi(5) * duration,
                 65..=128 => duration + ((release as f32 - 64.0) / 64.0).powi(3) * 15.0,
-                _ => duration
+                _ => duration,
             };
             params.modify_stage_data::<S>(
                 5,
