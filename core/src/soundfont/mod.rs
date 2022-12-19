@@ -158,31 +158,34 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
     {
         let mut params = *self.volume_envelope_params.clone();
 
+        fn calculate_curve(value: u8, duration: f32) -> f32 {
+            match value {
+                0..=64 => (value as f32 / 64.0).powi(5) * duration,
+                65..=128 => duration + ((value as f32 - 64.0) / 64.0).powi(3) * 15.0,
+                _ => duration,
+            }
+        }
+
         if let Some(attack) = control.attack {
             let duration = params.get_stage_duration::<S>(EnvelopeStage::Attack) as f32
                 / self.stream_params.sample_rate as f32;
-            let out: f32 = match attack {
-                0..=64 => (attack as f32 / 64.0).powi(5) * duration,
-                65..=128 => duration + ((attack as f32 - 64.0) / 64.0).powi(3) * 15.0,
-                _ => duration,
-            };
             params.modify_stage_data::<S>(
                 1,
-                EnvelopePart::lerp(1.0, (out * self.stream_params.sample_rate as f32) as u32),
+                EnvelopePart::lerp(
+                    1.0,
+                    (calculate_curve(attack, duration) * self.stream_params.sample_rate as f32)
+                        as u32,
+                ),
             );
         }
         if let Some(release) = control.release {
             let duration = params.get_stage_duration::<S>(EnvelopeStage::Release) as f32
                 / self.stream_params.sample_rate as f32;
-            let out: f32 = match release {
-                0..=64 => (release as f32 / 64.0).powi(5) * duration,
-                65..=128 => duration + ((release as f32 - 64.0) / 64.0).powi(3) * 15.0,
-                _ => duration,
-            };
             params.modify_stage_data::<S>(
                 5,
                 EnvelopePart::lerp_to_zero_sqrt(
-                    (out.max(0.02) * self.stream_params.sample_rate as f32) as u32,
+                    (calculate_curve(release, duration).max(0.02)
+                        * self.stream_params.sample_rate as f32) as u32,
                 ),
             );
         }
