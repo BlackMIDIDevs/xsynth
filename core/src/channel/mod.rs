@@ -275,34 +275,22 @@ impl VoiceChannel {
                 }
                 0x48 => {
                     // Release
-                    if value > 1 {
-                        let release = value as f32 / 128.0;
-                        let release = release.powi(8);
-                        let release = release * 15.0;
-                        self.voice_control_data.borrow_mut().release = Some(release.max(0.001));
-                        self.propagate_voice_controls();
-                    } else {
-                        self.voice_control_data.borrow_mut().release = None;
-                        self.propagate_voice_controls();
-                    }
+                    self.voice_control_data.borrow_mut().release = Some(value);
+                    self.propagate_voice_controls();
                 }
                 0x49 => {
                     // Attack
-                    if value > 1 {
-                        let attack = value as f32 / 128.0;
-                        let attack = attack.powf(8.5);
-                        let attack = attack * 20.0;
-                        self.voice_control_data.borrow_mut().attack = Some(attack);
-                        self.propagate_voice_controls();
-                    } else {
-                        self.voice_control_data.borrow_mut().attack = None;
-                        self.propagate_voice_controls();
-                    }
+                    self.voice_control_data.borrow_mut().attack = Some(value);
+                    self.propagate_voice_controls();
                 }
                 0x4A => {
                     // Cutoff
-                    let cutoff = (value as f32 / 64.0).min(1.0).powf(0.85) * 22000.0;
-                    self.control_event_data.borrow_mut().cutoff = Some(cutoff)
+                    if value < 64 {
+                        let cutoff = (value as f32 / 64.0).powi(2) * 24000.0 + 500.0;
+                        self.control_event_data.borrow_mut().cutoff = Some(cutoff);
+                    } else {
+                        self.control_event_data.borrow_mut().cutoff = None;
+                    }
                 }
                 _ => {}
             },

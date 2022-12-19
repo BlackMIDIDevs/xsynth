@@ -294,6 +294,15 @@ impl EnvelopeParameters {
         }
     }
 
+    pub fn get_stage_duration<T: Simd>(&self, stage: EnvelopeStage) -> u32 {
+        let stage_info = &self.parts[stage.as_usize()];
+        match stage_info {
+            EnvelopePart::Lerp { target: _ , duration } => *duration,
+            EnvelopePart::LerpToZeroSqrt { duration } => *duration,
+            EnvelopePart::Hold(_) => 0,
+        }
+    }
+
     pub fn modify_stage_data<T: Simd>(&mut self, part: usize, data: EnvelopePart) {
         self.parts[part] = data;
     }

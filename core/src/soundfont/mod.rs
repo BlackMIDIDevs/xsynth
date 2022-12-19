@@ -17,7 +17,7 @@ use self::audio::{load_audio_file, AudioLoadError};
 use super::{
     voice::VoiceControlData,
     voice::{
-        BufferSamplers, EnvelopeParameters, EnvelopePart, SIMDConstant, SIMDNearestSampleGrabber,
+        BufferSamplers, EnvelopeParameters, EnvelopePart, SIMDConstant, SIMDNearestSampleGrabber, EnvelopeStage,
         SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
         Voice, VoiceBase, VoiceCombineSIMD,
     },
@@ -159,16 +159,28 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let mut params = *self.volume_envelope_params.clone();
 
         if let Some(attack) = control.attack {
+            let duration = params.get_stage_duration::<S>(EnvelopeStage::Attack) as f32 / self.stream_params.sample_rate as f32;
+            let out: f32 = match attack {
+                0..=64 => (attack as f32 / 64.0).powi(5) * duration,
+                65..=128 => duration + ((attack as f32 - 64.0) / 64.0).powi(3) * 15.0,
+                _ => duration
+            };
             params.modify_stage_data::<S>(
                 1,
-                EnvelopePart::lerp(1.0, (attack * self.stream_params.sample_rate as f32) as u32),
+                EnvelopePart::lerp(1.0, (out * self.stream_params.sample_rate as f32) as u32),
             );
         }
         if let Some(release) = control.release {
+            let duration = params.get_stage_duration::<S>(EnvelopeStage::Release) as f32 / self.stream_params.sample_rate as f32;
+            let out: f32 = match release {
+                0..=64 => (release as f32 / 64.0).powi(5) * duration,
+                65..=128 => duration + ((release as f32 - 64.0) / 64.0).powi(3) * 15.0,
+                _ => duration
+            };
             params.modify_stage_data::<S>(
                 5,
                 EnvelopePart::lerp_to_zero_sqrt(
-                    (release * self.stream_params.sample_rate as f32) as u32,
+                    (out * self.stream_params.sample_rate as f32) as u32,
                 ),
             );
         }

@@ -30,8 +30,8 @@ pub use cutoff::*;
 
 pub struct VoiceControlData {
     pub voice_pitch_multiplier: f32,
-    pub attack: Option<f32>,
-    pub release: Option<f32>,
+    pub attack: Option<u8>,
+    pub release: Option<u8>,
 }
 
 impl VoiceControlData {
