@@ -183,7 +183,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
                 / self.stream_params.sample_rate as f32;
             params.modify_stage_data::<S>(
                 5,
-                EnvelopePart::lerp_to_zero_sqrt(
+                EnvelopePart::lerp_to_zero_curve(
                     (calculate_curve(release, duration).max(0.02)
                         * self.stream_params.sample_rate as f32) as u32,
                 ),
