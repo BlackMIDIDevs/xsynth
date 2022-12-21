@@ -86,7 +86,7 @@ impl<T: Simd> SIMDLerpToZeroSqrt<T> {
 
     fn lerp_simd(&self, factor: T::Vf32) -> T::Vf32 {
         let one = unsafe { T::set1_ps(1.0) };
-        let r1 = (one - factor);
+        let r1 = one - factor;
         let r2 = r1 * r1;
         let r3 = r2 * r2;
         let mult = r3 * r3;
