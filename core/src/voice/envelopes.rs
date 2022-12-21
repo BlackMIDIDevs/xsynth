@@ -80,16 +80,17 @@ impl<T: Simd> SIMDLerpToZeroSqrt<T> {
     }
 
     fn lerp(&self, factor: f32) -> f32 {
-        let result = self.start * (1.0 - factor);
-        result.powi(8)
+        let mult = 1.0 - factor;
+        mult.powi(8) * self.start
     }
 
     fn lerp_simd(&self, factor: T::Vf32) -> T::Vf32 {
         let one = unsafe { T::set1_ps(1.0) };
-        let r1 = self.start_simd * (one - factor);
+        let r1 = (one - factor);
         let r2 = r1 * r1;
         let r3 = r2 * r2;
-        r3 * r3
+        let mult = r3 * r3;
+        self.start_simd * mult
     }
 }
 
@@ -376,10 +377,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             values[i] = sample;
             self.increment_time_by(1);
             let should_progress = match &mut self.state.stage_data {
-                StageData::Lerp(_, stage_time) => {
-                    stage_time.is_ending() && !stage_time.is_intersecting_end()
-                }
-                StageData::LerpToZeroSqrt(_, stage_time) => {
+                StageData::Lerp(_, stage_time) | StageData::LerpToZeroSqrt(_, stage_time) => {
                     stage_time.is_ending() && !stage_time.is_intersecting_end()
                 }
                 StageData::Constant(_) => false,
@@ -401,7 +399,10 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
     #[inline(always)]
     fn signal_release(&mut self) {
         let amp = self.get_value_at_current_time();
+        dbg!(amp);
         self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
+        dbg!(self.get_value_at_current_time());
+        dbg!(self.ended());
     }
 
     #[inline(always)]
