@@ -399,10 +399,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
     #[inline(always)]
     fn signal_release(&mut self) {
         let amp = self.get_value_at_current_time();
-        dbg!(amp);
         self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
-        dbg!(self.get_value_at_current_time());
-        dbg!(self.ended());
     }
 
     #[inline(always)]
