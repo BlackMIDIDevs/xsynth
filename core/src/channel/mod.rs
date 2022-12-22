@@ -282,12 +282,12 @@ impl VoiceChannel {
                 }
                 0x48 => {
                     // Release
-                    self.voice_control_data.borrow_mut().release = Some(value);
+                    self.voice_control_data.borrow_mut().envelope.release = Some(value);
                     self.propagate_voice_controls();
                 }
                 0x49 => {
                     // Attack
-                    self.voice_control_data.borrow_mut().attack = Some(value);
+                    self.voice_control_data.borrow_mut().envelope.attack = Some(value);
                     self.propagate_voice_controls();
                 }
                 0x4A => {
