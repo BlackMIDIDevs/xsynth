@@ -397,7 +397,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         SIMDSampleMono(values)
     }
 
-    pub fn modify_envelope(&mut self, control: &VoiceControlData) {
+    pub fn get_modified_envelope(mut params: EnvelopeParameters, control: &VoiceControlData, sample_rate: f32) -> EnvelopeParameters {
         fn calculate_curve(value: u8, duration: f32) -> f32 {
             match value {
                 0..=64 => (value as f32 / 64.0).powi(5) * duration,
@@ -407,29 +407,34 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         }
 
         if let Some(attack) = control.envelope.attack {
-            let duration = self.params.get_stage_duration::<T>(EnvelopeStage::Attack) as f32
-            / self.sample_rate;
-            self.params.modify_stage_data::<T>(
+            let duration = params.get_stage_duration::<T>(EnvelopeStage::Attack) as f32
+            / sample_rate;
+            params.modify_stage_data::<T>(
                 1,
                 EnvelopePart::lerp(
                     1.0,
-                    (calculate_curve(attack, duration) * self.sample_rate)
+                    (calculate_curve(attack, duration) * sample_rate)
                     as u32,
                 ),
             );
         }
         if let Some(release) = control.envelope.release {
-            let duration = self.params.get_stage_duration::<T>(EnvelopeStage::Release) as f32
-            / self.sample_rate;
-            self.params.modify_stage_data::<T>(
+            let duration = params.get_stage_duration::<T>(EnvelopeStage::Release) as f32
+            / sample_rate;
+            params.modify_stage_data::<T>(
                 5,
                 EnvelopePart::lerp_to_zero_curve(
                     (calculate_curve(release, duration).max(0.02)
-                    * self.sample_rate) as u32,
+                    * sample_rate) as u32,
                 ),
             );
         }
 
+        params
+    }
+
+    pub fn modify_envelope(&mut self, control: &VoiceControlData) {
+        self.params = Self::get_modified_envelope(self.params, control, self.sample_rate);
         self.update_stage();
     }
 }

@@ -156,10 +156,10 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
-        let params = *self.volume_envelope_params.clone();
+        let params = SIMDVoiceEnvelope::<S>::get_modified_envelope(*self.volume_envelope_params.clone(), control, self.stream_params.sample_rate as f32);
 
-        let mut volume_envelope = SIMDVoiceEnvelope::new(params, self.stream_params.sample_rate as f32);
-        volume_envelope.modify_envelope(control);
+        let volume_envelope = SIMDVoiceEnvelope::new(params, self.stream_params.sample_rate as f32);
+
         let amp = VoiceCombineSIMD::mult(volume_envelope, gen);
         amp
     }
@@ -281,7 +281,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
     EnvelopeDescriptor {
         start_percent: env.ampeg_start / 100.0,
         delay: env.ampeg_delay,
-        attack: env.ampeg_attack,
+        attack: env.ampeg_attack.max(0.01),
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
