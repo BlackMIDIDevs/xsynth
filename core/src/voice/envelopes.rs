@@ -1,6 +1,6 @@
 use simdeez::Simd;
 
-use crate::voice::{VoiceControlData, EnvelopeControlData};
+use crate::voice::{EnvelopeControlData, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
@@ -333,7 +333,11 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
     pub fn new(params: EnvelopeParameters, sample_rate: f32) -> Self {
         let state = params.get_stage_data(EnvelopeStage::Delay, params.start);
 
-        SIMDVoiceEnvelope { params, state, sample_rate }
+        SIMDVoiceEnvelope {
+            params,
+            state,
+            sample_rate,
+        }
     }
 
     pub fn get_value_at_current_time(&self) -> f32 {
@@ -361,9 +365,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
 
     fn update_stage(&mut self) {
         let amp = self.get_value_at_current_time();
-        self.state = self
-            .params
-            .get_stage_data(*self.current_stage(), amp);
+        self.state = self.params.get_stage_data(*self.current_stage(), amp);
     }
 
     fn increment_time_by(&mut self, increment: u32) {
@@ -397,7 +399,11 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         SIMDSampleMono(values)
     }
 
-    pub fn get_modified_envelope(mut params: EnvelopeParameters, control: &VoiceControlData, sample_rate: f32) -> EnvelopeParameters {
+    pub fn get_modified_envelope(
+        mut params: EnvelopeParameters,
+        envelope: EnvelopeControlData,
+        sample_rate: f32,
+    ) -> EnvelopeParameters {
         fn calculate_curve(value: u8, duration: f32) -> f32 {
             match value {
                 0..=64 => (value as f32 / 64.0).powi(5) * duration,
@@ -406,26 +412,24 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             }
         }
 
-        if let Some(attack) = control.envelope.attack {
-            let duration = params.get_stage_duration::<T>(EnvelopeStage::Attack) as f32
-            / sample_rate;
+        if let Some(attack) = envelope.attack {
+            let duration =
+                params.get_stage_duration::<T>(EnvelopeStage::Attack) as f32 / sample_rate;
             params.modify_stage_data::<T>(
                 1,
                 EnvelopePart::lerp(
                     1.0,
-                    (calculate_curve(attack, duration) * sample_rate)
-                    as u32,
+                    (calculate_curve(attack, duration) * sample_rate) as u32,
                 ),
             );
         }
-        if let Some(release) = control.envelope.release {
-            let duration = params.get_stage_duration::<T>(EnvelopeStage::Release) as f32
-            / sample_rate;
+        if let Some(release) = envelope.release {
+            let duration =
+                params.get_stage_duration::<T>(EnvelopeStage::Release) as f32 / sample_rate;
             params.modify_stage_data::<T>(
                 5,
                 EnvelopePart::lerp_to_zero_curve(
-                    (calculate_curve(release, duration).max(0.02)
-                    * sample_rate) as u32,
+                    (calculate_curve(release, duration).max(0.02) * sample_rate) as u32,
                 ),
             );
         }
@@ -433,8 +437,8 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         params
     }
 
-    pub fn modify_envelope(&mut self, control: &VoiceControlData) {
-        self.params = Self::get_modified_envelope(self.params, control, self.sample_rate);
+    pub fn modify_envelope(&mut self, envelope: EnvelopeControlData) {
+        self.params = Self::get_modified_envelope(self.params, envelope, self.sample_rate);
         self.update_stage();
     }
 }
@@ -453,7 +457,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
 
     #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
-        self.modify_envelope(control);
+        self.modify_envelope(control.envelope);
     }
 }
 

@@ -17,9 +17,9 @@ use self::audio::{load_audio_file, AudioLoadError};
 use super::{
     voice::VoiceControlData,
     voice::{
-        BufferSamplers, EnvelopeParameters, EnvelopePart, EnvelopeStage, SIMDConstant,
-        SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
-        SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase, VoiceCombineSIMD, VoiceGeneratorBase
+        BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber,
+        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
+        Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -156,7 +156,11 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
-        let params = SIMDVoiceEnvelope::<S>::get_modified_envelope(*self.volume_envelope_params.clone(), control, self.stream_params.sample_rate as f32);
+        let params = SIMDVoiceEnvelope::<S>::get_modified_envelope(
+            *self.volume_envelope_params.clone(),
+            control.envelope,
+            self.stream_params.sample_rate as f32,
+        );
 
         let volume_envelope = SIMDVoiceEnvelope::new(params, self.stream_params.sample_rate as f32);
 
