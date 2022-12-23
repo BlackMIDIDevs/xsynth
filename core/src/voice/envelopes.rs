@@ -324,16 +324,22 @@ struct VoiceEnvelopeState<T: Simd> {
 }
 
 pub struct SIMDVoiceEnvelope<T: Simd> {
+    original_params: EnvelopeParameters,
     params: EnvelopeParameters,
     state: VoiceEnvelopeState<T>,
     sample_rate: f32,
 }
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
-    pub fn new(params: EnvelopeParameters, sample_rate: f32) -> Self {
+    pub fn new(
+        original_params: EnvelopeParameters,
+        params: EnvelopeParameters,
+        sample_rate: f32,
+    ) -> Self {
         let state = params.get_stage_data(EnvelopeStage::Delay, params.start);
 
         SIMDVoiceEnvelope {
+            original_params,
             params,
             state,
             sample_rate,
@@ -438,7 +444,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
     }
 
     pub fn modify_envelope(&mut self, envelope: EnvelopeControlData) {
-        self.params = Self::get_modified_envelope(self.params, envelope, self.sample_rate);
+        self.params = Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
         self.update_stage();
     }
 }
