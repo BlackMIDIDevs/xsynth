@@ -82,11 +82,16 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     samples: Arc<[Arc<[f32]>]>,
     sample_rate: f32,
     vel: u8,
+    stream_params: AudioStreamParams,
     _s: PhantomData<S>,
 }
 
 impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
-    pub fn new(params: &SampleVoiceSpawnerParams, vel: u8) -> Self {
+    pub fn new(
+        params: &SampleVoiceSpawnerParams,
+        vel: u8,
+        stream_params: AudioStreamParams,
+    ) -> Self {
         let amp = (vel as f32 / 127.0).powi(2);
 
         Self {
@@ -98,6 +103,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             samples: params.sample.clone(),
             sample_rate: params.sample_rate,
             vel,
+            stream_params,
             _s: PhantomData,
         }
     }
@@ -140,13 +146,28 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         amp
     }
 
-    fn apply_envelope<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
+    fn apply_envelope<Gen, Sample>(
+        &self,
+        gen: Gen,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, Sample>
     where
         Sample: SIMDSample<S>,
         SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
-        let volume_envelope = SIMDVoiceEnvelope::new(self.volume_envelope_params.clone());
+        let modified_params = SIMDVoiceEnvelope::<S>::get_modified_envelope(
+            *self.volume_envelope_params.clone(),
+            control.envelope,
+            self.stream_params.sample_rate as f32,
+        );
+
+        let volume_envelope = SIMDVoiceEnvelope::new(
+            *self.volume_envelope_params.clone(),
+            modified_params,
+            self.stream_params.sample_rate as f32,
+        );
+
         let amp = VoiceCombineSIMD::mult(volume_envelope, gen);
         amp
     }
@@ -167,7 +188,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.get_sampler(control);
 
         let gen = self.apply_velocity(gen);
-        let gen = self.apply_envelope(gen);
+        let gen = self.apply_envelope(gen, control);
 
         if let Some(cutoff) = self.cutoff {
             match self.filter_type {
@@ -272,7 +293,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release / 4.0,
+        release: env.ampeg_release.max(0.02),
     }
 }
 
@@ -411,7 +432,11 @@ impl SoundfontBase for SampleSoundfont {
                 let index = key_vel_to_index(key, vel);
                 let spawner_params = sf.spawner_params_list[index].as_ref();
                 if let Some(spawner_params) = spawner_params {
-                    vec![Box::new(SampledVoiceSpawner::<S>::new(spawner_params, vel))]
+                    vec![Box::new(SampledVoiceSpawner::<S>::new(
+                        spawner_params,
+                        vel,
+                        sf.stream_params,
+                    ))]
                 } else {
                     vec![]
                 }

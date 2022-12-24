@@ -26,6 +26,10 @@ fn main() {
     let sample_rate: u32 = read_input("Enter sample rate (in Hz)").parse().unwrap();
     let use_threadpool = read_input_bool("Use threadpool? (y/n)");
     let use_limiter = read_input_bool("Use audio limiter? (y/n)");
+    let layers = match read_input("Enter layer count").parse::<usize>().unwrap() {
+        0 => None,
+        voices => Some(voices),
+    };
 
     io::stdout().lock().flush().unwrap();
 
@@ -35,9 +39,14 @@ fn main() {
     let position = Arc::new(AtomicF64::new(0.0));
     let voices = Arc::new(AtomicU64::new(0));
 
+    let max_voices = Arc::new(AtomicU64::new(0));
+
     let callback = |stats: XSynthRenderStats| {
         position.store(stats.progress, Ordering::Relaxed);
         voices.store(stats.voice_count, Ordering::Relaxed);
+        if stats.voice_count > max_voices.load(Ordering::Relaxed) {
+            max_voices.store(stats.voice_count, Ordering::Relaxed);
+        }
     };
 
     let position_thread = position.clone();
@@ -67,12 +76,14 @@ fn main() {
         .use_threadpool(use_threadpool)
         .use_limiter(use_limiter)
         .add_soundfont(&sfz_path)
+        .with_layer_count(layers)
         .with_progress_callback(callback)
         .run();
 
     println!(
-        "\n\n--- RENDER FINISHED ---\nRender time: {} seconds",
-        render_time.elapsed().as_secs()
+        "\n\n--- RENDER FINISHED ---\nRender time: {} seconds | Max Voice Count: {} voices",
+        render_time.elapsed().as_secs(),
+        max_voices.load(Ordering::Relaxed)
     );
     pause();
 }

@@ -28,14 +28,26 @@ pub use control::*;
 mod cutoff;
 pub use cutoff::*;
 
+#[derive(Copy, Clone)]
+pub struct EnvelopeControlData {
+    pub attack: Option<u8>,
+    pub release: Option<u8>,
+}
+
+#[derive(Copy, Clone)]
 pub struct VoiceControlData {
     pub voice_pitch_multiplier: f32,
+    pub envelope: EnvelopeControlData,
 }
 
 impl VoiceControlData {
     pub fn new_defaults() -> Self {
         VoiceControlData {
             voice_pitch_multiplier: 1.0,
+            envelope: EnvelopeControlData {
+                attack: None,
+                release: None,
+            },
         }
     }
 }
