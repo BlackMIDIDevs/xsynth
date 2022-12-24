@@ -33,6 +33,9 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceControl<S> {
     fn signal_release(&mut self) {}
 
     #[inline(always)]
+    fn signal_kill(&mut self) {}
+
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         unsafe {
             self.values = S::set1_ps((self.update)(control));

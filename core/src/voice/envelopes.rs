@@ -462,6 +462,16 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
     }
 
     #[inline(always)]
+    fn signal_kill(&mut self) {
+        let control = EnvelopeControlData {
+            attack: None,
+            release: Some(5),
+        };
+        self.modify_envelope(control);
+        self.signal_release();
+    }
+
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.modify_envelope(control.envelope);
     }

@@ -6,6 +6,7 @@ use super::{Voice, VoiceGeneratorBase, VoiceSampleGenerator};
 pub struct VoiceBase<T: Send + Sync + VoiceSampleGenerator> {
     sample_generator: T,
     releasing: bool,
+    killed: bool,
     velocity: u8,
 }
 
@@ -14,6 +15,7 @@ impl<T: Send + Sync + VoiceSampleGenerator> VoiceBase<T> {
         VoiceBase {
             sample_generator,
             releasing: false,
+            killed: false,
             velocity,
         }
     }
@@ -32,6 +34,12 @@ where
     fn signal_release(&mut self) {
         self.releasing = true;
         self.sample_generator.signal_release()
+    }
+
+    #[inline(always)]
+    fn signal_kill(&mut self) {
+        self.killed = true;
+        self.sample_generator.signal_kill()
     }
 
     #[inline(always)]
@@ -57,6 +65,11 @@ where
     #[inline(always)]
     fn is_releasing(&self) -> bool {
         self.releasing
+    }
+
+    #[inline(always)]
+    fn is_killed(&self) -> bool {
+        self.killed
     }
 
     #[inline(always)]

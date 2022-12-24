@@ -75,15 +75,23 @@ impl VoiceBuffer {
         }
 
         if count > 0 {
-            self.buffer.drain(quietest_index..(quietest_index + count));
+            for i in quietest_index..(quietest_index + count) {
+                self.kill_voice(i);
+            }
             if let Some(index) = self.held_by_damper.iter().position(|&x| x == quietest_id) {
                 self.held_by_damper.remove(index);
             }
         }
     }
 
+    fn kill_voice(&mut self, id: usize) {
+        self.buffer[id].deref_mut().signal_kill();
+    }
+
     pub fn kill_all_voices(&mut self) {
-        self.buffer.clear();
+        for i in 0..self.buffer.len() {
+            self.kill_voice(i);
+        }
         self.id_counter = 0;
     }
 
@@ -101,7 +109,17 @@ impl VoiceBuffer {
         }
 
         if let Some(max_voices) = max_voices {
-            while self.buffer.len() > max_voices {
+            fn get_active_count(vb: &mut VoiceBuffer) -> usize {
+                let mut active = 0;
+                for i in 0..vb.buffer.len() {
+                    if !vb.buffer[i].deref().is_killed() {
+                        active += 1;
+                    }
+                }
+                active
+            }
+
+            while get_active_count(self) > max_voices {
                 self.pop_quietest_voice_group(vel, id);
             }
         }

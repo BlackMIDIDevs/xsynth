@@ -41,6 +41,11 @@ where
     }
 
     #[inline(always)]
+    fn signal_kill(&mut self) {
+        self.generator.signal_kill()
+    }
+
+    #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.generator.process_controls(control)
     }

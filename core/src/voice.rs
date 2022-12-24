@@ -55,6 +55,7 @@ impl VoiceControlData {
 pub trait VoiceGeneratorBase: Sync + Send {
     fn ended(&self) -> bool;
     fn signal_release(&mut self);
+    fn signal_kill(&mut self);
     fn process_controls(&mut self, control: &VoiceControlData);
 }
 
@@ -64,6 +65,7 @@ pub trait VoiceSampleGenerator: VoiceGeneratorBase {
 
 pub trait Voice: VoiceSampleGenerator + Send + Sync {
     fn is_releasing(&self) -> bool;
+    fn is_killed(&self) -> bool;
 
     fn velocity(&self) -> u8;
 }

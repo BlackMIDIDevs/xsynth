@@ -28,6 +28,9 @@ impl<S: Simd> VoiceGeneratorBase for SIMDConstant<S> {
     fn signal_release(&mut self) {}
 
     #[inline(always)]
+    fn signal_kill(&mut self) {}
+
+    #[inline(always)]
     fn process_controls(&mut self, _control: &VoiceControlData) {}
 }
 
