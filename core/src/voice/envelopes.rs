@@ -447,7 +447,8 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
 
     pub fn modify_envelope(&mut self, envelope: EnvelopeControlData) {
         if !self.killed {
-            self.params = Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
+            self.params =
+                Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
             self.update_stage();
         }
     }

@@ -1,8 +1,8 @@
 use crate::voice::Voice;
 use std::{
     collections::VecDeque,
-    ops::{Deref, DerefMut},
     fmt::Debug,
+    ops::{Deref, DerefMut},
 };
 
 struct GroupVoice {
