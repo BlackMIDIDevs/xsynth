@@ -2,6 +2,7 @@ use crate::voice::Voice;
 use std::{
     collections::VecDeque,
     ops::{Deref, DerefMut},
+    fmt::Debug,
 };
 
 struct GroupVoice {
@@ -22,6 +23,16 @@ impl DerefMut for GroupVoice {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Box<(dyn Voice)> {
         &mut self.voice
+    }
+}
+
+impl Debug for GroupVoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("")
+            .field(&self.id)
+            .field(&self.voice.velocity())
+            .field(&self.voice.is_killed())
+            .finish()
     }
 }
 
@@ -49,35 +60,35 @@ impl VoiceBuffer {
 
     /// Pops the quietest voice group. Multiple voices can be part of the same group
     /// based on their ID (e.g. a note and a hammer playing at the same time for a note on event)
-    fn pop_quietest_voice_group(&mut self, reference_vel: u8, ignored_id: usize) {
+    fn pop_quietest_voice_group(&mut self, ignored_id: usize) {
         if self.buffer.is_empty() {
             return;
         }
 
-        let mut quietest = reference_vel;
-        let mut quietest_index = 0;
+        let mut quietest = u8::MAX;
         let mut quietest_id = 0;
-        let mut count = 0;
+        let mut found = false;
         for i in 0..self.buffer.len() {
             let voice = &self.buffer[i];
-            if voice.id == ignored_id {
+            if voice.id == ignored_id || voice.is_killed() {
                 continue;
             }
             let vel = voice.velocity();
-            if quietest_id == voice.id {
-                count += 1;
-            } else if vel < quietest || i == 0 {
+            if vel < quietest {
                 quietest = vel;
-                quietest_index = i;
                 quietest_id = voice.id;
-                count = 1;
+                found = true;
             }
         }
 
-        if count > 0 {
-            for i in quietest_index..(quietest_index + count) {
-                self.kill_voice(i);
+        if found {
+            for i in 0..self.buffer.len() {
+                let voice = &self.buffer[i];
+                if voice.id == quietest_id {
+                    self.kill_voice(i);
+                }
             }
+
             if let Some(index) = self.held_by_damper.iter().position(|&x| x == quietest_id) {
                 self.held_by_damper.remove(index);
             }
@@ -99,7 +110,6 @@ impl VoiceBuffer {
     /// based on their ID (e.g. a note and a hammer playing at the same time for a note on event)
     pub fn push_voices(
         &mut self,
-        vel: u8,
         voices: impl Iterator<Item = Box<dyn Voice>>,
         max_voices: Option<usize>,
     ) {
@@ -120,7 +130,7 @@ impl VoiceBuffer {
             }
 
             while get_active_count(self) > max_voices {
-                self.pop_quietest_voice_group(vel, id);
+                self.pop_quietest_voice_group(id);
             }
         }
     }

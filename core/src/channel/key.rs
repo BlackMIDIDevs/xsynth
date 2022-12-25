@@ -34,19 +34,19 @@ impl KeyData {
         match event {
             KeyNoteEvent::On(vel) => {
                 let voices = channel_sf.spawn_voices_attack(control, self.key, vel);
-                self.voices.push_voices(vel, voices, max_layers);
+                self.voices.push_voices(voices, max_layers);
             }
             KeyNoteEvent::Off => {
                 let vel = self.voices.release_next_voice();
                 if let Some(vel) = vel {
                     let voices = channel_sf.spawn_voices_release(control, self.key, vel);
-                    self.voices.push_voices(vel, voices, max_layers);
+                    self.voices.push_voices(voices, max_layers);
                 }
             }
             KeyNoteEvent::AllOff => {
                 while let Some(vel) = self.voices.release_next_voice() {
                     let voices = channel_sf.spawn_voices_release(control, self.key, vel);
-                    self.voices.push_voices(vel, voices, max_layers);
+                    self.voices.push_voices(voices, max_layers);
                 }
             }
             KeyNoteEvent::AllKilled => {

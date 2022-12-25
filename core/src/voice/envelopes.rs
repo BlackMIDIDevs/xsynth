@@ -328,6 +328,7 @@ pub struct SIMDVoiceEnvelope<T: Simd> {
     params: EnvelopeParameters,
     state: VoiceEnvelopeState<T>,
     sample_rate: f32,
+    killed: bool,
 }
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
@@ -343,6 +344,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             params,
             state,
             sample_rate,
+            killed: false,
         }
     }
 
@@ -444,8 +446,10 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
     }
 
     pub fn modify_envelope(&mut self, envelope: EnvelopeControlData) {
-        self.params = Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
-        self.update_stage();
+        if !self.killed {
+            self.params = Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
+            self.update_stage();
+        }
     }
 }
 
@@ -469,6 +473,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
         };
         self.modify_envelope(control);
         self.signal_release();
+        self.killed = true;
     }
 
     #[inline(always)]
