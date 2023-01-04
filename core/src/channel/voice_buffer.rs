@@ -68,23 +68,27 @@ impl VoiceBuffer {
         let mut quietest = u8::MAX;
         let mut quietest_index = 0;
         let mut quietest_id = 0;
-        let mut found = false;
+        let mut count = 0;
         for i in 0..self.buffer.len() {
             let voice = &self.buffer[i];
             if voice.id == ignored_id || voice.is_killed() {
                 continue;
             }
             let vel = voice.velocity();
-            if vel < quietest {
+            if quietest_id == voice.id {
+                count += 1;
+            } else if vel < quietest || i == 0 {
                 quietest = vel;
                 quietest_index = i;
                 quietest_id = voice.id;
-                found = true;
+                count = 1;
             }
         }
 
-        if found {
-            self.kill_voice(quietest_index);
+        if count > 0 {
+            for i in quietest_index..(quietest_index + count) {
+                self.kill_voice(i);
+            }
 
             if let Some(index) = self.held_by_damper.iter().position(|&x| x == quietest_id) {
                 self.held_by_damper.remove(index);
