@@ -4,7 +4,7 @@ use simdeez::Simd;
 
 use crate::{
     effects::CutoffFilterBase,
-    voice::{SIMDVoiceGenerator, VoiceControlData, ReleaseType},
+    voice::{ReleaseType, SIMDVoiceGenerator, VoiceControlData},
 };
 
 use super::{SIMDSampleStereo, VoiceGeneratorBase};

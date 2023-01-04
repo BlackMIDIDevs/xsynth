@@ -5,7 +5,7 @@ use std::{
 
 use simdeez::Simd;
 
-use crate::voice::{VoiceControlData, ReleaseType};
+use crate::voice::{ReleaseType, VoiceControlData};
 
 use super::VoiceGeneratorBase;
 

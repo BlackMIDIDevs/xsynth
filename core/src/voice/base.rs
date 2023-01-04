@@ -1,4 +1,4 @@
-use crate::voice::{VoiceControlData, ReleaseType};
+use crate::voice::{ReleaseType, VoiceControlData};
 
 use super::{Voice, VoiceGeneratorBase, VoiceSampleGenerator};
 

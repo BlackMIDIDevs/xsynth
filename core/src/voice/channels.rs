@@ -4,7 +4,9 @@ use simdeez::Simd;
 
 use crate::voice::VoiceControlData;
 
-use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase, ReleaseType};
+use super::{
+    ReleaseType, SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase,
+};
 
 pub struct SIMDVoiceMonoToStereo<S, G>
 where

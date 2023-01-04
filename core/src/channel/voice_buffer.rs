@@ -1,4 +1,4 @@
-use crate::voice::{Voice, ReleaseType};
+use crate::voice::{ReleaseType, Voice};
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -93,7 +93,9 @@ impl VoiceBuffer {
     }
 
     fn kill_voice(&mut self, index: usize) {
-        self.buffer[index].deref_mut().signal_release(ReleaseType::Kill);
+        self.buffer[index]
+            .deref_mut()
+            .signal_release(ReleaseType::Kill);
     }
 
     pub fn kill_all_voices(&mut self) {

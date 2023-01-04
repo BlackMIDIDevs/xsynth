@@ -1,6 +1,6 @@
 use simdeez::Simd;
 
-use crate::voice::{EnvelopeControlData, VoiceControlData, ReleaseType};
+use crate::voice::{EnvelopeControlData, ReleaseType, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 

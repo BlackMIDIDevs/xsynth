@@ -2,7 +2,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 use simdeez::Simd;
 
-use crate::voice::{VoiceControlData, ReleaseType};
+use crate::voice::{ReleaseType, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase};
 
