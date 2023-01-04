@@ -9,7 +9,7 @@ use self::lexer::{
     parse_all_tokens, SfzAmpegEnvelope, SfzGroupType, SfzLoopMode, SfzRegionFlags, SfzToken,
 };
 
-use crate::{CutoffPassCount, FilterType};
+use crate::FilterType;
 
 mod lexer;
 
@@ -89,9 +89,7 @@ impl Default for RegionParamsBuilder {
             fil_veltrack: 0,
             fil_keycenter: 60,
             fil_keytrack: 0,
-            filter_type: FilterType::LowPass {
-                passes: CutoffPassCount::Two,
-            },
+            filter_type: FilterType::default(),
             ampeg_envelope: AmpegEnvelopeParams::default(),
         }
     }

@@ -9,7 +9,7 @@ use std::{
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
-use soundfonts::{sfz::RegionParams, CutoffPassCount};
+use soundfonts::sfz::RegionParams;
 use thiserror::Error;
 
 use self::audio::{load_audio_file, AudioLoadError};
@@ -23,7 +23,7 @@ use super::{
     },
 };
 use crate::{
-    effects::{Highpass, Lowpass, MultiPassCutoff},
+    effects::filters::{FilterBase, ButterworthFilter, LowPole, HighPole},
     helpers::FREQS,
     voice::{
         EnvelopeDescriptor, SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff,
@@ -192,75 +192,24 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 
         if let Some(cutoff) = self.cutoff {
             match self.filter_type {
-                FilterType::LowPass {
-                    passes: CutoffPassCount::One,
-                } => {
+                FilterType::LowPole => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        MultiPassCutoff::<Lowpass, 1>::new(cutoff, self.sample_rate),
+                        LowPole::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
-                FilterType::LowPass {
-                    passes: CutoffPassCount::Two,
-                } => {
+                FilterType::HighPole => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        MultiPassCutoff::<Lowpass, 2>::new(cutoff, self.sample_rate),
+                        HighPole::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }
-                FilterType::LowPass {
-                    passes: CutoffPassCount::Four,
-                } => {
+                FilterType::ButterworthFilter => {
                     let gen = SIMDStereoVoiceCutoff::new(
                         gen,
-                        MultiPassCutoff::<Lowpass, 4>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::LowPass {
-                    passes: CutoffPassCount::Six,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Lowpass, 6>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::One,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 1>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::Two,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 2>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::Four,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 4>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::Six,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 6>::new(cutoff, self.sample_rate),
+                        ButterworthFilter::new(cutoff, self.sample_rate),
                     );
                     self.convert_to_voice(gen)
                 }

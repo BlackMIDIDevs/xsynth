@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use simdeez::Simd;
 
 use crate::{
-    effects::CutoffFilterBase,
+    effects::filters::FilterBase,
     voice::{SIMDVoiceGenerator, VoiceControlData},
 };
 
@@ -11,7 +11,7 @@ use super::{SIMDSampleStereo, VoiceGeneratorBase};
 
 pub struct SIMDStereoVoiceCutoff<F, S, V>
 where
-    F: Sync + Send + CutoffFilterBase,
+    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
@@ -23,7 +23,7 @@ where
 
 impl<F, S, V> SIMDStereoVoiceCutoff<F, S, V>
 where
-    F: Sync + Send + CutoffFilterBase,
+    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
@@ -39,7 +39,7 @@ where
 
 impl<F, S, V> VoiceGeneratorBase for SIMDStereoVoiceCutoff<F, S, V>
 where
-    F: Sync + Send + CutoffFilterBase,
+    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
@@ -61,15 +61,15 @@ where
 
 impl<F, S, V> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for SIMDStereoVoiceCutoff<F, S, V>
 where
-    F: Sync + Send + CutoffFilterBase,
+    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         let mut next_sample = self.v.next_sample();
-        next_sample.0 = self.cutoff1.process_sample_simd::<S>(next_sample.0);
-        next_sample.1 = self.cutoff2.process_sample_simd::<S>(next_sample.1);
+        next_sample.0 = self.cutoff1.process_simd::<S>(next_sample.0);
+        next_sample.1 = self.cutoff2.process_simd::<S>(next_sample.1);
         next_sample
     }
 }
