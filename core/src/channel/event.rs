@@ -32,6 +32,8 @@ pub enum ChannelAudioEvent {
     AllNotesOff,
     /// Kill all voices without decay
     AllNotesKilled,
+    /// Resets all CC to their default values
+    ResetControl,
     /// Control event for the channel
     Control(ControlEvent),
 }
