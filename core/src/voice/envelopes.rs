@@ -646,9 +646,9 @@ mod tests {
                     sustain_percent: 0.4,
                     release: 16.0,
                 };
-                let params = Arc::new(descriptor.to_envelope_params(1));
+                let params = descriptor.to_envelope_params(1);
 
-                let mut env = SIMDVoiceEnvelope::<S>::new(params);
+                let mut env = SIMDVoiceEnvelope::<S>::new(params.clone(), params.clone(), 1.0);
 
                 let mut i = 0;
                 while i < 48 {
