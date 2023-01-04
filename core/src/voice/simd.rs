@@ -5,7 +5,7 @@ use std::{
 
 use simdeez::Simd;
 
-use crate::voice::VoiceControlData;
+use crate::voice::{VoiceControlData, ReleaseType};
 
 use super::VoiceGeneratorBase;
 
@@ -160,15 +160,9 @@ where
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
-        self.v1.signal_release();
-        self.v2.signal_release();
-    }
-
-    #[inline(always)]
-    fn signal_kill(&mut self) {
-        self.v1.signal_kill();
-        self.v2.signal_kill();
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        self.v1.signal_release(rel_type);
+        self.v2.signal_release(rel_type);
     }
 
     #[inline(always)]

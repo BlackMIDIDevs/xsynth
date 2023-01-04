@@ -1,4 +1,4 @@
-use crate::voice::Voice;
+use crate::voice::{Voice, ReleaseType};
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -93,7 +93,7 @@ impl VoiceBuffer {
     }
 
     fn kill_voice(&mut self, index: usize) {
-        self.buffer[index].deref_mut().signal_kill();
+        self.buffer[index].deref_mut().signal_release(ReleaseType::Kill);
     }
 
     pub fn kill_all_voices(&mut self) {
@@ -153,7 +153,7 @@ impl VoiceBuffer {
                     break;
                 }
 
-                voice.signal_release();
+                voice.signal_release(ReleaseType::Standard);
             }
 
             vel
@@ -208,7 +208,7 @@ impl VoiceBuffer {
             // Release all voices that are held by the damper
             for voice in self.buffer.iter_mut() {
                 if self.held_by_damper.contains(&voice.id) {
-                    voice.signal_release();
+                    voice.signal_release(ReleaseType::Standard);
                 }
             }
             self.held_by_damper.clear();

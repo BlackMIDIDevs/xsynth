@@ -1,6 +1,6 @@
 use simdeez::Simd;
 
-use crate::voice::{EnvelopeControlData, VoiceControlData};
+use crate::voice::{EnvelopeControlData, VoiceControlData, ReleaseType};
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
@@ -461,20 +461,17 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        if rel_type == ReleaseType::Kill {
+            self.params.modify_stage_data::<T>(
+                5,
+                EnvelopePart::lerp(0.0, (0.001 * self.sample_rate) as u32),
+            );
+            self.update_stage();
+            self.killed = true;
+        }
         let amp = self.get_value_at_current_time();
         self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
-    }
-
-    #[inline(always)]
-    fn signal_kill(&mut self) {
-        self.params.modify_stage_data::<T>(
-            5,
-            EnvelopePart::lerp(0.0, (0.001 * self.sample_rate) as u32),
-        );
-        self.update_stage();
-        self.signal_release();
-        self.killed = true;
     }
 
     #[inline(always)]

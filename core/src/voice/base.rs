@@ -1,4 +1,4 @@
-use crate::voice::VoiceControlData;
+use crate::voice::{VoiceControlData, ReleaseType};
 
 use super::{Voice, VoiceGeneratorBase, VoiceSampleGenerator};
 
@@ -31,15 +31,12 @@ where
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
-        self.releasing = true;
-        self.sample_generator.signal_release()
-    }
-
-    #[inline(always)]
-    fn signal_kill(&mut self) {
-        self.killed = true;
-        self.sample_generator.signal_kill()
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        match rel_type {
+            ReleaseType::Standard => self.releasing = true,
+            ReleaseType::Kill => self.killed = true,
+        }
+        self.sample_generator.signal_release(rel_type)
     }
 
     #[inline(always)]
