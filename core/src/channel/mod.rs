@@ -358,7 +358,8 @@ impl VoiceChannel {
                             .iter()
                             .map(|k| k.event_cache.borrow())
                             .to_vec()
-                            .get_mut(key as usize) {
+                            .get_mut(key as usize)
+                        {
                             events.push(ev);
                         }
                     }
@@ -369,7 +370,8 @@ impl VoiceChannel {
                             .iter()
                             .map(|k| k.event_cache.borrow())
                             .to_vec()
-                            .get_mut(key as usize) {
+                            .get_mut(key as usize)
+                        {
                             events.push(ev);
                         }
                     }
@@ -380,7 +382,8 @@ impl VoiceChannel {
                             .iter()
                             .map(|k| k.event_cache.borrow())
                             .to_vec()
-                            .iter_mut() {
+                            .iter_mut()
+                        {
                             key.push(ev.clone());
                         }
                     }
@@ -391,7 +394,8 @@ impl VoiceChannel {
                             .iter()
                             .map(|k| k.event_cache.borrow())
                             .to_vec()
-                            .iter_mut() {
+                            .iter_mut()
+                        {
                             key.push(ev.clone());
                         }
                     }
