@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    sync::{atomic::AtomicU64, Arc},
-};
+use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::{
     effects::{Lowpass, MultiChannelCutoff, MultiPassCutoff},
@@ -17,9 +14,7 @@ use self::{
 
 use super::AudioPipe;
 
-use atomic_refcell::AtomicRefCell;
 use rayon::prelude::*;
-use to_vec::ToVec;
 
 mod channel_sf;
 mod key;
