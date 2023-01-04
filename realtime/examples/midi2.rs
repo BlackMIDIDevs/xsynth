@@ -21,23 +21,30 @@ use midi_toolkit::{
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
+    let args = std::env::args().collect::<Vec<String>>();
+    let (Some(midi), Some(sfz)) =
+        (args.get(1).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_MIDI").ok()),
+         args.get(2).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok())) else {
+        println!(
+            "Usage: {} [midi] [sfz]",
+            std::env::current_exe()
+                .unwrap_or("example".into())
+                .display()
+        );
+        return;
+    };
+
     let synth = RealtimeSynth::open_with_all_defaults();
     let mut sender = synth.get_senders();
 
     let params = synth.stream_params();
 
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(
-            "D:/Midis/Loud and Proud Remastered/Axley Presets/Loud and Proud Remastered.sfz",
-            params,
-        )
-        .unwrap(),
-    )];
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> =
+        vec![Arc::new(SampleSoundfont::new(sfz, params).unwrap())];
 
     sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
 
-    let midi =
-        MIDIFile::open("D:/Midis/The Nuker 4 F1/The Nuker 4 - F1 Part 13.mid", None).unwrap();
+    let midi = MIDIFile::open(&midi, None).unwrap();
 
     let ppq = midi.ppq();
     let merged = pipe!(
@@ -61,7 +68,7 @@ fn main() {
         thread::sleep(Duration::from_millis(10));
     });
 
-    let now = Instant::now() - Duration::from_secs_f64(0.0);
+    let now = Instant::now();
     let mut time = 0.0;
     for e in collected.into_iter() {
         if e.delta != 0.0 {
