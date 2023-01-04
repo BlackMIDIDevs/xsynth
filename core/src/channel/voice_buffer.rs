@@ -66,6 +66,7 @@ impl VoiceBuffer {
         }
 
         let mut quietest = u8::MAX;
+        let mut quietest_index = 0;
         let mut quietest_id = 0;
         let mut found = false;
         for i in 0..self.buffer.len() {
@@ -76,18 +77,14 @@ impl VoiceBuffer {
             let vel = voice.velocity();
             if vel < quietest {
                 quietest = vel;
+                quietest_index = i;
                 quietest_id = voice.id;
                 found = true;
             }
         }
 
         if found {
-            for i in 0..self.buffer.len() {
-                let voice = &self.buffer[i];
-                if voice.id == quietest_id {
-                    self.kill_voice(i);
-                }
-            }
+            self.kill_voice(quietest_index);
 
             if let Some(index) = self.held_by_damper.iter().position(|&x| x == quietest_id) {
                 self.held_by_damper.remove(index);
@@ -95,8 +92,8 @@ impl VoiceBuffer {
         }
     }
 
-    fn kill_voice(&mut self, id: usize) {
-        self.buffer[id].deref_mut().signal_kill();
+    fn kill_voice(&mut self, index: usize) {
+        self.buffer[index].deref_mut().signal_kill();
     }
 
     pub fn kill_all_voices(&mut self) {
