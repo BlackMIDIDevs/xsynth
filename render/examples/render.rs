@@ -12,7 +12,8 @@ fn main() {
         .with_config(Default::default())
         .add_soundfonts(sfz)
         .with_layer_count(Some(10))
-        .run();
+        .run()
+        .unwrap();
 
     println!("Render time: {} seconds", render_time.elapsed().as_secs());
 }
