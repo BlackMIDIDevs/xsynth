@@ -2,15 +2,25 @@ use std::time::Instant;
 use xsynth_render::builder::xsynth_renderer;
 
 fn main() {
-    let midi = "/home/jim/Black MIDIs/MIDI Files/Infernis/Impossible Piano - EoSD - Septette for the Dead Princess ][ black.mid";
-    let sfz = vec!["/home/jim/Black MIDIs/SoundFonts/MBMS Soundfonts/CFaz Keys IV Concert Grand Piano/cfaz1l.sfz"];
+    let args = std::env::args().collect::<Vec<String>>();
+    let (Some(midi), Some(sfz)) =
+        (args.get(1).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_MIDI").ok()),
+         args.get(2).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok())) else {
+        println!(
+            "Usage: {} [midi] [sfz]",
+            std::env::current_exe()
+                .unwrap_or("example".into())
+                .display()
+        );
+        return;
+    };
     let out = "out.wav";
 
     let render_time = Instant::now();
 
-    xsynth_renderer(midi, out)
+    xsynth_renderer(&midi, out)
         .with_config(Default::default())
-        .add_soundfonts(sfz)
+        .add_soundfonts(vec![sfz.as_str()])
         .with_layer_count(Some(10))
         .run();
 
