@@ -1,5 +1,5 @@
 use super::FilterBase;
-use std::f32::consts::{PI, SQRT_2};
+use std::f32::consts::{PI, FRAC_1_SQRT_2};
 
 /// 2-Pole Butterworth Low Pass Filter
 
@@ -24,14 +24,26 @@ pub struct ButterworthFilter {
 
 impl ButterworthFilter {
     fn get_coefficients(sample_rate: f32, freq: f32) -> Coefficients {
-        let f = (freq * PI / sample_rate).tan();
-        let a0r = 1.0 / (1.0 + SQRT_2 * f + f * f);
-        let a1 = (2.0 * f * f - 2.0) * a0r;
-        let a2 = (1.0 - SQRT_2 * f + f * f) * a0r;
-        let b0 = f * f * a0r;
-        let b1 = 2.0 * b0;
-        let b2 = b0;
-        Coefficients { a1, a2, b0, b1, b2 }
+        let omega = 2.0 * PI * freq / sample_rate;
+
+        let omega_s = omega.sin();
+        let omega_c = omega.cos();
+        let alpha = omega_s / (2.0 * FRAC_1_SQRT_2);
+
+        let b0 = (1.0 - omega_c) * 0.5;
+        let b1 = 1.0 - omega_c;
+        let b2 = (1.0 - omega_c) * 0.5;
+        let a0 = 1.0 + alpha;
+        let a1 = -2.0 * omega_c;
+        let a2 = 1.0 - alpha;
+
+        Coefficients {
+            a1: a1 / a0,
+            a2: a2 / a0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+        }
     }
 }
 
@@ -52,15 +64,16 @@ impl FilterBase for ButterworthFilter {
     }
 
     fn tick(&mut self, input: f32) -> f32 {
-        let x0 = input;
-        let y0 = self.coefs.b0 * x0 + self.coefs.b1 * self.x1 + self.coefs.b2 * self.x2
+        let out = self.coefs.b0 * input + self.coefs.b1 * self.x1 + self.coefs.b2 * self.x2
             - self.coefs.a1 * self.y1
             - self.coefs.a2 * self.y2;
+
         self.x2 = self.x1;
-        self.x1 = x0;
+        self.x1 = input;
         self.y2 = self.y1;
-        self.y1 = y0;
-        y0
+        self.y1 = out;
+
+        out
     }
 }
 

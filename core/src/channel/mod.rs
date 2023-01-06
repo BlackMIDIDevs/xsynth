@@ -3,8 +3,7 @@ use std::{
     sync::{atomic::AtomicU64, Arc},
 };
 
-use crate::{
-    effects::{Lowpass, MultiChannelCutoff, MultiPassCutoff},
+use crate::{effects::filters::{LowPole, MultiChannelPole, FilterBase},
     helpers::{prepapre_cache_vec, sum_simd},
     voice::VoiceControlData,
     AudioStreamParams, SingleBorrowRefCell,
@@ -89,7 +88,7 @@ pub struct VoiceChannel {
     voice_control_data: AtomicRefCell<VoiceControlData>,
 
     // Effects
-    cutoff: MultiChannelCutoff<MultiPassCutoff<Lowpass, 2>>,
+    cutoff: MultiChannelPole<LowPole>,
 }
 
 impl VoiceChannel {
@@ -119,7 +118,7 @@ impl VoiceChannel {
             control_event_data: RefCell::new(ControlEventData::new_defaults()),
             voice_control_data: AtomicRefCell::new(VoiceControlData::new_defaults()),
 
-            cutoff: MultiChannelCutoff::new(
+            cutoff: MultiChannelPole::new(
                 stream_params.channels.count() as usize,
                 20000.0,
                 stream_params.sample_rate as f32,
@@ -145,8 +144,8 @@ impl VoiceChannel {
 
         // Cutoff
         if let Some(cutoff) = control.cutoff {
-            self.cutoff.set_cutoff(cutoff);
-            self.cutoff.cutoff(out);
+            self.cutoff.set_frequency(cutoff);
+            self.cutoff.process(out);
         }
     }
 
