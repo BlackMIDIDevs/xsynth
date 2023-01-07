@@ -257,7 +257,7 @@ mod tests {
                         false
                     }
 
-                    fn signal_release(&mut self) {}
+                    fn signal_release(&mut self, _rel_type: ReleaseType) {}
 
                     fn process_controls(&mut self, _control: &VoiceControlData) {}
                 }
@@ -267,7 +267,7 @@ mod tests {
                         false
                     }
 
-                    fn signal_release(&mut self) {}
+                    fn signal_release(&mut self, _rel_type: ReleaseType) {}
 
                     fn process_controls(&mut self, _control: &VoiceControlData) {}
                 }

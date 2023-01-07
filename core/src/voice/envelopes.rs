@@ -657,6 +657,11 @@ mod tests {
             from + (to - from) * fac
         }
 
+        fn lerp_to_zero_curve(from: f32, fac: f32) -> f32 {
+            let mult = (1. - fac).powi(8);
+            mult * from
+        }
+
         simd_runtime_generate!(
             fn run() {
                 let mut vec = Vec::new();
@@ -670,7 +675,7 @@ mod tests {
                     sustain_percent: 0.4,
                     release: 16.0,
                 };
-                let params = descriptor.to_envelope_params(1);
+                let params = descriptor.to_envelope_params(1, Default::default());
 
                 let mut env = SIMDVoiceEnvelope::<S>::new(params, params, 1.0);
 
@@ -679,7 +684,7 @@ mod tests {
                     push_simd_to_vec::<S>(&mut vec, env.next_sample().0);
                     i += S::VF32_WIDTH;
                 }
-                env.signal_release();
+                env.signal_release(ReleaseType::Standard);
                 assert_eq!(env.current_stage(), &EnvelopeStage::Release);
                 while i < 48 + 32 {
                     push_simd_to_vec::<S>(&mut vec, env.next_sample().0);
@@ -698,7 +703,7 @@ mod tests {
                     expected_vec.push(0.4);
                 }
                 for i in 0..16 {
-                    expected_vec.push(lerp(0.4, 0.0, i as f32 / 16.0));
+                    expected_vec.push(lerp_to_zero_curve(0.4, i as f32 / 16.0));
                 }
                 for _ in 0..16 {
                     expected_vec.push(0.0);
