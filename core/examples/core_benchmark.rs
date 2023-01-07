@@ -42,12 +42,7 @@ pub fn main() {
     println!("Loading soundfont...");
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(
-            sfz,
-            stream_params,
-            Default::default(),
-        )
-        .unwrap(),
+        SampleSoundfont::new(sfz, stream_params, Default::default()).unwrap(),
     )];
 
     println!("Running benches");

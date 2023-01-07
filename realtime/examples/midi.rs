@@ -40,12 +40,7 @@ fn main() {
 
     println!("Loading Soundfont");
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(
-            sfz,
-            params,
-            Default::default(),
-        )
-        .unwrap(),
+        SampleSoundfont::new(sfz, params, Default::default()).unwrap(),
     )];
     println!("Loaded");
 

@@ -40,12 +40,7 @@ fn main() {
     let params = synth.stream_params();
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(
-            sfz,
-            params,
-            Default::default(),
-        )
-        .unwrap(),
+        SampleSoundfont::new(sfz, params, Default::default()).unwrap(),
     )];
 
     sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
