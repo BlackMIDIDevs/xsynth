@@ -89,8 +89,12 @@ impl VoiceBuffer {
         }
 
         if count > 0 {
-            for i in quietest_index..(quietest_index + count) {
-                self.kill_voice(i);
+            if self.options.fade_out_killing {
+                for i in quietest_index..(quietest_index + count) {
+                    self.kill_voice_fade_out(i);
+                }
+            } else {
+                self.buffer.drain(quietest_index..(quietest_index + count));
             }
 
             if let Some(index) = self.held_by_damper.iter().position(|&x| x == quietest_id) {
@@ -99,21 +103,21 @@ impl VoiceBuffer {
         }
     }
 
-    fn kill_voice(&mut self, index: usize) {
-        if self.options.fade_out_killing {
-            self.buffer[index]
-                .deref_mut()
-                .signal_release(ReleaseType::Kill);
-        } else {
-            self.buffer.remove(index);
-        }
+    fn kill_voice_fade_out(&mut self, index: usize) {
+        self.buffer[index]
+            .deref_mut()
+            .signal_release(ReleaseType::Kill);
     }
 
     pub fn kill_all_voices(&mut self) {
-        for i in 0..self.buffer.len() {
-            self.kill_voice(i);
+        if self.options.fade_out_killing {
+            for i in 0..self.buffer.len() {
+                self.kill_voice_fade_out(i);
+            }
+            self.id_counter = 0;
+        } else {
+            self.buffer.clear();
         }
-        self.id_counter = 0;
     }
 
     fn get_active_count(&mut self) -> usize {
