@@ -91,11 +91,9 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
     ) -> Self {
         let amp = (vel as f32 / 127.0).powi(2);
 
-        let filter = if let Some(cutoff) = params.cutoff {
-            Some(BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32))
-        } else {
-            None
-        };
+        let filter = params.cutoff.map(|cutoff| {
+            BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32)
+        });
 
         Self {
             speed_mult: params.speed_mult,
@@ -192,10 +190,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.apply_envelope(gen, control);
 
         if let Some(filter) = &self.filter {
-            let gen = SIMDStereoVoiceCutoff::new(
-                gen,
-                filter,
-            );
+            let gen = SIMDStereoVoiceCutoff::new(gen, filter);
             self.convert_to_voice(gen)
         } else {
             self.convert_to_voice(gen)

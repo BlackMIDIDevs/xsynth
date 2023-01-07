@@ -1,5 +1,5 @@
-use simdeez::Simd;
 use biquad::*;
+use simdeez::Simd;
 use soundfonts::FilterType;
 
 #[derive(Clone)]
@@ -22,10 +22,34 @@ impl BiQuadFilter {
 
     fn get_coeffs(fil_type: FilterType, freq: f32, sample_rate: f32) -> Coefficients<f32> {
         match fil_type {
-            FilterType::LowPass => Coefficients::<f32>::from_params(Type::LowPass, sample_rate.hz(), freq.hz(), Q_BUTTERWORTH_F32).unwrap(),
-            FilterType::LowPassPole => Coefficients::<f32>::from_params(Type::SinglePoleLowPass, freq.hz(), freq.hz(), Q_BUTTERWORTH_F32).unwrap(),
-            FilterType::HighPass => Coefficients::<f32>::from_params(Type::HighPass, sample_rate.hz(), freq.hz(), Q_BUTTERWORTH_F32).unwrap(),
-            FilterType::BandPass => Coefficients::<f32>::from_params(Type::BandPass, sample_rate.hz(), freq.hz(), Q_BUTTERWORTH_F32).unwrap(),
+            FilterType::LowPass => Coefficients::<f32>::from_params(
+                Type::LowPass,
+                sample_rate.hz(),
+                freq.hz(),
+                Q_BUTTERWORTH_F32,
+            )
+            .unwrap(),
+            FilterType::LowPassPole => Coefficients::<f32>::from_params(
+                Type::SinglePoleLowPass,
+                freq.hz(),
+                freq.hz(),
+                Q_BUTTERWORTH_F32,
+            )
+            .unwrap(),
+            FilterType::HighPass => Coefficients::<f32>::from_params(
+                Type::HighPass,
+                sample_rate.hz(),
+                freq.hz(),
+                Q_BUTTERWORTH_F32,
+            )
+            .unwrap(),
+            FilterType::BandPass => Coefficients::<f32>::from_params(
+                Type::BandPass,
+                sample_rate.hz(),
+                freq.hz(),
+                Q_BUTTERWORTH_F32,
+            )
+            .unwrap(),
         }
     }
 
@@ -53,7 +77,9 @@ pub struct MultiChannelBiQuad {
 impl MultiChannelBiQuad {
     pub fn new(channels: usize, fil_type: FilterType, freq: f32, sample_rate: f32) -> Self {
         Self {
-            channels: (0..channels).map(|_| BiQuadFilter::new(fil_type, freq, sample_rate)).collect(),
+            channels: (0..channels)
+                .map(|_| BiQuadFilter::new(fil_type, freq, sample_rate))
+                .collect(),
         }
     }
 

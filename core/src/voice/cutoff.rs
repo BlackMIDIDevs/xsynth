@@ -4,8 +4,7 @@ use simdeez::Simd;
 
 use crate::{
     effects::BiQuadFilter,
-    voice::{SIMDVoiceGenerator, VoiceControlData}
-
+    voice::{SIMDVoiceGenerator, VoiceControlData},
 };
 
 use super::{SIMDSampleStereo, VoiceGeneratorBase};
