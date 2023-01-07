@@ -122,7 +122,7 @@ impl RealtimeSynth {
         let (output_sender, output_receiver) = bounded::<Vec<f32>>(config.channel_count as usize);
 
         for _ in 0u32..(config.channel_count) {
-            let mut channel = VoiceChannel::new(stream_params, pool.clone());
+            let mut channel = VoiceChannel::new(config.channel_init_options, stream_params, pool.clone());
             let stats = channel.get_channel_stats();
             channel_stats.push(stats);
 

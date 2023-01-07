@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use super::{
-    channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer, VoiceControlData,
+    channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer, VoiceControlData, ChannelInitOptions
 };
 
 pub struct KeyData {
@@ -15,10 +15,10 @@ pub struct KeyData {
 }
 
 impl KeyData {
-    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>) -> KeyData {
+    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>, options: ChannelInitOptions) -> KeyData {
         KeyData {
             key,
-            voices: VoiceBuffer::new(),
+            voices: VoiceBuffer::new(options),
             last_voice_count: 0,
             shared_voice_counter,
         }

@@ -1,6 +1,7 @@
 use simdeez::Simd;
 
 use crate::voice::{EnvelopeControlData, ReleaseType, VoiceControlData};
+use crate::soundfont::SoundfontInitOptions;
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
@@ -212,8 +213,14 @@ pub struct EnvelopeDescriptor {
 }
 
 impl EnvelopeDescriptor {
-    pub fn to_envelope_params(&self, samplerate: u32) -> EnvelopeParameters {
+    pub fn to_envelope_params(&self, samplerate: u32, options: SoundfontInitOptions) -> EnvelopeParameters {
         let samplerate = samplerate as f32;
+
+        let release = if options.linear_release {
+            EnvelopePart::lerp(0.0, (self.release * samplerate) as u32)
+        } else {
+            EnvelopePart::lerp_to_zero_curve((self.release * samplerate) as u32)
+        };
 
         EnvelopeParameters {
             start: self.start_percent,
@@ -229,7 +236,7 @@ impl EnvelopeDescriptor {
                 // Sustain
                 EnvelopePart::hold(self.sustain_percent),
                 // Release
-                EnvelopePart::lerp_to_zero_curve((self.release * samplerate) as u32),
+                release,
                 // Finished
                 EnvelopePart::hold(0.0),
             ],

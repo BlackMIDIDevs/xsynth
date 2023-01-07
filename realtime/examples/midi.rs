@@ -30,6 +30,7 @@ fn main() {
         SampleSoundfont::new(
             "D:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
             params,
+            Default::default(),
         )
         .unwrap(),
     )];

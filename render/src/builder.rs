@@ -124,7 +124,7 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
         let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
         for sfz in self.soundfont_paths {
             soundfonts.push(Arc::new(
-                SampleSoundfont::new(sfz, synth.get_params()).unwrap(),
+                SampleSoundfont::new(sfz, synth.get_params(), self.config.sf_init_options).unwrap(),
             ));
         }
 

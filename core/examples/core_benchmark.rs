@@ -34,6 +34,7 @@ pub fn main() {
         SampleSoundfont::new(
             "D:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
             stream_params,
+            Default::default(),
         )
         .unwrap(),
     )];
@@ -41,7 +42,7 @@ pub fn main() {
     println!("Running benches");
 
     let make_new_channel = || {
-        let mut channel = VoiceChannel::new(stream_params, None);
+        let mut channel = VoiceChannel::new(Default::default(), stream_params, None);
         channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
             soundfonts.clone(),
         )));

@@ -16,6 +16,7 @@ fn main() {
         SampleSoundfont::new(
             "D:/Midis/Loud and Proud Remastered/Axley Presets/Loud and Proud Remastered.sfz",
             params,
+            Default::default(),
         )
         .unwrap(),
     )];

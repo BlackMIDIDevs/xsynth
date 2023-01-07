@@ -4,6 +4,7 @@ use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
+use super::ChannelInitOptions;
 
 struct GroupVoice {
     pub id: usize,
@@ -37,6 +38,7 @@ impl Debug for GroupVoice {
 }
 
 pub struct VoiceBuffer {
+    options: ChannelInitOptions,
     id_counter: usize,
     buffer: VecDeque<GroupVoice>,
     damper_held: bool,
@@ -44,8 +46,9 @@ pub struct VoiceBuffer {
 }
 
 impl VoiceBuffer {
-    pub fn new() -> Self {
+    pub fn new(options: ChannelInitOptions) -> Self {
         VoiceBuffer {
+            options,
             id_counter: 0,
             buffer: VecDeque::new(),
             damper_held: false,
@@ -97,9 +100,13 @@ impl VoiceBuffer {
     }
 
     fn kill_voice(&mut self, index: usize) {
-        self.buffer[index]
-            .deref_mut()
-            .signal_release(ReleaseType::Kill);
+        if self.options.fade_out_killing {
+            self.buffer[index]
+                .deref_mut()
+                .signal_release(ReleaseType::Kill);
+        } else {
+            self.buffer.remove(index);
+        }
     }
 
     pub fn kill_all_voices(&mut self) {
@@ -107,6 +114,16 @@ impl VoiceBuffer {
             self.kill_voice(i);
         }
         self.id_counter = 0;
+    }
+
+    fn get_active_count(&mut self) -> usize {
+        let mut active = 0;
+        for i in 0..self.buffer.len() {
+            if !self.buffer[i].deref().is_killed() {
+                active += 1;
+            }
+        }
+        active
     }
 
     /// Pushes a new set of voices for a single note on event. Multiple voices can be part of the same group
@@ -122,18 +139,14 @@ impl VoiceBuffer {
         }
 
         if let Some(max_voices) = max_voices {
-            fn get_active_count(vb: &mut VoiceBuffer) -> usize {
-                let mut active = 0;
-                for i in 0..vb.buffer.len() {
-                    if !vb.buffer[i].deref().is_killed() {
-                        active += 1;
-                    }
+            if self.options.fade_out_killing {
+                while self.get_active_count() > max_voices {
+                    self.pop_quietest_voice_group(id);
                 }
-                active
-            }
-
-            while get_active_count(self) > max_voices {
-                self.pop_quietest_voice_group(id);
+            } else {
+                while self.buffer.len() > max_voices {
+                    self.pop_quietest_voice_group(id);
+                }
             }
         }
     }
