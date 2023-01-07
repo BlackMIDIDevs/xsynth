@@ -1,10 +1,10 @@
+use super::ChannelInitOptions;
 use crate::voice::{ReleaseType, Voice};
 use std::{
     collections::VecDeque,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use super::ChannelInitOptions;
 
 struct GroupVoice {
     pub id: usize,
