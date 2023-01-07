@@ -20,6 +20,19 @@ use midi_toolkit::{
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
+    let args = std::env::args().collect::<Vec<String>>();
+    let (Some(midi), Some(sfz)) =
+        (args.get(1).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_MIDI").ok()),
+         args.get(2).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok())) else {
+        println!(
+            "Usage: {} [midi] [sfz]",
+            std::env::current_exe()
+                .unwrap_or("example".into())
+                .display()
+        );
+        return;
+    };
+
     let synth = RealtimeSynth::open_with_all_defaults();
     let mut sender = synth.get_senders();
 
@@ -28,7 +41,7 @@ fn main() {
     println!("Loading Soundfont");
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
-            "D:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
+            sfz,
             params,
             Default::default(),
         )
@@ -49,7 +62,7 @@ fn main() {
         thread::sleep(Duration::from_millis(10));
     });
 
-    let midi = MIDIFile::open("D:/Midis/The Quarantine Project.mid", None).unwrap();
+    let midi = MIDIFile::open(&midi, None).unwrap();
 
     let ppq = midi.ppq();
     let merged = pipe!(
@@ -60,7 +73,7 @@ fn main() {
         |>unwrap_items()
     );
 
-    let now = Instant::now() - Duration::from_secs_f64(0.0);
+    let now = Instant::now();
     let mut time = 0.0;
     for batch in merged {
         if batch.delta != 0.0 {

@@ -7,6 +7,17 @@ use std::{sync::Arc, time::Duration};
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
+    let args = std::env::args().collect::<Vec<String>>();
+    let Some(sfz) = args.get(1).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok()) else {
+        println!(
+            "Usage: {} [sfz]",
+            std::env::current_exe()
+                .unwrap_or("example".into())
+                .display()
+        );
+        return;
+    };
+
     let synth = RealtimeSynth::open_with_all_defaults();
     let mut sender = synth.get_senders();
 
@@ -14,7 +25,7 @@ fn main() {
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
-            "D:/Midis/Loud and Proud Remastered/Axley Presets/Loud and Proud Remastered.sfz",
+            sfz,
             params,
             Default::default(),
         )
