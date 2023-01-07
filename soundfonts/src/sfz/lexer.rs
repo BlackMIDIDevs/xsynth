@@ -333,15 +333,17 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         parse_basic_tag_name(parser, "fil_type")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
         let fil_type = match group_name.as_ref() {
-            "lpf_1p" => FilterType::LowPole,
-            "lpf_2p" => FilterType::ButterworthFilter,
-            "lpf_4p" => FilterType::ButterworthFilter,
-            "lpf_6p" => FilterType::ButterworthFilter,
-            "hpf_1p" => FilterType::HighPole,
-            "hpf_2p" => FilterType::HighPole,
-            "hpf_4p" => FilterType::HighPole,
-            "hpf_6p" => FilterType::HighPole,
-            _ => FilterType::ButterworthFilter,
+            "lpf_1p" => FilterType::LowPassPole,
+            "lpf_2p" => FilterType::LowPass,
+            "lpf_4p" => FilterType::LowPass,
+            "lpf_6p" => FilterType::LowPass,
+            "hpf_1p" => FilterType::HighPass,
+            "hpf_2p" => FilterType::HighPass,
+            "hpf_4p" => FilterType::HighPass,
+            "hpf_6p" => FilterType::HighPass,
+            "bpf_1p" => FilterType::BandPass,
+            "bpf_2p" => FilterType::BandPass,
+            _ => FilterType::LowPass,
         };
         Some(SfzRegionFlags::FilterType(fil_type))
     });

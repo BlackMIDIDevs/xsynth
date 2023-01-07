@@ -1,14 +1,15 @@
 pub mod sfz;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FilterType {
-    LowPole,
-    HighPole,
-    ButterworthFilter,
+    LowPassPole,
+    LowPass,
+    HighPass,
+    BandPass,
 }
 
 impl Default for FilterType {
     fn default() -> Self {
-        FilterType::ButterworthFilter
+        FilterType::LowPass
     }
 }

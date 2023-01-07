@@ -3,43 +3,41 @@ use std::marker::PhantomData;
 use simdeez::Simd;
 
 use crate::{
-    effects::filters::FilterBase,
-    voice::{SIMDVoiceGenerator, VoiceControlData},
+    effects::BiQuadFilter,
+    voice::{SIMDVoiceGenerator, VoiceControlData}
+
 };
 
 use super::{SIMDSampleStereo, VoiceGeneratorBase};
 
-pub struct SIMDStereoVoiceCutoff<F, S, V>
+pub struct SIMDStereoVoiceCutoff<S, V>
 where
-    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     v: V,
-    cutoff1: F,
-    cutoff2: F,
+    cutoff1: BiQuadFilter,
+    cutoff2: BiQuadFilter,
     _s: PhantomData<S>,
 }
 
-impl<F, S, V> SIMDStereoVoiceCutoff<F, S, V>
+impl<S, V> SIMDStereoVoiceCutoff<S, V>
 where
-    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
-    pub fn new(v: V, filter: F) -> Self {
+    pub fn new(v: V, filter: &BiQuadFilter) -> Self {
         SIMDStereoVoiceCutoff {
             v,
             cutoff1: filter.clone(),
-            cutoff2: filter,
+            cutoff2: filter.clone(),
             _s: PhantomData,
         }
     }
 }
 
-impl<F, S, V> VoiceGeneratorBase for SIMDStereoVoiceCutoff<F, S, V>
+impl<S, V> VoiceGeneratorBase for SIMDStereoVoiceCutoff<S, V>
 where
-    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
@@ -59,9 +57,8 @@ where
     }
 }
 
-impl<F, S, V> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for SIMDStereoVoiceCutoff<F, S, V>
+impl<S, V> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for SIMDStereoVoiceCutoff<S, V>
 where
-    F: Sync + Send + FilterBase,
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
