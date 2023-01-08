@@ -1,6 +1,6 @@
 use std::{fs, io, path::Path};
 
-use crate::{CutoffPassCount, FilterType};
+use crate::FilterType;
 
 use lazy_regex::{regex, Regex};
 
@@ -333,33 +333,17 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
         parse_basic_tag_name(parser, "fil_type")?;
         let group_name = parser.parse_regex(regex!(r"^\w+"))?;
         let fil_type = match group_name.as_ref() {
-            "lpf_1p" => FilterType::LowPass {
-                passes: CutoffPassCount::One,
-            },
-            "lpf_2p" => FilterType::LowPass {
-                passes: CutoffPassCount::Two,
-            },
-            "lpf_4p" => FilterType::LowPass {
-                passes: CutoffPassCount::Four,
-            },
-            "lpf_6p" => FilterType::LowPass {
-                passes: CutoffPassCount::Six,
-            },
-            "hpf_1p" => FilterType::HighPass {
-                passes: CutoffPassCount::One,
-            },
-            "hpf_2p" => FilterType::HighPass {
-                passes: CutoffPassCount::Two,
-            },
-            "hpf_4p" => FilterType::HighPass {
-                passes: CutoffPassCount::Four,
-            },
-            "hpf_6p" => FilterType::HighPass {
-                passes: CutoffPassCount::Six,
-            },
-            _ => FilterType::LowPass {
-                passes: CutoffPassCount::Two,
-            },
+            "lpf_1p" => FilterType::LowPassPole,
+            "lpf_2p" => FilterType::LowPass,
+            "lpf_4p" => FilterType::LowPass,
+            "lpf_6p" => FilterType::LowPass,
+            "hpf_1p" => FilterType::HighPass,
+            "hpf_2p" => FilterType::HighPass,
+            "hpf_4p" => FilterType::HighPass,
+            "hpf_6p" => FilterType::HighPass,
+            "bpf_1p" => FilterType::BandPass,
+            "bpf_2p" => FilterType::BandPass,
+            _ => FilterType::LowPass,
         };
         Some(SfzRegionFlags::FilterType(fil_type))
     });

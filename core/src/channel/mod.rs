@@ -1,11 +1,13 @@
 use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::{
-    effects::{Lowpass, MultiChannelCutoff, MultiPassCutoff},
+    effects::MultiChannelBiQuad,
     helpers::{prepapre_cache_vec, sum_simd},
     voice::VoiceControlData,
     AudioStreamParams,
 };
+
+use soundfonts::FilterType;
 
 use self::{
     key::KeyData,
@@ -97,7 +99,7 @@ pub struct VoiceChannel {
     voice_control_data: VoiceControlData,
 
     // Effects
-    cutoff: MultiChannelCutoff<MultiPassCutoff<Lowpass, 2>>,
+    cutoff: MultiChannelBiQuad,
 }
 
 impl VoiceChannel {
@@ -126,8 +128,9 @@ impl VoiceChannel {
             control_event_data: ControlEventData::new_defaults(),
             voice_control_data: VoiceControlData::new_defaults(),
 
-            cutoff: MultiChannelCutoff::new(
+            cutoff: MultiChannelBiQuad::new(
                 stream_params.channels.count() as usize,
+                FilterType::LowPass,
                 20000.0,
                 stream_params.sample_rate as f32,
             ),
@@ -152,8 +155,8 @@ impl VoiceChannel {
 
         // Cutoff
         if let Some(cutoff) = control.cutoff {
-            self.cutoff.set_cutoff(cutoff);
-            self.cutoff.cutoff(out);
+            self.cutoff.set_filter_type(FilterType::LowPass, cutoff);
+            self.cutoff.process(out);
         }
     }
 
