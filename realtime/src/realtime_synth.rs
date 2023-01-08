@@ -219,7 +219,7 @@ impl RealtimeSynth {
         Self {
             buffered_renderer: buffered,
 
-            event_senders: RealtimeEventSender::new(senders, max_nps),
+            event_senders: RealtimeEventSender::new(senders, max_nps, config.ignore_range),
             stream,
             stats,
             stream_params,

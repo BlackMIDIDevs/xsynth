@@ -1,5 +1,6 @@
 use std::{
     collections::VecDeque,
+    ops::RangeInclusive,
     sync::{Arc, RwLock},
     thread::{self},
     time::{Duration, Instant},
@@ -116,15 +117,21 @@ struct EventSender {
     nps: RoughNpsTracker,
     max_nps: Arc<ReadWriteAtomicU64>,
     skipped_notes: [u64; 128],
+    ignore_range: RangeInclusive<u8>,
 }
 
 impl EventSender {
-    pub fn new(max_nps: Arc<ReadWriteAtomicU64>, sender: Sender<ChannelEvent>) -> Self {
+    pub fn new(
+        max_nps: Arc<ReadWriteAtomicU64>,
+        sender: Sender<ChannelEvent>,
+        ignore_range: RangeInclusive<u8>,
+    ) -> Self {
         EventSender {
             sender,
             nps: RoughNpsTracker::new(),
             max_nps,
             skipped_notes: [0; 128],
+            ignore_range,
         }
     }
 
@@ -132,6 +139,9 @@ impl EventSender {
         match &event {
             ChannelAudioEvent::NoteOn { vel, key } => {
                 if *key > 127 {
+                    return;
+                }
+                if vel > self.ignore_range.start() && vel < self.ignore_range.end() {
                     return;
                 }
 
@@ -188,6 +198,8 @@ impl Clone for EventSender {
 
             // Skipped notes is related to nps limiter, therefore it's also not cloned
             skipped_notes: [0; 128],
+
+            ignore_range: self.ignore_range.clone(),
         }
     }
 }
@@ -201,11 +213,12 @@ impl RealtimeEventSender {
     pub fn new(
         senders: Vec<Sender<ChannelEvent>>,
         max_nps: Arc<ReadWriteAtomicU64>,
+        ignore_range: RangeInclusive<u8>,
     ) -> RealtimeEventSender {
         RealtimeEventSender {
             senders: senders
                 .into_iter()
-                .map(|s| EventSender::new(max_nps.clone(), s))
+                .map(|s| EventSender::new(max_nps.clone(), s, ignore_range.clone()))
                 .collect(),
         }
     }
