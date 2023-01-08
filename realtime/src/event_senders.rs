@@ -289,5 +289,6 @@ impl RealtimeEventSender {
 
     pub fn reset_synth(&mut self) {
         self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::AllNotesKilled));
+        self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::ResetControl));
     }
 }

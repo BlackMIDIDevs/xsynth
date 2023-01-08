@@ -4,7 +4,7 @@ use simdeez::Simd;
 
 use crate::{
     effects::BiQuadFilter,
-    voice::{SIMDVoiceGenerator, VoiceControlData},
+    voice::{ReleaseType, SIMDVoiceGenerator, VoiceControlData},
 };
 
 use super::{SIMDSampleStereo, VoiceGeneratorBase};
@@ -46,8 +46,8 @@ where
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
-        self.v.signal_release();
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        self.v.signal_release(rel_type);
     }
 
     #[inline(always)]

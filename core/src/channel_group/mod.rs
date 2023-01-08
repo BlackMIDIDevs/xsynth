@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    channel::{ChannelAudioEvent, ChannelEvent, VoiceChannel},
+    channel::{ChannelAudioEvent, ChannelEvent, ChannelInitOptions, VoiceChannel},
     helpers::sum_simd,
     AudioPipe, AudioStreamParams,
 };
@@ -22,6 +22,7 @@ pub struct ChannelGroup {
 }
 
 pub struct ChannelGroupConfig {
+    pub channel_init_options: ChannelInitOptions,
     pub channel_count: u32,
     pub audio_params: AudioStreamParams,
     pub use_threadpool: bool,
@@ -41,7 +42,11 @@ impl ChannelGroup {
         };
 
         for _ in 0..config.channel_count {
-            channels.push(VoiceChannel::new(config.audio_params, pool.clone()));
+            channels.push(VoiceChannel::new(
+                config.channel_init_options,
+                config.audio_params,
+                pool.clone(),
+            ));
             channel_events_cache.push(Vec::new());
             sample_cache_vecs.push(Vec::new());
         }
