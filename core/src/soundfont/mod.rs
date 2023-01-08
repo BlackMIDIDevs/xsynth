@@ -271,6 +271,11 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SoundfontInitOptions {
+    pub linear_release: bool,
+}
+
 fn key_vel_to_index(key: u8, vel: u8) -> usize {
     (key as usize) * 128 + (vel as usize)
 }
@@ -310,6 +315,7 @@ impl SampleSoundfont {
     pub fn new(
         sfz_path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
+        options: SoundfontInitOptions,
     ) -> Result<Self, LoadSfzError> {
         if stream_params.channels == ChannelCount::Mono {
             panic!("Mono output is currently not supported");
@@ -344,7 +350,9 @@ impl SampleSoundfont {
             if !exists {
                 unique_envelope_params.push((
                     envelope_descriptor,
-                    Arc::new(envelope_descriptor.to_envelope_params(stream_params.sample_rate)),
+                    Arc::new(
+                        envelope_descriptor.to_envelope_params(stream_params.sample_rate, options),
+                    ),
                 ));
             }
         }

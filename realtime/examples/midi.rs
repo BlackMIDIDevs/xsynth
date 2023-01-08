@@ -39,8 +39,9 @@ fn main() {
     let params = synth.stream_params();
 
     println!("Loading Soundfont");
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> =
-        vec![Arc::new(SampleSoundfont::new(sfz, params).unwrap())];
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
+        SampleSoundfont::new(sfz, params, Default::default()).unwrap(),
+    )];
     println!("Loaded");
 
     sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));

@@ -32,9 +32,9 @@ struct Key {
 }
 
 impl Key {
-    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>) -> Self {
+    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>, options: ChannelInitOptions) -> Self {
         Key {
-            data: KeyData::new(key, shared_voice_counter),
+            data: KeyData::new(key, shared_voice_counter, options),
             audio_cache: Vec::new(),
             event_cache: Vec::new(),
         }
@@ -71,6 +71,19 @@ impl ControlEventData {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ChannelInitOptions {
+    pub fade_out_killing: bool,
+}
+
+impl Default for ChannelInitOptions {
+    fn default() -> Self {
+        Self {
+            fade_out_killing: true,
+        }
+    }
+}
+
 pub struct VoiceChannel {
     key_voices: Vec<Key>,
 
@@ -89,6 +102,7 @@ pub struct VoiceChannel {
 
 impl VoiceChannel {
     pub fn new(
+        options: ChannelInitOptions,
         stream_params: AudioStreamParams,
         threadpool: Option<Arc<rayon::ThreadPool>>,
     ) -> VoiceChannel {
@@ -105,7 +119,7 @@ impl VoiceChannel {
 
         VoiceChannel {
             params,
-            key_voices: fill_key_array(|i| Key::new(i, shared_voice_counter.clone())),
+            key_voices: fill_key_array(|i| Key::new(i, shared_voice_counter.clone(), options)),
 
             threadpool,
 

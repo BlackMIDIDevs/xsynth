@@ -1,6 +1,7 @@
 use simdeez::Simd;
 
-use crate::voice::{EnvelopeControlData, VoiceControlData};
+use crate::soundfont::SoundfontInitOptions;
+use crate::voice::{EnvelopeControlData, ReleaseType, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
@@ -212,8 +213,18 @@ pub struct EnvelopeDescriptor {
 }
 
 impl EnvelopeDescriptor {
-    pub fn to_envelope_params(&self, samplerate: u32) -> EnvelopeParameters {
+    pub fn to_envelope_params(
+        &self,
+        samplerate: u32,
+        options: SoundfontInitOptions,
+    ) -> EnvelopeParameters {
         let samplerate = samplerate as f32;
+
+        let release = if options.linear_release {
+            EnvelopePart::lerp(0.0, (self.release * samplerate) as u32)
+        } else {
+            EnvelopePart::lerp_to_zero_curve((self.release * samplerate) as u32)
+        };
 
         EnvelopeParameters {
             start: self.start_percent,
@@ -229,7 +240,7 @@ impl EnvelopeDescriptor {
                 // Sustain
                 EnvelopePart::hold(self.sustain_percent),
                 // Release
-                EnvelopePart::lerp_to_zero_curve((self.release * samplerate) as u32),
+                release,
                 // Finished
                 EnvelopePart::hold(0.0),
             ],
@@ -328,6 +339,7 @@ pub struct SIMDVoiceEnvelope<T: Simd> {
     params: EnvelopeParameters,
     state: VoiceEnvelopeState<T>,
     sample_rate: f32,
+    killed: bool,
 }
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
@@ -343,6 +355,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             params,
             state,
             sample_rate,
+            killed: false,
         }
     }
 
@@ -444,8 +457,11 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
     }
 
     pub fn modify_envelope(&mut self, envelope: EnvelopeControlData) {
-        self.params = Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
-        self.update_stage();
+        if !self.killed {
+            self.params =
+                Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
+            self.update_stage();
+        }
     }
 }
 
@@ -456,7 +472,15 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        if rel_type == ReleaseType::Kill {
+            self.params.modify_stage_data::<T>(
+                5,
+                EnvelopePart::lerp(0.0, (0.001 * self.sample_rate) as u32),
+            );
+            self.update_stage();
+            self.killed = true;
+        }
         let amp = self.get_value_at_current_time();
         self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
     }
@@ -633,6 +657,11 @@ mod tests {
             from + (to - from) * fac
         }
 
+        fn lerp_to_zero_curve(from: f32, fac: f32) -> f32 {
+            let mult = (1. - fac).powi(8);
+            mult * from
+        }
+
         simd_runtime_generate!(
             fn run() {
                 let mut vec = Vec::new();
@@ -646,7 +675,7 @@ mod tests {
                     sustain_percent: 0.4,
                     release: 16.0,
                 };
-                let params = descriptor.to_envelope_params(1);
+                let params = descriptor.to_envelope_params(1, Default::default());
 
                 let mut env = SIMDVoiceEnvelope::<S>::new(params, params, 1.0);
 
@@ -655,7 +684,7 @@ mod tests {
                     push_simd_to_vec::<S>(&mut vec, env.next_sample().0);
                     i += S::VF32_WIDTH;
                 }
-                env.signal_release();
+                env.signal_release(ReleaseType::Standard);
                 assert_eq!(env.current_stage(), &EnvelopeStage::Release);
                 while i < 48 + 32 {
                     push_simd_to_vec::<S>(&mut vec, env.next_sample().0);
@@ -674,7 +703,7 @@ mod tests {
                     expected_vec.push(0.4);
                 }
                 for i in 0..16 {
-                    expected_vec.push(lerp(0.4, 0.0, i as f32 / 16.0));
+                    expected_vec.push(lerp_to_zero_curve(0.4, i as f32 / 16.0));
                 }
                 for _ in 0..16 {
                     expected_vec.push(0.0);

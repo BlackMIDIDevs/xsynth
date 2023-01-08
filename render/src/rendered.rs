@@ -26,13 +26,14 @@ impl XSynthRender {
     pub fn new(config: XSynthRenderConfig, out_path: PathBuf) -> Self {
         let audio_params = AudioStreamParams::new(config.sample_rate, config.audio_channels.into());
         let chgroup_config = ChannelGroupConfig {
+            channel_init_options: config.channel_init_options,
             channel_count: config.channel_count,
             audio_params,
             use_threadpool: config.use_threadpool,
         };
         let channel_group = ChannelGroup::new(chgroup_config);
 
-        let audio_writer = AudioFileWriter::new(config.clone(), out_path);
+        let audio_writer = AudioFileWriter::new(config, out_path);
 
         let limiter = if config.use_limiter {
             Some(VolumeLimiter::new(config.audio_channels))

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use simdeez::Simd;
 
-use crate::voice::VoiceControlData;
+use crate::voice::{ReleaseType, VoiceControlData};
 
 use super::{
     SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase,
@@ -38,8 +38,8 @@ where
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
-        self.generator.signal_release()
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        self.generator.signal_release(rel_type)
     }
 
     #[inline(always)]
@@ -100,8 +100,8 @@ where
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
-        self.generator.signal_release()
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        self.generator.signal_release(rel_type)
     }
 
     #[inline(always)]

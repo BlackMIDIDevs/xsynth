@@ -34,6 +34,12 @@ pub struct EnvelopeControlData {
     pub release: Option<u8>,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum ReleaseType {
+    Standard,
+    Kill,
+}
+
 #[derive(Copy, Clone)]
 pub struct VoiceControlData {
     pub voice_pitch_multiplier: f32,
@@ -54,7 +60,7 @@ impl VoiceControlData {
 
 pub trait VoiceGeneratorBase: Sync + Send {
     fn ended(&self) -> bool;
-    fn signal_release(&mut self);
+    fn signal_release(&mut self, rel_type: ReleaseType);
     fn process_controls(&mut self, control: &VoiceControlData);
 }
 
@@ -64,6 +70,7 @@ pub trait VoiceSampleGenerator: VoiceGeneratorBase {
 
 pub trait Voice: VoiceSampleGenerator + Send + Sync {
     fn is_releasing(&self) -> bool;
+    fn is_killed(&self) -> bool;
 
     fn velocity(&self) -> u8;
 }

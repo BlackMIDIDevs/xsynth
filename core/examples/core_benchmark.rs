@@ -41,13 +41,14 @@ pub fn main() {
 
     println!("Loading soundfont...");
 
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> =
-        vec![Arc::new(SampleSoundfont::new(sfz, stream_params).unwrap())];
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
+        SampleSoundfont::new(sfz, stream_params, Default::default()).unwrap(),
+    )];
 
     println!("Running benches");
 
     let make_new_channel = || {
-        let mut channel = VoiceChannel::new(stream_params, None);
+        let mut channel = VoiceChannel::new(Default::default(), stream_params, None);
         channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
             soundfonts.clone(),
         )));

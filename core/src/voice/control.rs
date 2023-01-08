@@ -1,6 +1,6 @@
 use simdeez::Simd;
 
-use crate::voice::VoiceControlData;
+use crate::voice::{ReleaseType, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
@@ -30,7 +30,7 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceControl<S> {
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {}
+    fn signal_release(&mut self, _rel_type: ReleaseType) {}
 
     #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {

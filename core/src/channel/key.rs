@@ -4,7 +4,8 @@ use std::sync::{
 };
 
 use super::{
-    channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer, VoiceControlData,
+    channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer,
+    ChannelInitOptions, VoiceControlData,
 };
 
 pub struct KeyData {
@@ -15,10 +16,14 @@ pub struct KeyData {
 }
 
 impl KeyData {
-    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>) -> KeyData {
+    pub fn new(
+        key: u8,
+        shared_voice_counter: Arc<AtomicU64>,
+        options: ChannelInitOptions,
+    ) -> KeyData {
         KeyData {
             key,
-            voices: VoiceBuffer::new(),
+            voices: VoiceBuffer::new(options),
             last_voice_count: 0,
             shared_voice_counter,
         }
@@ -34,19 +39,19 @@ impl KeyData {
         match event {
             KeyNoteEvent::On(vel) => {
                 let voices = channel_sf.spawn_voices_attack(control, self.key, vel);
-                self.voices.push_voices(vel, voices, max_layers);
+                self.voices.push_voices(voices, max_layers);
             }
             KeyNoteEvent::Off => {
                 let vel = self.voices.release_next_voice();
                 if let Some(vel) = vel {
                     let voices = channel_sf.spawn_voices_release(control, self.key, vel);
-                    self.voices.push_voices(vel, voices, max_layers);
+                    self.voices.push_voices(voices, max_layers);
                 }
             }
             KeyNoteEvent::AllOff => {
                 while let Some(vel) = self.voices.release_next_voice() {
                     let voices = channel_sf.spawn_voices_release(control, self.key, vel);
-                    self.voices.push_voices(vel, voices, max_layers);
+                    self.voices.push_voices(voices, max_layers);
                 }
             }
             KeyNoteEvent::AllKilled => {
