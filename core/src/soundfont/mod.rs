@@ -381,7 +381,8 @@ impl SampleSoundfont {
                             let mut cutoff_t =
                                 cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0);
                             let cents = vel as f32 / 127.0 * region.fil_veltrack as f32
-                                + (key as f32 - region.fil_keycenter as f32) * region.fil_keytrack as f32;
+                                + (key as f32 - region.fil_keycenter as f32)
+                                    * region.fil_keytrack as f32;
                             cutoff_t *= 2.0f32.powf(cents / 1200.0);
                             cutoff = Some(cutoff_t);
                         }
