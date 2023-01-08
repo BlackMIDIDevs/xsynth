@@ -1,9 +1,9 @@
 use std::{
     collections::VecDeque,
+    ops::RangeInclusive,
     sync::{Arc, RwLock},
     thread::{self},
     time::{Duration, Instant},
-    ops::RangeInclusive,
 };
 
 use crossbeam_channel::Sender;
@@ -121,7 +121,11 @@ struct EventSender {
 }
 
 impl EventSender {
-    pub fn new(max_nps: Arc<ReadWriteAtomicU64>, sender: Sender<ChannelEvent>, ignore_range: RangeInclusive<u8>) -> Self {
+    pub fn new(
+        max_nps: Arc<ReadWriteAtomicU64>,
+        sender: Sender<ChannelEvent>,
+        ignore_range: RangeInclusive<u8>,
+    ) -> Self {
         EventSender {
             sender,
             nps: RoughNpsTracker::new(),
