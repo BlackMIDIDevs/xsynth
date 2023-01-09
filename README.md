@@ -1,5 +1,5 @@
 <h1 align="center">XSynth</h1>
-<p align="center">A fast Rust-based MIDI synthesizer designed for high voice counts and low latency.</p>
+<p align="center">A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency.</p>
 
 ## Modules
 
@@ -21,24 +21,6 @@ A module for rendering audio to a file.
 It takes in a MIDI file path and other XSynth parameters, and outputs a wav file.
 
 
-## Supported SoundFont formats
-
-### SFZ
-Supported opcodes:
-- `sample`
-- `ampeg_delay`
-- `ampeg_attack`
-- `ampeg_hold`
-- `ampeg_decay`
-- `ampeg_sustain`
-- `ampeg_release`
-- `key`
-- `pitch_keycenter`
-- `lokey` / `hikey`
-- `lovel` / `hivel`
-- `default_path`
-
-
 ## License
 
-XSynth is licensed under the
+XSynth is licensed under the Mozilla Public License Version 2.0.
