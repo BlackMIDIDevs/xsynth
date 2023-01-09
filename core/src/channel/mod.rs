@@ -286,7 +286,7 @@ impl VoiceChannel {
                 0x4A => {
                     // Cutoff
                     if value < 64 {
-                        let cutoff = (value as f32 / 64.0).powi(2) * 24000.0 + 500.0;
+                        let cutoff = (value as f32 / 64.0).powi(2) * 20000.0 + 100.0;
                         self.control_event_data.cutoff = Some(cutoff);
                     } else {
                         self.control_event_data.cutoff = None;

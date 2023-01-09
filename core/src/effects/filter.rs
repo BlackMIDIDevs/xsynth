@@ -4,9 +4,7 @@ use soundfonts::FilterType;
 
 #[derive(Clone)]
 pub struct BiQuadFilter {
-    coeffs: Coefficients<f32>,
     filter: DirectForm1<f32>,
-    sample_rate: f32,
 }
 
 impl BiQuadFilter {
@@ -14,9 +12,7 @@ impl BiQuadFilter {
         let coeffs = Self::get_coeffs(fil_type, freq, sample_rate);
 
         Self {
-            coeffs,
             filter: DirectForm1::<f32>::new(coeffs),
-            sample_rate,
         }
     }
 
@@ -31,7 +27,7 @@ impl BiQuadFilter {
             .unwrap(),
             FilterType::LowPassPole => Coefficients::<f32>::from_params(
                 Type::SinglePoleLowPass,
-                freq.hz(),
+                sample_rate.hz(),
                 freq.hz(),
                 Q_BUTTERWORTH_F32,
             )
@@ -53,8 +49,8 @@ impl BiQuadFilter {
         }
     }
 
-    pub fn set_filter_type(&mut self, fil_type: FilterType, freq: f32) {
-        self.coeffs = Self::get_coeffs(fil_type, freq, self.sample_rate);
+    pub fn set_coefficients(&mut self, coeffs: Coefficients<f32>) {
+        self.filter.replace_coefficients(coeffs);
     }
 
     pub fn process(&mut self, input: f32) -> f32 {
@@ -72,6 +68,7 @@ impl BiQuadFilter {
 
 pub struct MultiChannelBiQuad {
     channels: Vec<BiQuadFilter>,
+    sample_rate: f32,
 }
 
 impl MultiChannelBiQuad {
@@ -80,12 +77,14 @@ impl MultiChannelBiQuad {
             channels: (0..channels)
                 .map(|_| BiQuadFilter::new(fil_type, freq, sample_rate))
                 .collect(),
+            sample_rate,
         }
     }
 
     pub fn set_filter_type(&mut self, fil_type: FilterType, freq: f32) {
+        let coeffs = BiQuadFilter::get_coeffs(fil_type, freq, self.sample_rate);
         for filter in self.channels.iter_mut() {
-            filter.set_filter_type(fil_type, freq);
+            filter.set_coefficients(coeffs);
         }
     }
 
