@@ -26,22 +26,29 @@ pub fn run_bench(
 }
 
 pub fn main() {
+    let args = std::env::args().collect::<Vec<String>>();
+    let Some(sfz) = args.get(1).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok()) else {
+        println!(
+            "Usage: {} [sfz]",
+            std::env::current_exe()
+                .unwrap_or("example".into())
+                .display()
+        );
+        return;
+    };
+
     let stream_params = AudioStreamParams::new(48000, ChannelCount::Stereo);
 
     println!("Loading soundfont...");
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(
-            "D:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
-            stream_params,
-        )
-        .unwrap(),
+        SampleSoundfont::new(sfz, stream_params, Default::default()).unwrap(),
     )];
 
     println!("Running benches");
 
     let make_new_channel = || {
-        let mut channel = VoiceChannel::new(stream_params, None);
+        let mut channel = VoiceChannel::new(Default::default(), stream_params, None);
         channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
             soundfonts.clone(),
         )));

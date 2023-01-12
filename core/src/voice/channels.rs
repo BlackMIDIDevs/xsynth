@@ -4,7 +4,9 @@ use simdeez::Simd;
 
 use crate::voice::VoiceControlData;
 
-use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase};
+use super::{
+    ReleaseType, SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase,
+};
 
 pub struct SIMDVoiceMonoToStereo<S, G>
 where
@@ -36,8 +38,8 @@ where
     }
 
     #[inline(always)]
-    fn signal_release(&mut self) {
-        self.generator.signal_release()
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        self.generator.signal_release(rel_type)
     }
 
     #[inline(always)]

@@ -73,6 +73,7 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32 {
     SampleSoundfont::new(
       "E:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
       params,
+      Default::default(),
     )
     .unwrap(),
   )];

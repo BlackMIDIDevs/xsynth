@@ -9,7 +9,7 @@ use std::{
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
-use soundfonts::{sfz::RegionParams, CutoffPassCount};
+use soundfonts::sfz::RegionParams;
 use thiserror::Error;
 
 use self::audio::{load_audio_file, AudioLoadError};
@@ -23,7 +23,7 @@ use super::{
     },
 };
 use crate::{
-    effects::{Highpass, Lowpass, MultiPassCutoff},
+    effects::BiQuadFilter,
     helpers::FREQS,
     voice::{
         EnvelopeDescriptor, SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff,
@@ -49,7 +49,6 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
 
 struct SampleVoiceSpawnerParams {
     speed_mult: f32,
-    sample_rate: f32,
     cutoff: Option<f32>,
     filter_type: FilterType,
     envelope: Arc<EnvelopeParameters>,
@@ -75,12 +74,10 @@ impl SampleCache {
 
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
-    cutoff: Option<f32>,
-    filter_type: FilterType,
+    filter: Option<BiQuadFilter>,
     amp: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Arc<[Arc<[f32]>]>,
-    sample_rate: f32,
     vel: u8,
     stream_params: AudioStreamParams,
     _s: PhantomData<S>,
@@ -94,14 +91,16 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
     ) -> Self {
         let amp = (vel as f32 / 127.0).powi(2);
 
+        let filter = params.cutoff.map(|cutoff| {
+            BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32)
+        });
+
         Self {
             speed_mult: params.speed_mult,
-            cutoff: params.cutoff,
-            filter_type: params.filter_type,
+            filter,
             amp,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
-            sample_rate: params.sample_rate,
             vel,
             stream_params,
             _s: PhantomData,
@@ -190,85 +189,18 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.apply_velocity(gen);
         let gen = self.apply_envelope(gen, control);
 
-        if let Some(cutoff) = self.cutoff {
-            match self.filter_type {
-                FilterType::LowPass {
-                    passes: CutoffPassCount::One,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Lowpass, 1>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::LowPass {
-                    passes: CutoffPassCount::Two,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Lowpass, 2>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::LowPass {
-                    passes: CutoffPassCount::Four,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Lowpass, 4>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::LowPass {
-                    passes: CutoffPassCount::Six,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Lowpass, 6>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::One,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 1>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::Two,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 2>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::Four,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 4>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-                FilterType::HighPass {
-                    passes: CutoffPassCount::Six,
-                } => {
-                    let gen = SIMDStereoVoiceCutoff::new(
-                        gen,
-                        MultiPassCutoff::<Highpass, 6>::new(cutoff, self.sample_rate),
-                    );
-                    self.convert_to_voice(gen)
-                }
-            }
+        if let Some(filter) = &self.filter {
+            let gen = SIMDStereoVoiceCutoff::new(gen, filter);
+            self.convert_to_voice(gen)
         } else {
             self.convert_to_voice(gen)
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SoundfontInitOptions {
+    pub linear_release: bool,
 }
 
 fn key_vel_to_index(key: u8, vel: u8) -> usize {
@@ -310,6 +242,7 @@ impl SampleSoundfont {
     pub fn new(
         sfz_path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
+        options: SoundfontInitOptions,
     ) -> Result<Self, LoadSfzError> {
         if stream_params.channels == ChannelCount::Mono {
             panic!("Mono output is currently not supported");
@@ -344,7 +277,9 @@ impl SampleSoundfont {
             if !exists {
                 unique_envelope_params.push((
                     envelope_descriptor,
-                    Arc::new(envelope_descriptor.to_envelope_params(stream_params.sample_rate)),
+                    Arc::new(
+                        envelope_descriptor.to_envelope_params(stream_params.sample_rate, options),
+                    ),
                 ));
             }
         }
@@ -381,7 +316,8 @@ impl SampleSoundfont {
                             let mut cutoff_t =
                                 cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0);
                             let cents = vel as f32 / 127.0 * region.fil_veltrack as f32
-                                + (key - region.fil_keycenter) as f32 * region.fil_keytrack as f32;
+                                + (key as f32 - region.fil_keycenter as f32)
+                                    * region.fil_keytrack as f32;
                             cutoff_t *= 2.0f32.powf(cents / 1200.0);
                             cutoff = Some(cutoff_t);
                         }
@@ -393,7 +329,6 @@ impl SampleSoundfont {
                         cutoff,
                         filter_type: region.filter_type,
                         sample: samples[&params].clone(),
-                        sample_rate: stream_params.sample_rate as f32,
                     });
 
                     spawner_params_list[index] = Some(spawner_params.clone());
