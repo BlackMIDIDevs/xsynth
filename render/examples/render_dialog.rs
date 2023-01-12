@@ -78,7 +78,8 @@ fn main() {
         .add_soundfont(&sfz_path)
         .with_layer_count(layers)
         .with_progress_callback(callback)
-        .run();
+        .run()
+        .unwrap();
 
     println!(
         "\n\n--- RENDER FINISHED ---\nRender time: {} seconds | Max Voice Count: {} voices",

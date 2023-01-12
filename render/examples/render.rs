@@ -22,7 +22,8 @@ fn main() {
         .with_config(Default::default())
         .add_soundfonts(vec![sfz.as_str()])
         .with_layer_count(Some(10))
-        .run();
+        .run()
+        .unwrap();
 
     println!("Render time: {} seconds", render_time.elapsed().as_secs());
 }

@@ -8,12 +8,14 @@ use std::sync::Arc;
 use core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
     channel_group::SynthEvent,
-    soundfont::{SampleSoundfont, SoundfontBase},
+    soundfont::{LoadSfzError, SampleSoundfont, SoundfontBase},
 };
+
+use thiserror::Error;
 
 use midi_toolkit::{
     events::{Event, MIDIEventEnum},
-    io::MIDIFile,
+    io::{MIDIFile, MIDILoadError},
     pipe,
     sequence::{
         event::{cancel_tempo_events, scale_event_time},
@@ -25,6 +27,21 @@ pub struct XSynthRenderStats {
     pub progress: f64,
     pub voice_count: u64,
     // pub render_time: f64,
+}
+
+#[derive(Debug, Error)]
+pub enum XSynthRenderError {
+    #[error("SFZ loading failed")]
+    SfzLoadingFailed(#[from] LoadSfzError),
+
+    #[error("MIDI loading failed")]
+    MidiLoadingFailed(MIDILoadError),
+}
+
+impl From<MIDILoadError> for XSynthRenderError {
+    fn from(e: MIDILoadError) -> Self {
+        XSynthRenderError::MidiLoadingFailed(e)
+    }
 }
 
 pub struct XSynthRenderBuilder<'a, StatsCallback: FnMut(XSynthRenderStats)> {
@@ -118,14 +135,16 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
         }
     }
 
-    pub fn run(mut self) {
+    pub fn run(mut self) -> Result<(), XSynthRenderError> {
         let mut synth = XSynthRender::new(self.config, self.out_path.into());
 
         let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
         for sfz in self.soundfont_paths {
-            soundfonts.push(Arc::new(
-                SampleSoundfont::new(sfz, synth.get_params(), self.config.sf_init_options).unwrap(),
-            ));
+            soundfonts.push(Arc::new(SampleSoundfont::new(
+                sfz,
+                synth.get_params(),
+                self.config.sf_init_options,
+            )?));
         }
 
         synth.send_event(SynthEvent::ChannelConfig(
@@ -136,7 +155,7 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
             ChannelConfigEvent::SetLayerCount(self.layer_count),
         ));
 
-        let midi = MIDIFile::open(self.midi_path, None).unwrap();
+        let midi = MIDIFile::open(self.midi_path, None)?;
 
         let ppq = midi.ppq();
         let merged = pipe!(
@@ -194,5 +213,7 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
             }
         }
         synth.finalize();
+
+        Ok(())
     }
 }

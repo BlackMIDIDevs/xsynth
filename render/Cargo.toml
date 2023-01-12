@@ -13,3 +13,4 @@ rayon = "1.5.3"
 midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "907dec1" }
 spin_sleep = "1.0.0"
 atomic_float = "0.1.0"
+thiserror = "1.0.31"

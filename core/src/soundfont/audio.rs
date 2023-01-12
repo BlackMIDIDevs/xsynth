@@ -19,14 +19,14 @@ pub enum AudioLoadError {
     #[error("IO Error")]
     IOError(#[from] io::Error),
 
-    #[error("Unknown audio sample file extension")]
-    UnknownExtension,
+    #[error("Audio decoding failed for {0}")]
+    AudioDecodingFailed(PathBuf, Error),
 
-    #[error("Audio decoding failed")]
-    AudioDecodingFailed(#[from] Error),
+    #[error("Audio file {0} has an invalid channel count")]
+    InvalidChannelCount(PathBuf),
 
-    #[error("Audio file has an invalid channel count")]
-    InvalidChannelCount,
+    #[error("Audio file {0} has no tracks")]
+    NoTracks(PathBuf),
 }
 
 fn resample_vecs(vecs: Vec<Vec<f32>>, sample_rate: f32, new_sample_rate: f32) -> Arc<[Arc<[f32]>]> {
@@ -43,7 +43,7 @@ pub fn load_audio_file(
 ) -> Result<Arc<[Arc<[f32]>]>, AudioLoadError> {
     let extension = path.extension().and_then(|ext| ext.to_str());
 
-    let file = Box::new(File::open(path).unwrap());
+    let file = Box::new(File::open(path)?);
 
     // Create the media source stream using the boxed media source from above.
     let mss = MediaSourceStream::new(file, Default::default());
@@ -62,24 +62,26 @@ pub fn load_audio_file(
     // Probe the media source stream for a format.
     let probed = symphonia::default::get_probe()
         .format(&hint, mss, &format_opts, &metadata_opts)
-        .unwrap();
+        .map_err(|x| AudioLoadError::AudioDecodingFailed(path.clone(), x))?;
 
     // Get the format reader yielded by the probe operation.
     let mut format = probed.format;
 
     // Get the default track.
-    let track = format.default_track().unwrap();
+    let track = format
+        .default_track()
+        .ok_or_else(|| AudioLoadError::NoTracks(path.clone()))?;
 
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
     let channel_count = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
 
     let channel_count_value = ChannelCount::from_count(channel_count as u16)
-        .ok_or(AudioLoadError::InvalidChannelCount)?;
+        .ok_or_else(|| AudioLoadError::InvalidChannelCount(path.clone()))?;
 
     // Create a decoder for the track.
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &decoder_opts)
-        .unwrap();
+        .map_err(|x| AudioLoadError::AudioDecodingFailed(path.clone(), x))?;
 
     // Store the track identifier, we'll use it to filter packets.
     let track_id = track.id;
@@ -96,7 +98,7 @@ pub fn load_audio_file(
                 // Audio source ended. Currently the lib has no cleaner way of detecting this.
                 break;
             }
-            Err(error) => return Err(error.into()),
+            Err(error) => return Err(AudioLoadError::AudioDecodingFailed(path.clone(), error)),
             Ok(packet) => packet,
         };
 
@@ -112,7 +114,7 @@ pub fn load_audio_file(
             }
 
             Err(Error::DecodeError(_)) => (),
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(AudioLoadError::AudioDecodingFailed(path.clone(), e)),
         }
     }
 
