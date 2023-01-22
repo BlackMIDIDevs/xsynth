@@ -309,17 +309,13 @@ impl SampleSoundfont {
                         .clone();
 
                     let mut cutoff = None;
-                    if let Some(cutoff_t) = region.cutoff {
-                        if cutoff_t < 1.0 {
-                            cutoff = None
-                        } else {
-                            let mut cutoff_t =
-                                cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0);
+                    if let Some(mut cutoff_t) = region.cutoff {
+                        if cutoff_t >= 1.0 {
                             let cents = vel as f32 / 127.0 * region.fil_veltrack as f32
                                 + (key as f32 - region.fil_keycenter as f32)
                                     * region.fil_keytrack as f32;
                             cutoff_t *= 2.0f32.powf(cents / 1200.0);
-                            cutoff = Some(cutoff_t);
+                            cutoff = Some(cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0));
                         }
                     }
 
