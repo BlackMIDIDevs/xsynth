@@ -96,12 +96,14 @@ impl XSynthRender {
 
     pub fn finalize(mut self) {
         loop {
-            let mut output_vec = vec![0.0];
-            output_vec.resize(self.config.sample_rate as usize, 0.0);
-            self.channel_group.read_samples(&mut output_vec);
+            self.render_elements
+                .output_vec
+                .resize(self.config.sample_rate as usize, 0.0);
+            self.channel_group
+                .read_samples(&mut self.render_elements.output_vec);
             let mut is_empty = true;
-            for s in output_vec {
-                if s != 0.0 {
+            for s in &self.render_elements.output_vec {
+                if *s > 0.0001 || *s < -0.0001 {
                     is_empty = false;
                     break;
                 }
@@ -109,6 +111,8 @@ impl XSynthRender {
             if is_empty {
                 break;
             }
+            self.audio_writer
+                .write_samples(&mut self.render_elements.output_vec);
         }
         self.audio_writer.finalize();
     }
