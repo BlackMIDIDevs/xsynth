@@ -193,12 +193,8 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
                 }
             }
         }
-        synth.send_event(SynthEvent::AllChannels(
-            ChannelAudioEvent::AllNotesOff,
-        ));
-        synth.send_event(SynthEvent::AllChannels(
-            ChannelAudioEvent::ResetControl,
-        ));
+        synth.send_event(SynthEvent::AllChannels(ChannelAudioEvent::AllNotesOff));
+        synth.send_event(SynthEvent::AllChannels(ChannelAudioEvent::ResetControl));
         synth.finalize();
     }
 }

@@ -96,8 +96,11 @@ impl XSynthRender {
 
     pub fn finalize(mut self) {
         loop {
-            self.render_elements.output_vec.resize(self.config.sample_rate as usize, 0.0);
-            self.channel_group.read_samples(&mut self.render_elements.output_vec);
+            self.render_elements
+                .output_vec
+                .resize(self.config.sample_rate as usize, 0.0);
+            self.channel_group
+                .read_samples(&mut self.render_elements.output_vec);
             let mut is_empty = true;
             for s in &self.render_elements.output_vec {
                 if *s > 0.0001 || *s < -0.0001 {
