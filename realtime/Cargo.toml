@@ -12,7 +12,6 @@ cpal = "0.14.1"
 crossbeam-channel = "0.5.1"
 lazy_static = "1.4.0"
 rayon = "1.5.3"
-simdeez = { git = "https://github.com/arduano/simdeez", rev = "d72e9a1" }
 spin_sleep = "1.0.0"
 to_vec = "0.1.0"
 wav = "1.0.0"

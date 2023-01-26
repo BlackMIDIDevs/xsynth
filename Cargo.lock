@@ -1282,8 +1282,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "simdeez"
-version = "1.0.7"
-source = "git+https://github.com/arduano/simdeez?rev=d72e9a1#d72e9a1175610431da90e89b5623cea0e1b3bf39"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6ec898e1be717eee4b54a84ff2fc94ecb5a1b992d4ad148ce30575b45745662"
 dependencies = [
  "cfg-if 0.1.10",
  "paste",
@@ -1847,7 +1848,6 @@ dependencies = [
  "lazy_static",
  "midi-toolkit-rs 0.1.0 (git+https://github.com/arduano/midi-toolkit-rs?rev=907dec1)",
  "rayon",
- "simdeez",
  "sofiza",
  "spin_sleep",
  "to_vec",
