@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::{
     effects::BiQuadFilter,
@@ -63,9 +63,11 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-        let mut next_sample = self.v.next_sample();
-        next_sample.0 = self.cutoff1.process_simd::<S>(next_sample.0);
-        next_sample.1 = self.cutoff2.process_simd::<S>(next_sample.1);
-        next_sample
+        simd_invoke!(S, {
+            let mut next_sample = self.v.next_sample();
+            next_sample.0 = self.cutoff1.process_simd::<S>(next_sample.0);
+            next_sample.1 = self.cutoff2.process_simd::<S>(next_sample.1);
+            next_sample
+        })
     }
 }

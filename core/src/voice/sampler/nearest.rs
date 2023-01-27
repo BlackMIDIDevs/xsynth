@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use simdeez::prelude::*;
 use simdeez::Simd;
 
 use super::{BufferSampler, SIMDSampleGrabber, SampleReader};
@@ -22,15 +23,16 @@ impl<S: Simd, Sampler: BufferSampler> SIMDSampleGrabber<S>
     for SIMDNearestSampleGrabber<S, Sampler>
 {
     fn get(&self, indexes: S::Vi32, _: S::Vf32) -> S::Vf32 {
-        let ones = unsafe { S::set1_ps(1.0) };
-        let mut values = ones;
+        simd_invoke!(S, unsafe {
+            let mut values = S::Vf32::zeroes();
 
-        for i in 0..S::VF32_WIDTH {
-            let index = indexes[i] as usize;
-            values[i] = self.sampler_reader.get(index);
-        }
+            for i in 0..S::Vf32::WIDTH {
+                let index = indexes.get_unchecked(i) as usize;
+                *values.get_unchecked_mut(i) = self.sampler_reader.get(index);
+            }
 
-        values
+            values
+        })
     }
 
     fn is_past_end(&self, pos: f64) -> bool {

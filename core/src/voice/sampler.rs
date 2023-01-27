@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::voice::{ReleaseType, VoiceControlData};
 
@@ -218,19 +218,23 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-        let speed = self.pitch_gen.next_sample().0;
-        let mut indexes = unsafe { S::set1_epi32(0) };
-        let mut fractionals = unsafe { S::set1_ps(0.0) };
+        simd_invoke!(S, {
+            let speed = self.pitch_gen.next_sample().0;
+            let mut indexes = unsafe { S::Vi32::zeroes() };
+            let mut fractionals = unsafe { S::Vf32::zeroes() };
 
-        for i in 0..S::VF32_WIDTH {
-            let time = self.increment_time(speed[i] as f64);
-            indexes[i] = time as i32;
-            fractionals[i] = (time % 1.0) as f32;
-        }
+            unsafe {
+                for i in 0..S::Vf32::WIDTH {
+                    let time = self.increment_time(speed.get_unchecked(i) as f64);
+                    *indexes.get_unchecked_mut(i) = time as i32;
+                    *fractionals.get_unchecked_mut(i) = (time % 1.0) as f32;
+                }
+            }
 
-        let left = self.grabber_left.get(indexes, fractionals);
-        let right = self.grabber_right.get(indexes, fractionals);
+            let left = self.grabber_left.get(indexes, fractionals);
+            let right = self.grabber_right.get(indexes, fractionals);
 
-        SIMDSampleStereo(left, right)
+            SIMDSampleStereo(left, right)
+        })
     }
 }

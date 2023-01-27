@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use super::{BufferSampler, SIMDSampleGrabber, SampleReader};
 
@@ -20,20 +20,22 @@ impl<S: Simd, Sampler: BufferSampler> SIMDLinearSampleGrabber<S, Sampler> {
 
 impl<S: Simd, Sampler: BufferSampler> SIMDSampleGrabber<S> for SIMDLinearSampleGrabber<S, Sampler> {
     fn get(&self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
-        let ones = unsafe { S::set1_ps(1.0) };
-        let blend = fractional;
-        let mut values_first = ones;
-        let mut values_second = ones;
+        simd_invoke!(S, {
+            let ones = unsafe { S::Vf32::set1(1.0f32) };
+            let blend = fractional;
+            let mut values_first = ones;
+            let mut values_second = ones;
 
-        for i in 0..S::VF32_WIDTH {
-            let index = indexes[i] as usize;
-            values_first[i] = self.sampler_reader.get(index);
-            values_second[i] = self.sampler_reader.get(index + 1);
-        }
+            for i in 0..S::Vf32::WIDTH {
+                let index = indexes[i] as usize;
+                values_first[i] = self.sampler_reader.get(index);
+                values_second[i] = self.sampler_reader.get(index + 1);
+            }
 
-        let blended = values_first * blend + values_second * (ones - blend);
+            let blended = values_first * blend + values_second * (ones - blend);
 
-        blended
+            blended
+        },)
     }
 
     fn is_past_end(&self, pos: f64) -> bool {

@@ -15,18 +15,19 @@ pub fn sum_simd(source: &[f32], target: &mut [f32]) {
             let mut source = &source[..source.len()];
             let mut target = &mut target[..source.len()];
 
-            while source.len() >= S::VF32_WIDTH {
-                let src = S::loadu_ps(&source[0]);
-                let src2 = S::loadu_ps(&target[0]);
+            loop {
+                let src: S::Vf32 = SimdBase::load_from_slice(source);
+                let src2: S::Vf32 = SimdBase::load_from_slice(target);
+                let sum = src + src2;
 
-                S::storeu_ps(&mut target[0], src + src2);
+                sum.copy_to_slice(target);
 
-                source = &source[S::VF32_WIDTH..];
-                target = &mut target[S::VF32_WIDTH..];
-            }
+                if source.len() <= S::Vf32::WIDTH {
+                    break;
+                }
 
-            for i in 0..source.len() {
-                target[i] += source[i];
+                source = &source[S::Vf32::WIDTH..];
+                target = &mut target[S::Vf32::WIDTH..];
             }
         }
     );

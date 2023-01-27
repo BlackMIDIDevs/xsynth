@@ -1,4 +1,4 @@
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::voice::{ReleaseType, VoiceControlData};
 
@@ -14,12 +14,12 @@ impl<S: Simd> SIMDVoiceControl<S> {
         control: &VoiceControlData,
         update: fn(&VoiceControlData) -> f32,
     ) -> SIMDVoiceControl<S> {
-        unsafe {
+        simd_invoke!(S, unsafe {
             SIMDVoiceControl {
-                values: S::set1_ps((update)(control)),
+                values: S::Vf32::set1((update)(control)),
                 update,
             }
-        }
+        })
     }
 }
 
@@ -34,9 +34,9 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceControl<S> {
 
     #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
-        unsafe {
-            self.values = S::set1_ps((self.update)(control));
-        }
+        simd_invoke!(S, unsafe {
+            self.values = S::Vf32::set1((self.update)(control));
+        })
     }
 }
 

@@ -17,8 +17,17 @@ to_vec = "0.1.0"
 thiserror = "1.0.31"
 symphonia = "0.5.1"
 biquad = "0.4.2"
-simdeez = "1.0.8"
+simdeez = { git = "https://github.com/arduano/simdeez.git", rev = "2f94d88" }
 
 [dev-dependencies]
 midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "51ff0dc" }
 rand = "0.8.5"
+criterion = "0.4.0"
+
+[[bench]]
+name = "render"
+harness = false
+
+[[bench]]
+name = "send_events"
+harness = false
