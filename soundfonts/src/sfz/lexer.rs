@@ -1,6 +1,9 @@
 use std::{fs, io, path::Path};
 
-use crate::{FilterType, sfz::consts::{KEY_NAMES, KEY_NAMES_ALT}};
+use crate::{
+    sfz::consts::{KEY_NAMES, KEY_NAMES_ALT},
+    FilterType,
+};
 
 use lazy_regex::{regex, Regex};
 
@@ -122,12 +125,15 @@ fn parse_key_number(parser: &mut StringParser<'_>) -> Option<u8> {
     match parsed.parse().ok() {
         Some(val) => Some(val),
         None => {
-            match KEY_NAMES.iter().position(|&x| x == parsed || x.to_lowercase() == parsed) {
+            match KEY_NAMES
+                .iter()
+                .position(|&x| x == parsed || x.to_lowercase() == parsed)
+            {
                 Some(val) => Some(val as u8),
-                None => match KEY_NAMES_ALT.iter().position(|&x| x == parsed || x.to_lowercase() == parsed) {
-                    Some(val) => Some(val as u8),
-                    None => None,
-                },
+                None => KEY_NAMES_ALT
+                    .iter()
+                    .position(|&x| x == parsed || x.to_lowercase() == parsed)
+                    .map(|val| val as u8),
             }
         }
     }
