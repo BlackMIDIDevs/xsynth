@@ -1,6 +1,6 @@
 use std::{fs, io, path::Path};
 
-use crate::FilterType;
+use crate::{FilterType, sfz::consts::{KEY_NAMES, KEY_NAMES_ALT}};
 
 use lazy_regex::{regex, Regex};
 
@@ -118,8 +118,19 @@ fn parse_vel_number(parser: &mut StringParser<'_>) -> Option<u8> {
 }
 
 fn parse_key_number(parser: &mut StringParser<'_>) -> Option<u8> {
-    let num = parser.parse_regex(regex!(r"\d+"))?;
-    num.parse().ok()
+    let parsed = parser.parse_regex(regex!(r"\d+"))?;
+    match parsed.parse().ok() {
+        Some(val) => Some(val),
+        None => {
+            match KEY_NAMES.iter().position(|&x| x == parsed || x.to_lowercase() == parsed) {
+                Some(val) => Some(val as u8),
+                None => match KEY_NAMES_ALT.iter().position(|&x| x == parsed || x.to_lowercase() == parsed) {
+                    Some(val) => Some(val as u8),
+                    None => None,
+                },
+            }
+        }
+    }
 }
 
 fn parse_pan_number(parser: &mut StringParser<'_>) -> Option<i8> {

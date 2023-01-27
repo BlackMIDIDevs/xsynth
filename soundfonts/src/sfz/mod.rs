@@ -12,6 +12,7 @@ use self::lexer::{
 use crate::FilterType;
 
 mod lexer;
+mod consts;
 
 #[derive(Debug, Clone)]
 pub struct AmpegEnvelopeParams {
