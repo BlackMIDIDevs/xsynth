@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::voice::{ReleaseType, VoiceControlData};
 
@@ -62,14 +62,16 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<S> {
-        let mut values = unsafe { S::set1_ps(0.0) };
-        let pitch_step = self.pitch_gen.next_sample().0;
-        for i in 0..S::VF32_WIDTH {
-            let phase = self.next_phase(pitch_step[i]);
-            let val = if phase > 0.5 { 1.0 } else { -1.0 };
-            values[i] = val;
-        }
+        simd_invoke!(S, {
+            let mut values = unsafe { S::Vf32::zeroes() };
+            let pitch_step = self.pitch_gen.next_sample().0;
+            for i in 0..S::Vf32::WIDTH {
+                let phase = self.next_phase(pitch_step[i]);
+                let val = if phase > 0.5 { 1.0 } else { -1.0 };
+                values[i] = val;
+            }
 
-        SIMDSampleMono(values)
+            SIMDSampleMono(values)
+        })
     }
 }

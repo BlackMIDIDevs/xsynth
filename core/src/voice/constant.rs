@@ -1,4 +1,4 @@
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::voice::{ReleaseType, VoiceControlData};
 
@@ -10,11 +10,11 @@ pub struct SIMDConstant<S: Simd> {
 
 impl<S: Simd> SIMDConstant<S> {
     pub fn new(value: f32) -> SIMDConstant<S> {
-        unsafe {
+        simd_invoke!(S, unsafe {
             SIMDConstant {
-                values: S::set1_ps(value),
+                values: S::Vf32::set1(value),
             }
-        }
+        })
     }
 }
 

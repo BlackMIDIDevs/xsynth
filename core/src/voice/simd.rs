@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Mul},
 };
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::voice::{ReleaseType, VoiceControlData};
 
@@ -22,7 +22,7 @@ impl<T: Simd> Mul<SIMDSampleMono<T>> for SIMDSampleMono<T> {
     type Output = Self;
 
     fn mul(self, rhs: SIMDSampleMono<T>) -> Self {
-        Self(self.0 * rhs.0)
+        simd_invoke!(T, Self(self.0 * rhs.0))
     }
 }
 
@@ -30,7 +30,7 @@ impl<T: Simd> Mul<SIMDSampleStereo<T>> for SIMDSampleMono<T> {
     type Output = SIMDSampleStereo<T>;
 
     fn mul(self, rhs: SIMDSampleStereo<T>) -> Self::Output {
-        SIMDSampleStereo(self.0 * rhs.0, self.0 * rhs.1)
+        simd_invoke!(T, SIMDSampleStereo(self.0 * rhs.0, self.0 * rhs.1))
     }
 }
 
@@ -38,7 +38,7 @@ impl<T: Simd> Add<SIMDSampleMono<T>> for SIMDSampleMono<T> {
     type Output = Self;
 
     fn add(self, rhs: SIMDSampleMono<T>) -> Self {
-        Self(self.0 + rhs.0)
+        simd_invoke!(T, Self(self.0 + rhs.0))
     }
 }
 
@@ -46,13 +46,13 @@ impl<T: Simd> Add<SIMDSampleStereo<T>> for SIMDSampleMono<T> {
     type Output = SIMDSampleStereo<T>;
 
     fn add(self, rhs: SIMDSampleStereo<T>) -> Self::Output {
-        SIMDSampleStereo(self.0 + rhs.0, self.0 + rhs.1)
+        simd_invoke!(T, SIMDSampleStereo(self.0 + rhs.0, self.0 + rhs.1))
     }
 }
 
 impl<T: Simd> SIMDSample<T> for SIMDSampleMono<T> {
     fn zero() -> Self {
-        unsafe { SIMDSampleMono(T::set1_ps(0.0)) }
+        simd_invoke!(T, unsafe { SIMDSampleMono(T::Vf32::zeroes()) })
     }
 }
 
@@ -64,7 +64,7 @@ impl<T: Simd> Mul<SIMDSampleStereo<T>> for SIMDSampleStereo<T> {
     type Output = Self;
 
     fn mul(self, rhs: SIMDSampleStereo<T>) -> Self {
-        Self(self.0 * rhs.0, self.1 * rhs.1)
+        simd_invoke!(T, Self(self.0 * rhs.0, self.1 * rhs.1))
     }
 }
 
@@ -72,7 +72,7 @@ impl<T: Simd> Mul<SIMDSampleMono<T>> for SIMDSampleStereo<T> {
     type Output = SIMDSampleStereo<T>;
 
     fn mul(self, rhs: SIMDSampleMono<T>) -> Self::Output {
-        SIMDSampleStereo(self.0 * rhs.0, self.1 * rhs.0)
+        simd_invoke!(T, SIMDSampleStereo(self.0 * rhs.0, self.1 * rhs.0))
     }
 }
 
@@ -80,7 +80,7 @@ impl<T: Simd> Add<SIMDSampleStereo<T>> for SIMDSampleStereo<T> {
     type Output = Self;
 
     fn add(self, rhs: SIMDSampleStereo<T>) -> Self {
-        Self(self.0 + rhs.0, self.1 + rhs.1)
+        simd_invoke!(T, Self(self.0 + rhs.0, self.1 + rhs.1))
     }
 }
 
@@ -88,16 +88,16 @@ impl<T: Simd> Add<SIMDSampleMono<T>> for SIMDSampleStereo<T> {
     type Output = SIMDSampleStereo<T>;
 
     fn add(self, rhs: SIMDSampleMono<T>) -> Self::Output {
-        SIMDSampleStereo(self.0 + rhs.0, self.1 + rhs.0)
+        simd_invoke!(T, SIMDSampleStereo(self.0 + rhs.0, self.1 + rhs.0))
     }
 }
 
 impl<T: Simd> SIMDSample<T> for SIMDSampleStereo<T> {
     fn zero() -> Self {
-        unsafe {
-            let val = T::set1_ps(0.0);
+        simd_invoke!(T, unsafe {
+            let val = T::Vf32::zeroes();
             SIMDSampleStereo(val, val)
-        }
+        })
     }
 }
 
@@ -183,7 +183,9 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> TO {
-        (self.func)(self.v1.next_sample(), self.v2.next_sample())
+        simd_invoke!(T, {
+            (self.func)(self.v1.next_sample(), self.v2.next_sample())
+        })
     }
 }
 
@@ -274,19 +276,19 @@ mod tests {
 
                 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for StereoVoiceGenSIMD {
                     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-                        unsafe {
-                            let new = S::set1_ps(1.0);
+                        simd_invoke!(S, unsafe {
+                            let new = S::Vf32::set1(1.0);
                             SIMDSampleStereo(new, new)
-                        }
+                        })
                     }
                 }
 
                 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for MonoVoiceGenSIMD {
                     fn next_sample(&mut self) -> SIMDSampleMono<S> {
-                        unsafe {
-                            let new = S::set1_ps(2.0);
+                        simd_invoke!(S, unsafe {
+                            let new = S::Vf32::set1(2.0);
                             SIMDSampleMono(new)
-                        }
+                        })
                     }
                 }
 
@@ -295,14 +297,14 @@ mod tests {
 
                 let sample = add.next_sample();
 
-                for i in 0..S::VF32_WIDTH {
+                for i in 0..S::Vf32::WIDTH {
                     assert_eq!(sample.0[i], 3.0);
                     assert_eq!(sample.1[i], 3.0);
                 }
 
                 let sample = mul.next_sample();
 
-                for i in 0..S::VF32_WIDTH {
+                for i in 0..S::Vf32::WIDTH {
                     assert_eq!(sample.0[i], 2.0);
                     assert_eq!(sample.1[i], 2.0);
                 }

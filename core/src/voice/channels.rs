@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::voice::VoiceControlData;
 
@@ -55,7 +55,9 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-        let sample = self.generator.next_sample();
-        SIMDSampleStereo(sample.0, sample.0)
+        simd_invoke!(S, {
+            let sample = self.generator.next_sample();
+            SIMDSampleStereo(sample.0, sample.0)
+        })
     }
 }

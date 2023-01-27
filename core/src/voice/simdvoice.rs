@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::voice::{ReleaseType, VoiceControlData};
 
@@ -21,7 +21,7 @@ impl<S: Simd, T: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>> SIMDStereoVoice<S, 
         SIMDStereoVoice {
             generator,
             remainder: SIMDSampleStereo::<S>::zero(),
-            remainder_pos: S::VF32_WIDTH,
+            remainder_pos: S::Vf32::WIDTH,
             _s: PhantomData,
         }
     }
@@ -54,20 +54,25 @@ where
     T: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     fn render_to(&mut self, buffer: &mut [f32]) {
-        let mut i = 0;
-        while i < buffer.len() {
-            if self.remainder_pos == S::VF32_WIDTH {
-                self.remainder = self.generator.next_sample();
-                self.remainder_pos = 0;
+        simd_invoke!(S, {
+            // We need an even number of samples. This lets us guarantee unsafe access below.
+            assert!(buffer.len() % 2 == 0);
+            for chunk in buffer.chunks_exact_mut(2) {
+                if self.remainder_pos == S::Vf32::WIDTH {
+                    self.remainder = self.generator.next_sample();
+                    self.remainder_pos = 0;
+                }
+
+                unsafe {
+                    // using get_unchecked here is safe because we check the bounds above
+                    // however the compiler doesn't seem to detect it otherwise.
+                    chunk[0] += self.remainder.0.get_unchecked(self.remainder_pos);
+                    chunk[1] += self.remainder.1.get_unchecked(self.remainder_pos);
+                }
+
+                self.remainder_pos += 1;
             }
-
-            buffer[i] += self.remainder.0[self.remainder_pos];
-            i += 1;
-            buffer[i] += self.remainder.1[self.remainder_pos];
-            i += 1;
-
-            self.remainder_pos += 1;
-        }
+        })
     }
 }
 
@@ -83,7 +88,7 @@ impl<S: Simd, T: SIMDVoiceGenerator<S, SIMDSampleMono<S>>> SIMDMonoVoice<S, T> {
         SIMDMonoVoice {
             generator,
             remainder: SIMDSampleMono::<S>::zero(),
-            remainder_pos: S::VF32_WIDTH,
+            remainder_pos: S::Vf32::WIDTH,
             _s: PhantomData,
         }
     }
@@ -116,17 +121,19 @@ where
     T: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
 {
     fn render_to(&mut self, buffer: &mut [f32]) {
-        let mut i = 0;
-        while i < buffer.len() {
-            if self.remainder_pos == S::VF32_WIDTH {
-                self.remainder = self.generator.next_sample();
-                self.remainder_pos = 0;
+        simd_invoke!(S, {
+            let mut i = 0;
+            while i < buffer.len() {
+                if self.remainder_pos == S::Vf32::WIDTH {
+                    self.remainder = self.generator.next_sample();
+                    self.remainder_pos = 0;
+                }
+
+                buffer[i] += self.remainder.0[self.remainder_pos];
+                i += 1;
+
+                self.remainder_pos += 1;
             }
-
-            buffer[i] += self.remainder.0[self.remainder_pos];
-            i += 1;
-
-            self.remainder_pos += 1;
-        }
+        })
     }
 }

@@ -1,5 +1,5 @@
 use biquad::*;
-use simdeez::Simd;
+use simdeez::prelude::*;
 use soundfonts::FilterType;
 
 #[derive(Clone)]
@@ -57,9 +57,10 @@ impl BiQuadFilter {
         self.filter.run(input)
     }
 
+    #[inline(always)]
     pub fn process_simd<S: Simd>(&mut self, input: S::Vf32) -> S::Vf32 {
         let mut out = input;
-        for i in 0..S::VF32_WIDTH {
+        for i in 0..S::Vf32::WIDTH {
             out[i] = self.process(input[i]);
         }
         out
