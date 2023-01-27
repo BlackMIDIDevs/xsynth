@@ -141,12 +141,11 @@ impl EventSender {
                 if *key > 127 {
                     return;
                 }
-                if vel > self.ignore_range.start() && vel < self.ignore_range.end() {
-                    return;
-                }
+
+                let in_ignore_range = self.ignore_range.contains(vel);
 
                 let nps = self.nps.calculate_nps();
-                if should_send_for_vel_and_nps(*vel, nps, self.max_nps.read()) {
+                if should_send_for_vel_and_nps(*vel, nps, self.max_nps.read()) && !in_ignore_range {
                     self.sender.send(ChannelEvent::Audio(event)).ok();
                     self.nps.add_note();
                 } else {

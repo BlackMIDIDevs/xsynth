@@ -68,9 +68,17 @@ fn main() {
         |>unwrap_items()
     );
 
+    let (snd, rcv) = crossbeam_channel::bounded(100);
+
+    thread::spawn(move || {
+        for batch in merged {
+            snd.send(batch).unwrap();
+        }
+    });
+
     let now = Instant::now();
     let mut time = 0.0;
-    for batch in merged {
+    for batch in rcv {
         if batch.delta != 0.0 {
             time += batch.delta;
             let diff = time - now.elapsed().as_secs_f64();
