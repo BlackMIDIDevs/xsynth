@@ -54,15 +54,23 @@ impl<'a> StringParser<'a> {
     }
 
     fn parse_until_space(&mut self) -> String {
-        let space_regex = regex!(r#"([^\s]+)"#);
+        let space_regex = regex!(r#"[^\s"']+|"([^"]*)"|'([^']*)'"#);
         let next_space = space_regex
             .find(self.input)
             .map(|v| v.end())
             .unwrap_or(self.input.len());
-        let result = &self.input[..next_space];
+        let mut result = &self.input[..next_space];
         let remaining = &self.input[next_space..];
         self.input = remaining;
-        result.trim().to_owned()
+
+        let len = result.len();
+        if len != 0
+            && ((&result[..1] == "\"" && &result[len - 1..] == "\"")
+                || (&result[..1] == "'" && &result[len - 1..] == "'"))
+        {
+            result = &result[1..len - 1];
+        }
+        result.to_owned()
     }
 
     fn trim_start(&mut self) {
