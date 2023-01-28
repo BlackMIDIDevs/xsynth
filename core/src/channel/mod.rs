@@ -78,10 +78,11 @@ pub struct ChannelInitOptions {
     pub fade_out_killing: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for ChannelInitOptions {
     fn default() -> Self {
         Self {
-            fade_out_killing: true,
+            fade_out_killing: false,
         }
     }
 }
