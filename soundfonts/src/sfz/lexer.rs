@@ -118,8 +118,47 @@ fn parse_vel_number(parser: &mut StringParser<'_>) -> Option<u8> {
 }
 
 fn parse_key_number(parser: &mut StringParser<'_>) -> Option<u8> {
-    let num = parser.parse_regex(regex!(r"\d+"))?;
-    num.parse().ok()
+    let parsed = parser.parse_regex(regex!(r"\d+"))?;
+    match parsed.parse().ok() {
+        Some(val) => Some(val),
+        None => {
+            let note: String = parsed
+                .chars()
+                .filter(|c| !(c.is_ascii_digit() || c == &'-'))
+                .collect();
+            let semitone: i8 = match note.to_lowercase().as_str() {
+                "c" => 0,
+                "c#" => 1,
+                "db" => 1,
+                "d" => 2,
+                "d#" => 3,
+                "eb" => 3,
+                "e" => 4,
+                "f" => 5,
+                "f#" => 6,
+                "gb" => 6,
+                "g" => 7,
+                "g#" => 8,
+                "ab" => 8,
+                "a" => 9,
+                "a#" => 10,
+                "bb" => 10,
+                "b" => 11,
+                _ => return None,
+            };
+            let octave: String = parsed
+                .chars()
+                .filter(|c| c.is_ascii_digit() || c == &'-')
+                .collect();
+            let octave: i8 = octave.parse().ok().unwrap_or(-10);
+            if octave < -1 {
+                None
+            } else {
+                let midi_note = 12 + semitone + octave * 12;
+                Some(midi_note as u8)
+            }
+        }
+    }
 }
 
 fn parse_pan_number(parser: &mut StringParser<'_>) -> Option<i8> {
