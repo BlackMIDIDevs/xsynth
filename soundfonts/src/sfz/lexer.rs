@@ -1,9 +1,6 @@
 use std::{fs, io, path::Path};
 
-use crate::{
-    sfz::consts::{KEY_NAMES, KEY_NAMES_ALT},
-    FilterType,
-};
+use crate::FilterType;
 
 use lazy_regex::{regex, Regex};
 
@@ -57,23 +54,15 @@ impl<'a> StringParser<'a> {
     }
 
     fn parse_until_space(&mut self) -> String {
-        let space_regex = regex!(r#"[^\s"']+|"([^"]*)"|'([^']*)'"#);
+        let space_regex = regex!(r#"([^\s]+)"#);
         let next_space = space_regex
             .find(self.input)
             .map(|v| v.end())
             .unwrap_or(self.input.len());
-        let mut result = &self.input[..next_space];
+        let result = &self.input[..next_space];
         let remaining = &self.input[next_space..];
         self.input = remaining;
-
-        let len = result.len();
-        if len != 0
-            && ((&result[..1] == "\"" && &result[len - 1..] == "\"")
-                || (&result[..1] == "'" && &result[len - 1..] == "'"))
-        {
-            result = &result[1..len - 1];
-        }
-        result.to_owned()
+        result.trim().to_owned()
     }
 
     fn trim_start(&mut self) {
@@ -125,15 +114,40 @@ fn parse_key_number(parser: &mut StringParser<'_>) -> Option<u8> {
     match parsed.parse().ok() {
         Some(val) => Some(val),
         None => {
-            match KEY_NAMES
-                .iter()
-                .position(|&x| x == parsed || x.to_lowercase() == parsed)
-            {
-                Some(val) => Some(val as u8),
-                None => KEY_NAMES_ALT
-                    .iter()
-                    .position(|&x| x == parsed || x.to_lowercase() == parsed)
-                    .map(|val| val as u8),
+            let note: String = parsed
+                .chars()
+                .filter(|c| !(c.is_digit(10) || c == &'-'))
+                .collect();
+            let semitone: i8 = match note.to_lowercase().as_str() {
+                "c" => 0,
+                "c#" => 1,
+                "db" => 1,
+                "d" => 2,
+                "d#" => 3,
+                "eb" => 3,
+                "e" => 4,
+                "f" => 5,
+                "f#" => 6,
+                "gb" => 6,
+                "g" => 7,
+                "g#" => 8,
+                "ab" => 8,
+                "a" => 9,
+                "a#" => 10,
+                "bb" => 10,
+                "b" => 11,
+                _ => return None,
+            };
+            let octave: String = parsed
+                .chars()
+                .filter(|c| c.is_digit(10) || c == &'-')
+                .collect();
+            let octave: i8 = octave.parse().ok().unwrap_or(-10);
+            if octave < -1 {
+                None
+            } else {
+                let midi_note = 12 + semitone + octave * 12;
+                Some(midi_note as u8)
             }
         }
     }
