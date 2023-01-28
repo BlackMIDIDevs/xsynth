@@ -54,23 +54,36 @@ impl<'a> StringParser<'a> {
     }
 
     fn parse_until_space(&mut self) -> String {
-        let space_regex = regex!(r#"[^\s"']+|"([^"]*)"|'([^']*)'"#);
+        let space_regex = regex!(r#"([^\s]+)"#);
         let next_space = space_regex
             .find(self.input)
             .map(|v| v.end())
             .unwrap_or(self.input.len());
-        let mut result = &self.input[..next_space];
+        let result = &self.input[..next_space];
         let remaining = &self.input[next_space..];
         self.input = remaining;
+        result.trim().to_owned()
+    }
 
-        let len = result.len();
-        if len != 0
-            && ((&result[..1] == "\"" && &result[len - 1..] == "\"")
-                || (&result[..1] == "'" && &result[len - 1..] == "'"))
-        {
-            result = &result[1..len - 1];
-        }
-        result.to_owned()
+    fn parse_until_next_opcode(&mut self) -> String {
+        let len = match self.input.find(|c: char| c == '#' || c == '<' || c == '=') {
+            Some(srch) => {
+                let mut n = 0;
+                let tmp = &self.input[..srch];
+                for c in tmp.chars().rev() {
+                    n += 1;
+                    if c == ' ' || c == '\n' {
+                        break;
+                    }
+                }
+                srch - n
+            }
+            None => self.input.len(),
+        };
+        let result = &self.input[..len];
+        let remaining = &self.input[len..];
+        self.input = remaining;
+        result.trim().to_owned()
     }
 
     fn trim_start(&mut self) {
@@ -297,7 +310,7 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
     parse!(parser, || {
         parse_basic_tag_name(parser, "sample")?;
         Some(SfzRegionFlags::Sample(
-            parser.parse_until_space().replace('\\', "/"),
+            parser.parse_until_next_opcode().replace('\\', "/"),
         ))
     });
 
@@ -403,7 +416,7 @@ fn parse_region_flags(parser: &mut StringParser) -> Option<SfzRegionFlags> {
     parse!(parser, || {
         parse_basic_tag_name(parser, "default_path")?;
         Some(SfzRegionFlags::DefaultPath(
-            parser.parse_until_space().replace('\\', "/"),
+            parser.parse_until_next_opcode().replace('\\', "/"),
         ))
     });
 
