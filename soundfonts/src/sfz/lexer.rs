@@ -116,7 +116,7 @@ fn parse_key_number(parser: &mut StringParser<'_>) -> Option<u8> {
         None => {
             let note: String = parsed
                 .chars()
-                .filter(|c| !(c.is_digit(10) || c == &'-'))
+                .filter(|c| !(c.is_ascii_digit() || c == &'-'))
                 .collect();
             let semitone: i8 = match note.to_lowercase().as_str() {
                 "c" => 0,
@@ -140,7 +140,7 @@ fn parse_key_number(parser: &mut StringParser<'_>) -> Option<u8> {
             };
             let octave: String = parsed
                 .chars()
-                .filter(|c| c.is_digit(10) || c == &'-')
+                .filter(|c| c.is_ascii_digit() || c == &'-')
                 .collect();
             let octave: i8 = octave.parse().ok().unwrap_or(-10);
             if octave < -1 {
