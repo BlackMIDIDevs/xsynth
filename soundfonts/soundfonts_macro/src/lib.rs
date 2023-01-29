@@ -182,7 +182,7 @@ impl BnfTagArgs {
         let args = self.args.iter().map(|arg| {
             if let Some(name) = arg.name.as_ref() {
                 let parse_kind = arg.parse_kind.as_def_quote();
-                quote! { #name: #parse_kind, }
+                quote! { pub #name: #parse_kind, }
             } else {
                 quote! {}
             }

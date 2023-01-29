@@ -1,6 +1,8 @@
 #![allow(clippy::manual_strip)]
 #![allow(clippy::uninlined_format_args)]
 
+use std::borrow::Cow;
+
 use soundfonts_macro::bnf;
 
 mod opcode_simd;
@@ -43,7 +45,7 @@ bnf! {
     OpcodeValuePart = <!IsEndOfOpcodeString> value:<ParseOpcodeValuePart>;
 
     enum TokenKind = [Opcode | Group | Include | Comment];
-    Token = token:<TokenKind> <?SpacedAndNewLines>;
+    Token = kind:<TokenKind> <?SpacedAndNewLines>;
     Root = items:<[Token]^>;
 
     enum ErrorTolerantToken = [Token | UntilNextLine];
@@ -81,12 +83,16 @@ impl<'a> ErrorTolerantRoot<'a> {
 }
 
 impl<'a> OpcodeValue<'a> {
-    pub fn as_string(&self) -> String {
-        let mut result = String::from(self.first.value.text.text);
-        for part in self.rest.iter() {
-            result.push_str(part.value.text.text);
+    pub fn as_string(&self) -> Cow<'a, str> {
+        if self.rest.is_empty() {
+            return Cow::Borrowed(self.first.value.text.text);
+        } else {
+            let mut result = String::from(self.first.value.text.text);
+            for part in self.rest.iter() {
+                result.push_str(part.value.text.text);
+            }
+            return Cow::Owned(result);
         }
-        result
     }
 }
 
@@ -108,6 +114,33 @@ impl<'a> Token<'a> {
                 parser = p;
                 r
             }))
+        })
+    }
+}
+
+impl<'a> ErrorTolerantToken<'a> {
+    pub fn parse_as_iter(s: &'a str) -> impl Iterator<Item = Result<Token<'a>, ParseError>> {
+        let mut parser = StringParser::new(s);
+        std::iter::from_fn(move || {
+            let result = Self::parse(parser);
+
+            if let Err(e) = result {
+                if parser.is_empty() {
+                    return None;
+                } else {
+                    return Some(Err(e));
+                }
+            }
+
+            Some(result.map(|(r, p)| {
+                parser = p;
+                r
+            }))
+        })
+        .filter_map(|f| match f {
+            Ok(ErrorTolerantToken::UntilNextLine(_)) => None,
+            Ok(ErrorTolerantToken::Token(t)) => Some(Ok(t)),
+            Err(e) => Some(Err(e)),
         })
     }
 }

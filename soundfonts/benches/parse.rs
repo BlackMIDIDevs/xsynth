@@ -7,7 +7,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let str = std::fs::read_to_string(path).unwrap();
 
     c.bench_function("parse sfz", |f| {
-        f.iter(|| grammar::Token::parse_as_iter(&str).count())
+        f.iter(|| grammar::ErrorTolerantToken::parse_as_iter(&str).count())
     });
 }
 

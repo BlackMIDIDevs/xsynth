@@ -1,13 +1,14 @@
 use xsynth_soundfonts::sfz::grammar::{self};
 
 fn main() {
-    let path = "/run/media/d/Midis/Soundfonts/Steinway-B-211-master/Steinway-B-211-master/Presets/1960 Steinway B-211.sfz";
+    let path = "/run/media/d/Midis/Soundfonts/test.sfz";
     let str = std::fs::read_to_string(path).unwrap();
     dbg!("Parsing");
 
-    // let result = grammar::Root::parse_full(&str);
-    // dbg!(result);
+    let result = grammar::Root::parse_full(&str);
 
-    let count = grammar::Token::parse_as_iter(&str).count();
-    dbg!(count);
+    match result {
+        Ok(val) => println!("{:#?}", val),
+        Err(err) => println!("Error: {}", err),
+    }
 }

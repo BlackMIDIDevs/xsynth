@@ -2,6 +2,8 @@
 
 use std::{cell::RefCell, collections::HashMap};
 
+use thiserror::Error;
+
 const PARSE_DEBUG: bool = false;
 
 #[derive(Debug, Clone, Copy)]
@@ -36,6 +38,12 @@ impl FileLocation {
     }
 }
 
+impl std::fmt::Display for FileLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "line {}:{}", self.line_number, self.position)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TextLit<'a> {
     pub text: &'a str,
@@ -48,7 +56,7 @@ impl<'a> TextLit<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 pub struct ParseError {
     pub message: &'static str,
     pub at: FileLocation,
@@ -91,6 +99,32 @@ impl ParseError {
             at,
             child_errors: children,
         }
+    }
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", ParseErrorFmtDepth(self, 0))?;
+        Ok(())
+    }
+}
+
+struct ParseErrorFmtDepth<'a>(&'a ParseError, usize);
+
+impl std::fmt::Display for ParseErrorFmtDepth<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let err = self.0;
+        let depth = self.1;
+
+        for _ in 0..depth {
+            write!(f, "  ")?;
+        }
+        writeln!(f, "{} at {}", err.message, err.at)?;
+
+        for child in &err.child_errors {
+            write!(f, "{}", ParseErrorFmtDepth(child, depth + 1))?;
+        }
+        Ok(())
     }
 }
 
