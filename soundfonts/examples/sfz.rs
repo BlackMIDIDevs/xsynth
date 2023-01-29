@@ -1,9 +1,4 @@
-use std::path::PathBuf;
-
-use xsynth_soundfonts::sfz::{
-    grammar::{self},
-    parse::parse_tokens_resolved,
-};
+use xsynth_soundfonts::sfz::grammar::{self};
 
 fn main() {
     let path = "/run/media/d/Midis/Soundfonts/test.sfz";
