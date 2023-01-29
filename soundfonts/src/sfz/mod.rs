@@ -11,6 +11,7 @@ use self::lexer::{
 
 use crate::FilterType;
 
+pub mod grammar;
 mod lexer;
 
 #[derive(Debug, Clone)]

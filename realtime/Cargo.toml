@@ -18,7 +18,6 @@ wav = "1.0.0"
 core = { path = "../core", package = "xsynth-core" }
 
 [dev-dependencies]
-sofiza = { git = "https://github.com/arduano/sofiza", rev = "4a013a6" }
 midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "907dec1" }
 gen-iter = "0.2.1"
 
