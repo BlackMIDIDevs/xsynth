@@ -487,7 +487,7 @@ pub fn bnf(input: TokenStream) -> TokenStream {
                 let name = &tag.name;
                 let args_quote = tag.args.as_def_quote();
                 quote! {
-                    #[derive(Debug)]
+                    #[derive(Debug, Clone, Hash, PartialEq)]
                     pub struct #name <'a> #args_quote
                 }
             }
@@ -495,7 +495,7 @@ pub fn bnf(input: TokenStream) -> TokenStream {
                 let name = &en.name;
                 let args_quote = en.as_def_quote();
                 quote! {
-                    #[derive(Debug)]
+                    #[derive(Debug, Clone, Hash, PartialEq)]
                     pub enum #name <'a> #args_quote
                 }
             }

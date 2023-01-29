@@ -6,7 +6,7 @@ use thiserror::Error;
 
 const PARSE_DEBUG: bool = false;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq)]
 pub struct FileLocation {
     pub line_number: usize,
     pub position: usize,
@@ -44,7 +44,7 @@ impl std::fmt::Display for FileLocation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub struct TextLit<'a> {
     pub text: &'a str,
     pub location: FileLocation,

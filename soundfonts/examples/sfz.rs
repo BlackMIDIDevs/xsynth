@@ -8,7 +8,9 @@ fn main() {
     let result = grammar::Root::parse_full(&str);
 
     match result {
-        Ok(val) => println!("{val:#?}"),
+        Ok(val) => {
+            println!("{val:#?}");
+        }
         Err(err) => println!("Error: {err}"),
     }
 }

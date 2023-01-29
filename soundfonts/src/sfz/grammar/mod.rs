@@ -11,6 +11,8 @@ use opcode_simd::parse_opcode_name_simd;
 pub mod helpers;
 use helpers::*;
 
+use self::opcode_simd::parse_opcode_value_simd;
+
 // Basically I made a custom bnf syntax that automatically converts into rust code
 //
 // The syntax is:
@@ -53,7 +55,6 @@ bnf! {
 
     Spaces = #"[ ]+";
     UntilNextLine = #"[^\r\n]*" <NewLineOrEof>;
-    ParseOpcodeValuePart = text:#"[^ \n\r]+[ ]*";
     SpacedAndNewLines = #"[ \n\r]+";
     NewLine = #"[\n\r]+";
     enum NewLineOrEof = [NewLine | Eof];
@@ -64,6 +65,9 @@ bnf! {
 
     // OpcodeName = name:#"[\\w\\$]+";
     OpcodeName = name:(parse_opcode_name_simd);
+
+    // ParseOpcodeValuePart = text:#"[^ \n\r]*[ ]*";
+    ParseOpcodeValuePart = text:(parse_opcode_value_simd);
 }
 
 impl<'a> Root<'a> {
