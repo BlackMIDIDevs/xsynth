@@ -64,7 +64,7 @@ fn main() {
         for _ in 0..(20 - bars) {
             print!(" ");
         }
-        print!("] {:.3}% | ", progress);
+        print!("] {progress:.3}% | ");
         print!("Voice Count: {}", voices_thread.load(Ordering::Relaxed));
         if progress >= 100.0 {
             break;

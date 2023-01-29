@@ -234,6 +234,8 @@ fn parse_sfz_opcode(
         "ampeg_sustain" => parse_float(val).map(AmpegSustain).map(AmpegEnvelope),
         "ampeg_release" => parse_float(val).map(AmpegRelease).map(AmpegEnvelope),
 
+        "sample" => Some(Sample(val.replace('\\', "/"))),
+
         _ => None,
     })
 }
@@ -306,14 +308,14 @@ fn parse_tokens_resolved_recursive(
             Ok(t) => match t {
                 SfzTokenWithMeta::Import(path) => {
                     let full_path = parent_path.join(path);
-                    dbg!(&full_path);
                     let mut parsed_tokens = parse_tokens_resolved_recursive(&full_path, defines)?;
                     tokens.append(&mut parsed_tokens);
                 }
                 SfzTokenWithMeta::Group(group) => tokens.push(SfzToken::Group(group)),
                 SfzTokenWithMeta::Opcode(opcode) => tokens.push(SfzToken::Opcode(opcode)),
+                // TODO: insert new #defines here
             },
-            Err(e) => return Err(SfzParseError::from(e)),
+            Err(e) => return Err(e),
         }
     }
 

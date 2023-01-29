@@ -48,7 +48,7 @@ bnf! {
     Token = kind:<TokenKind> <?SpacedAndNewLines>;
     Root = items:<[Token]^>;
 
-    enum ErrorTolerantToken = [Token | UntilNextLine];
+    enum ErrorTolerantToken = [Token | SkipErroringLine];
     ErrorTolerantRoot = items:<[ErrorTolerantToken]^>;
 
     Spaces = #"[ ]+";
@@ -59,6 +59,8 @@ bnf! {
     enum NewLineOrEof = [NewLine | Eof];
     Eof = ^;
     Empty = ;
+
+    SkipErroringLine = #"[^\r\n]*" <NewLine>; // Can't use NewLineOrEof or we may end up in n infinite loop
 
     // OpcodeName = name:#"[\\w\\$]+";
     OpcodeName = name:(parse_opcode_name_simd);
@@ -138,7 +140,7 @@ impl<'a> ErrorTolerantToken<'a> {
             }))
         })
         .filter_map(|f| match f {
-            Ok(ErrorTolerantToken::UntilNextLine(_)) => None,
+            Ok(ErrorTolerantToken::SkipErroringLine(_)) => None,
             Ok(ErrorTolerantToken::Token(t)) => Some(Ok(t)),
             Err(e) => Some(Err(e)),
         })
