@@ -1,17 +1,18 @@
 use std::{
     collections::VecDeque,
-    io,
     ops::RangeInclusive,
     path::{Path, PathBuf},
 };
 
-use self::lexer::{
-    parse_all_tokens, SfzAmpegEnvelope, SfzGroupType, SfzLoopMode, SfzRegionFlags, SfzToken,
+use self::parse::{
+    parse_tokens_resolved, SfzAmpegEnvelope, SfzGroupType, SfzLoopMode, SfzOpcode, SfzParseError,
+    SfzToken,
 };
 
 use crate::FilterType;
 
-mod lexer;
+pub mod grammar;
+pub mod parse;
 
 #[derive(Debug, Clone)]
 pub struct AmpegEnvelopeParams {
@@ -96,24 +97,24 @@ impl Default for RegionParamsBuilder {
 }
 
 impl RegionParamsBuilder {
-    fn update_from_flag(&mut self, flag: SfzRegionFlags) {
+    fn update_from_flag(&mut self, flag: SfzOpcode) {
         match flag {
-            SfzRegionFlags::Lovel(val) => self.lovel = val,
-            SfzRegionFlags::Hivel(val) => self.hivel = val,
-            SfzRegionFlags::Key(val) => self.key = Some(val),
-            SfzRegionFlags::Lokey(val) => self.lokey = Some(val),
-            SfzRegionFlags::Hikey(val) => self.hikey = Some(val),
-            SfzRegionFlags::PitchKeycenter(val) => self.pitch_keycenter = Some(val),
-            SfzRegionFlags::Pan(val) => self.pan = val,
-            SfzRegionFlags::Sample(val) => self.sample = Some(val),
-            SfzRegionFlags::LoopMode(val) => self.loop_mode = val,
-            SfzRegionFlags::Cutoff(val) => self.cutoff = Some(val),
-            SfzRegionFlags::FilVeltrack(val) => self.fil_veltrack = val,
-            SfzRegionFlags::FilKeytrack(val) => self.fil_keytrack = val,
-            SfzRegionFlags::FilKeycenter(val) => self.fil_keycenter = val,
-            SfzRegionFlags::FilterType(val) => self.filter_type = val,
-            SfzRegionFlags::DefaultPath(val) => self.default_path = Some(val),
-            SfzRegionFlags::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
+            SfzOpcode::Lovel(val) => self.lovel = val,
+            SfzOpcode::Hivel(val) => self.hivel = val,
+            SfzOpcode::Key(val) => self.key = Some(val),
+            SfzOpcode::Lokey(val) => self.lokey = Some(val),
+            SfzOpcode::Hikey(val) => self.hikey = Some(val),
+            SfzOpcode::PitchKeycenter(val) => self.pitch_keycenter = Some(val),
+            SfzOpcode::Pan(val) => self.pan = val,
+            SfzOpcode::Sample(val) => self.sample = Some(val),
+            SfzOpcode::LoopMode(val) => self.loop_mode = val,
+            SfzOpcode::Cutoff(val) => self.cutoff = Some(val),
+            SfzOpcode::FilVeltrack(val) => self.fil_veltrack = val,
+            SfzOpcode::FilKeytrack(val) => self.fil_keytrack = val,
+            SfzOpcode::FilKeycenter(val) => self.fil_keycenter = val,
+            SfzOpcode::FilterType(val) => self.filter_type = val,
+            SfzOpcode::DefaultPath(val) => self.default_path = Some(val),
+            SfzOpcode::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
         }
     }
 
@@ -228,7 +229,7 @@ fn parse_sf_root(tokens: impl Iterator<Item = SfzToken>, base_path: PathBuf) -> 
                     current_group = None;
                 }
             }
-            SfzToken::RegionFlag(flag) => {
+            SfzToken::Opcode(flag) => {
                 if current_group.is_some() {
                     if let Some(group_data) = group_data_stack.back_mut() {
                         group_data.update_from_flag(flag);
@@ -249,10 +250,13 @@ fn parse_sf_root(tokens: impl Iterator<Item = SfzToken>, base_path: PathBuf) -> 
     regions
 }
 
-pub fn parse_soundfont(sfz_path: impl Into<PathBuf>) -> io::Result<Vec<RegionParams>> {
-    let sfz_path: PathBuf = sfz_path.into().canonicalize()?;
+pub fn parse_soundfont(sfz_path: impl Into<PathBuf>) -> Result<Vec<RegionParams>, SfzParseError> {
+    let sfz_path = sfz_path.into();
+    let sfz_path: PathBuf = sfz_path
+        .canonicalize()
+        .map_err(|_| SfzParseError::FailedToReadFile(sfz_path))?;
 
-    let tokens = parse_all_tokens(&sfz_path)?;
+    let tokens = parse_tokens_resolved(&sfz_path)?;
 
     // Unwrap here is safe because the path is confirmed to be a file due to `parse_all_tokens`
     // and therefore it will always have a parent folder. The path is also canonicalized.

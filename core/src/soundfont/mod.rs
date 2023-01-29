@@ -9,7 +9,7 @@ use std::{
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
-use soundfonts::sfz::RegionParams;
+use soundfonts::sfz::{parse::SfzParseError, RegionParams};
 use thiserror::Error;
 
 use self::audio::{load_audio_file, AudioLoadError};
@@ -236,6 +236,9 @@ pub enum LoadSfzError {
 
     #[error("Error loading samples")]
     AudioLoadError(#[from] AudioLoadError),
+
+    #[error("Error parsing the SFZ: {0}")]
+    SfzParseError(#[from] SfzParseError),
 }
 
 impl SampleSoundfont {
