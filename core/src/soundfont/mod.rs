@@ -156,8 +156,8 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
         let pan = self.pan * std::f32::consts::PI / 2.0;
-        let leftg = pan.cos();
-        let rightg = pan.sin();
+        let leftg = (pan.cos() * 1.42).min(1.0);
+        let rightg = (pan.sin() * 1.42).min(1.0);
 
         let gains = SIMDConstantStereo::<S>::new(leftg, rightg);
 
