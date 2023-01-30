@@ -74,7 +74,7 @@ pub enum SfzTokenWithMeta {
     Group(SfzGroupType),
     Opcode(SfzOpcode),
     Import(String),
-    // TODO: Add #defines here
+    Define(String, String),
 }
 
 #[derive(Error, Debug, Clone)]
@@ -212,9 +212,9 @@ fn parse_sfz_opcode(
 
     Ok(match opcode.name.name.text {
         "lokey" => parse_key_number(val).map(Lokey),
-        "hikey" => parse_key_number(val).map(Lokey),
+        "hikey" => parse_key_number(val).map(Hikey),
         "lovel" => parse_vel_number(val).map(Lovel),
-        "hivel" => parse_vel_number(val).map(Lovel),
+        "hivel" => parse_vel_number(val).map(Hivel),
         "pan" => parse_pan_number(val).map(Pan),
         "pitch_keycenter" => parse_key_number(val).map(PitchKeycenter),
         "key" => parse_key_number(val).map(Key),
@@ -266,6 +266,14 @@ fn grammar_token_into_sfz_token(
         TokenKind::Include(include) => Ok(Some(SfzTokenWithMeta::Import(
             include.path.text.replace('\\', "/"),
         ))),
+        TokenKind::Define(define) => {
+            let variable = define.variable.text.to_owned();
+            let value = define.value.text.to_owned();
+            //defines.borrow_mut().insert(variable.clone(), value.clone());
+            Ok(Some(SfzTokenWithMeta::Define(
+                variable, value
+            )))
+        },
     }
 }
 
@@ -324,7 +332,7 @@ fn parse_tokens_resolved_recursive(
                 }
                 SfzTokenWithMeta::Group(group) => tokens.push(SfzToken::Group(group)),
                 SfzTokenWithMeta::Opcode(opcode) => tokens.push(SfzToken::Opcode(opcode)),
-                // TODO: insert new #defines here
+                SfzTokenWithMeta::Define(variable, value) => { defines.borrow_mut().insert(variable.clone(), value.clone()); },
             },
             Err(e) => return Err(e),
         }
