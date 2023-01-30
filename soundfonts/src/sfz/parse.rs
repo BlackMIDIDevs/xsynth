@@ -345,8 +345,13 @@ fn parse_tokens_resolved_recursive(
                 SfzTokenWithMeta::Group(group) => tokens.push(SfzToken::Group(group)),
                 SfzTokenWithMeta::Opcode(opcode) => tokens.push(SfzToken::Opcode(opcode)),
                 SfzTokenWithMeta::Define(variable, value) => {
-                    defines.borrow_mut().insert(variable.trim().to_owned(), value.trim().to_owned());
-                    //dbg!(defines);
+                    // We clear the include cache here so if the same file is included
+                    // it will use the new definition values
+                    parsed_includes.clear();
+
+                    defines
+                        .borrow_mut()
+                        .insert(variable.trim().to_owned(), value.trim().to_owned());
                 }
             },
             Err(e) => return Err(e),
