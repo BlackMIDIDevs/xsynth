@@ -74,7 +74,7 @@ pub enum SfzTokenWithMeta {
     Group(SfzGroupType),
     Opcode(SfzOpcode),
     Import(String),
-    // TODO: Add #defines here
+    Define(String, String),
 }
 
 #[derive(Error, Debug, Clone)]
@@ -196,6 +196,9 @@ fn parse_sfz_opcode(
     opcode: Opcode,
     defines: &RefCell<HashMap<String, String>>,
 ) -> Result<Option<SfzOpcode>, SfzValidationError> {
+    let name = opcode.name.name.text;
+    let mut name = Cow::Borrowed(name.trim());
+
     let val = opcode.value.as_string();
     let mut val = Cow::Borrowed(val.trim());
 
@@ -203,18 +206,22 @@ fn parse_sfz_opcode(
         if val.contains(key) {
             val = Cow::Owned(val.replace(key, replace));
         }
+        if name.contains(key) {
+            name = Cow::Owned(name.replace(key, replace));
+        }
     }
 
     use SfzAmpegEnvelope::*;
     use SfzOpcode::*;
 
     let val = val.as_ref();
+    let name = name.as_ref();
 
-    Ok(match opcode.name.name.text {
+    Ok(match name {
         "lokey" => parse_key_number(val).map(Lokey),
-        "hikey" => parse_key_number(val).map(Lokey),
+        "hikey" => parse_key_number(val).map(Hikey),
         "lovel" => parse_vel_number(val).map(Lovel),
-        "hivel" => parse_vel_number(val).map(Lovel),
+        "hivel" => parse_vel_number(val).map(Hivel),
         "pan" => parse_pan_number(val).map(Pan),
         "pitch_keycenter" => parse_key_number(val).map(PitchKeycenter),
         "key" => parse_key_number(val).map(Key),
@@ -266,6 +273,12 @@ fn grammar_token_into_sfz_token(
         TokenKind::Include(include) => Ok(Some(SfzTokenWithMeta::Import(
             include.path.text.replace('\\', "/"),
         ))),
+        TokenKind::Define(define) => {
+            let variable = define.variable.text.to_owned();
+            let value = define.value.first.value.text.text.to_owned();
+            //defines.borrow_mut().insert(variable.clone(), value.clone());
+            Ok(Some(SfzTokenWithMeta::Define(variable, value)))
+        }
     }
 }
 
@@ -286,6 +299,7 @@ pub fn parse_tokens_raw<'a>(
 }
 
 fn parse_tokens_resolved_recursive(
+    instr_path: &Path,
     file_path: &Path,
     defines: &RefCell<HashMap<String, String>>,
 ) -> Result<Vec<SfzToken>, SfzParseError> {
@@ -297,7 +311,7 @@ fn parse_tokens_resolved_recursive(
 
     // Unwrap here is safe because the path is confirmed to be a file (read above)
     // and therefore it will always have a parent folder. The path is also canonicalized.
-    let parent_path = file_path.parent().unwrap();
+    let parent_path = instr_path.parent().unwrap();
 
     let mut tokens = Vec::new();
 
@@ -308,11 +322,17 @@ fn parse_tokens_resolved_recursive(
     for t in iter {
         match t {
             Ok(t) => match t {
-                SfzTokenWithMeta::Import(path) => {
+                SfzTokenWithMeta::Import(mut path) => {
+                    for (key, replace) in defines.borrow().iter() {
+                        if path.contains(key) {
+                            path = path.replace(key, replace);
+                        }
+                    }
+
                     // Get the cached tokens for this current path, or parse them if they haven't been parsed yet
                     let parsed_tokens = parsed_includes.entry(path.clone()).or_insert_with(|| {
                         let full_path = parent_path.join(&path);
-                        parse_tokens_resolved_recursive(&full_path, defines)
+                        parse_tokens_resolved_recursive(instr_path, &full_path, defines)
                     });
 
                     if let Ok(parsed_tokens) = parsed_tokens {
@@ -324,7 +344,15 @@ fn parse_tokens_resolved_recursive(
                 }
                 SfzTokenWithMeta::Group(group) => tokens.push(SfzToken::Group(group)),
                 SfzTokenWithMeta::Opcode(opcode) => tokens.push(SfzToken::Opcode(opcode)),
-                // TODO: insert new #defines here
+                SfzTokenWithMeta::Define(variable, value) => {
+                    // We clear the include cache here so if the same file is included
+                    // it will use the new definition values
+                    parsed_includes.clear();
+
+                    defines
+                        .borrow_mut()
+                        .insert(variable.trim().to_owned(), value.trim().to_owned());
+                }
             },
             Err(e) => return Err(e),
         }
@@ -335,5 +363,5 @@ fn parse_tokens_resolved_recursive(
 
 pub fn parse_tokens_resolved(file_path: &Path) -> Result<Vec<SfzToken>, SfzParseError> {
     let defines = RefCell::new(HashMap::new());
-    parse_tokens_resolved_recursive(file_path, &defines)
+    parse_tokens_resolved_recursive(file_path, file_path, &defines)
 }

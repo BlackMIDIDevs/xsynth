@@ -29,6 +29,7 @@ use self::opcode_simd::parse_opcode_value_simd;
 bnf! {
     Include = "#include" <Spaces> "\"" path:#"[^\"]+" "\"";
     Group = "<" name:#"\\w+" ">";
+    Define = "#define" <Spaces> variable:#"\\$\\w+" <Spaces> value: <OpcodeValue>;
     Comment = "//" <UntilNextLine>;
 
     Opcode = name:<OpcodeName> <?Spaces> "=" <?Spaces> value: <OpcodeValue>;
@@ -36,17 +37,18 @@ bnf! {
 
     // We have "beginnings" so that we can know when to stop parsing an opcode value faster
     IncludeBeginning = "#include";
+    DefineBeginning = "#define";
     GroupBeginning = "<";
     CommentBeginning = "//";
     OpcodeBeginning = <OpcodeName> <?Spaces> "=";
-    enum TokenBeginning = [OpcodeBeginning | GroupBeginning | IncludeBeginning | CommentBeginning];
+    enum TokenBeginning = [OpcodeBeginning | GroupBeginning | IncludeBeginning | DefineBeginning | CommentBeginning];
 
     IsValidTokenAheadOnSameLine = <?Spaces> <TokenBeginning>;
     DoesLineEndAfter = <?Spaces> <NewLine>;
     enum IsEndOfOpcodeString = [DoesLineEndAfter | IsValidTokenAheadOnSameLine];
     OpcodeValuePart = <!IsEndOfOpcodeString> value:<ParseOpcodeValuePart>;
 
-    enum TokenKind = [Opcode | Group | Include | Comment];
+    enum TokenKind = [Opcode | Group | Include | Define | Comment];
     Token = kind:<TokenKind> <?SpacedAndNewLines>;
     Root = items:<[Token]^>;
 

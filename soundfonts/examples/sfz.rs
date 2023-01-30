@@ -1,7 +1,8 @@
 use xsynth_soundfonts::sfz::grammar::{self};
 
 fn main() {
-    let path = "/run/media/d/Midis/Soundfonts/test.sfz";
+    let args = std::env::args().collect::<Vec<String>>();
+    let path = args.get(1).unwrap();
     let str = std::fs::read_to_string(path).unwrap();
     dbg!("Parsing");
 
