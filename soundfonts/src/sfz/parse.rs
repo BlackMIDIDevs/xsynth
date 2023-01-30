@@ -196,6 +196,9 @@ fn parse_sfz_opcode(
     opcode: Opcode,
     defines: &RefCell<HashMap<String, String>>,
 ) -> Result<Option<SfzOpcode>, SfzValidationError> {
+    let name = opcode.name.name.text;
+    let mut name = Cow::Borrowed(name.trim());
+
     let val = opcode.value.as_string();
     let mut val = Cow::Borrowed(val.trim());
 
@@ -203,14 +206,18 @@ fn parse_sfz_opcode(
         if val.contains(key) {
             val = Cow::Owned(val.replace(key, replace));
         }
+        if name.contains(key) {
+            name = Cow::Owned(name.replace(key, replace));
+        }
     }
 
     use SfzAmpegEnvelope::*;
     use SfzOpcode::*;
 
     let val = val.as_ref();
+    let name = name.as_ref();
 
-    Ok(match opcode.name.name.text {
+    Ok(match name {
         "lokey" => parse_key_number(val).map(Lokey),
         "hikey" => parse_key_number(val).map(Hikey),
         "lovel" => parse_vel_number(val).map(Lovel),
@@ -294,6 +301,7 @@ pub fn parse_tokens_raw<'a>(
 }
 
 fn parse_tokens_resolved_recursive(
+    instr_path: &Path,
     file_path: &Path,
     defines: &RefCell<HashMap<String, String>>,
 ) -> Result<Vec<SfzToken>, SfzParseError> {
@@ -305,7 +313,7 @@ fn parse_tokens_resolved_recursive(
 
     // Unwrap here is safe because the path is confirmed to be a file (read above)
     // and therefore it will always have a parent folder. The path is also canonicalized.
-    let parent_path = file_path.parent().unwrap();
+    let parent_path = instr_path.parent().unwrap();
 
     let mut tokens = Vec::new();
 
@@ -316,11 +324,17 @@ fn parse_tokens_resolved_recursive(
     for t in iter {
         match t {
             Ok(t) => match t {
-                SfzTokenWithMeta::Import(path) => {
+                SfzTokenWithMeta::Import(mut path) => {
+                    for (key, replace) in defines.borrow().iter() {
+                        if path.contains(key) {
+                            path = path.replace(key, replace);
+                        }
+                    }
+
                     // Get the cached tokens for this current path, or parse them if they haven't been parsed yet
                     let parsed_tokens = parsed_includes.entry(path.clone()).or_insert_with(|| {
                         let full_path = parent_path.join(&path);
-                        parse_tokens_resolved_recursive(&full_path, defines)
+                        parse_tokens_resolved_recursive(instr_path, &full_path, defines)
                     });
 
                     if let Ok(parsed_tokens) = parsed_tokens {
@@ -343,5 +357,5 @@ fn parse_tokens_resolved_recursive(
 
 pub fn parse_tokens_resolved(file_path: &Path) -> Result<Vec<SfzToken>, SfzParseError> {
     let defines = RefCell::new(HashMap::new());
-    parse_tokens_resolved_recursive(file_path, &defines)
+    parse_tokens_resolved_recursive(file_path, file_path, &defines)
 }

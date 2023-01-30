@@ -1,7 +1,7 @@
 use xsynth_soundfonts::sfz::grammar::{self};
 
 fn main() {
-    let path = "/run/media/d/Midis/Soundfonts/test.sfz";
+    let path = "/home/jim/Projects/SoundFonts/AIG/OUT/Amethyst Imperial Grand - Imperial Hall/Amethyst Imperial Grand - Imperial Hall.sfz";
     let str = std::fs::read_to_string(path).unwrap();
     dbg!("Parsing");
 
