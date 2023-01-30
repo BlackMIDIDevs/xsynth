@@ -148,10 +148,10 @@ impl VoiceChannel {
 
         // Panning
         for sample in out.iter_mut().skip(0).step_by(2) {
-            *sample *= ((control.pan * std::f32::consts::PI / 2.0).cos());
+            *sample *= (control.pan * std::f32::consts::PI / 2.0).cos();
         }
         for sample in out.iter_mut().skip(1).step_by(2) {
-            *sample *= ((control.pan * std::f32::consts::PI / 2.0).sin());
+            *sample *= (control.pan * std::f32::consts::PI / 2.0).sin();
         }
 
         // Cutoff

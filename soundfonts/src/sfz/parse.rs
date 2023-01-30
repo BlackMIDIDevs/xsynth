@@ -3,8 +3,8 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     fs,
-    path::{Path, PathBuf},
     ops::RangeInclusive,
+    path::{Path, PathBuf},
 };
 
 use crate::FilterType;
@@ -153,19 +153,27 @@ fn parse_key_number(val: &str) -> Option<u8> {
 }
 
 fn parse_u8_in_range(val: &str, range: RangeInclusive<u8>) -> Option<u8> {
-    val.parse().ok().map(|val: u8| val.clamp(*range.start(), *range.end()))
+    val.parse()
+        .ok()
+        .map(|val: u8| val.clamp(*range.start(), *range.end()))
 }
 
 fn parse_i8_in_range(val: &str, range: RangeInclusive<i8>) -> Option<i8> {
-    val.parse().ok().map(|val: i8| val.clamp(*range.start(), *range.end()))
+    val.parse()
+        .ok()
+        .map(|val: i8| val.clamp(*range.start(), *range.end()))
 }
 
 fn parse_i16_in_range(val: &str, range: RangeInclusive<i16>) -> Option<i16> {
-    val.parse().ok().map(|val: i16| val.clamp(*range.start(), *range.end()))
+    val.parse()
+        .ok()
+        .map(|val: i16| val.clamp(*range.start(), *range.end()))
 }
 
 fn parse_float_in_range(val: &str, range: RangeInclusive<f32>) -> Option<f32> {
-    val.parse().ok().map(|val: f32| val.clamp(*range.start(), *range.end()))
+    val.parse()
+        .ok()
+        .map(|val: f32| val.clamp(*range.start(), *range.end()))
 }
 
 fn parse_filter_kind(val: &str) -> Option<FilterType> {
@@ -236,13 +244,27 @@ fn parse_sfz_opcode(
         "loop_mode" => parse_loop_mode(val).map(LoopMode),
         "default_path" => Some(DefaultPath(val.replace('\\', "/"))),
 
-        "ampeg_delay" => parse_float_in_range(val, 0.0..=100.0).map(AmpegDelay).map(AmpegEnvelope),
-        "ampeg_start" => parse_float_in_range(val, 0.0..=100.0).map(AmpegStart).map(AmpegEnvelope),
-        "ampeg_attack" => parse_float_in_range(val, 0.0..=100.0).map(AmpegAttack).map(AmpegEnvelope),
-        "ampeg_hold" => parse_float_in_range(val, 0.0..=100.0).map(AmpegHold).map(AmpegEnvelope),
-        "ampeg_decay" => parse_float_in_range(val, 0.0..=100.0).map(AmpegDecay).map(AmpegEnvelope),
-        "ampeg_sustain" => parse_float_in_range(val, 0.0..=100.0).map(AmpegSustain).map(AmpegEnvelope),
-        "ampeg_release" => parse_float_in_range(val, 0.0..=100.0).map(AmpegRelease).map(AmpegEnvelope),
+        "ampeg_delay" => parse_float_in_range(val, 0.0..=100.0)
+            .map(AmpegDelay)
+            .map(AmpegEnvelope),
+        "ampeg_start" => parse_float_in_range(val, 0.0..=100.0)
+            .map(AmpegStart)
+            .map(AmpegEnvelope),
+        "ampeg_attack" => parse_float_in_range(val, 0.0..=100.0)
+            .map(AmpegAttack)
+            .map(AmpegEnvelope),
+        "ampeg_hold" => parse_float_in_range(val, 0.0..=100.0)
+            .map(AmpegHold)
+            .map(AmpegEnvelope),
+        "ampeg_decay" => parse_float_in_range(val, 0.0..=100.0)
+            .map(AmpegDecay)
+            .map(AmpegEnvelope),
+        "ampeg_sustain" => parse_float_in_range(val, 0.0..=100.0)
+            .map(AmpegSustain)
+            .map(AmpegEnvelope),
+        "ampeg_release" => parse_float_in_range(val, 0.0..=100.0)
+            .map(AmpegRelease)
+            .map(AmpegEnvelope),
 
         "sample" => Some(Sample(val.replace('\\', "/"))),
 

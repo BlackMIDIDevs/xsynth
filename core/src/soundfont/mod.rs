@@ -17,9 +17,9 @@ use self::audio::{load_audio_file, AudioLoadError};
 use super::{
     voice::VoiceControlData,
     voice::{
-        BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDNearestSampleGrabber,
-        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
-        Voice, VoiceBase, VoiceCombineSIMD,
+        BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
+        SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
+        SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -48,6 +48,8 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
 }
 
 struct SampleVoiceSpawnerParams {
+    volume: f32,
+    pan: f32,
     speed_mult: f32,
     cutoff: Option<f32>,
     filter_type: FilterType,
@@ -76,6 +78,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
     filter: Option<BiQuadFilter>,
     amp: f32,
+    pan: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Arc<[Arc<[f32]>]>,
     vel: u8,
@@ -89,7 +92,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         vel: u8,
         stream_params: AudioStreamParams,
     ) -> Self {
-        let amp = (vel as f32 / 127.0).powi(2);
+        let amp = (vel as f32 / 127.0).powi(2) * params.volume;
 
         let filter = params.cutoff.map(|cutoff| {
             BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32)
@@ -99,6 +102,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             speed_mult: params.speed_mult,
             filter,
             amp,
+            pan: params.pan,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
             vel,
@@ -145,6 +149,22 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         amp
     }
 
+    fn apply_pan<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
+    where
+        Sample: SIMDSample<S>,
+        SIMDSampleStereo<S>: Mul<Sample, Output = Sample>,
+        Gen: SIMDVoiceGenerator<S, Sample>,
+    {
+        let pan = self.pan * std::f32::consts::PI / 2.0;
+        let leftg = pan.cos();
+        let rightg = pan.sin();
+
+        let gains = SIMDConstantStereo::<S>::new(leftg, rightg);
+
+        let panned = VoiceCombineSIMD::mult(gains, gen);
+        panned
+    }
+
     fn apply_envelope<Gen, Sample>(
         &self,
         gen: Gen,
@@ -187,6 +207,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
         let gen = self.get_sampler(control);
 
         let gen = self.apply_velocity(gen);
+        let gen = self.apply_pan(gen);
         let gen = self.apply_envelope(gen, control);
 
         if let Some(filter) = &self.filter {
@@ -323,7 +344,12 @@ impl SampleSoundfont {
                         }
                     }
 
+                    let pan = ((region.pan as f32 / 100.0) + 1.0) / 2.0;
+                    let volume = 10f32.powf(region.volume as f32 / 20.0);
+
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
+                        pan,
+                        volume,
                         envelope: envelope_params,
                         speed_mult,
                         cutoff,
