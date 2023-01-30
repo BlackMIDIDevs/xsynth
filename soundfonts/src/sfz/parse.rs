@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    ops::RangeInclusive,
 };
 
 use crate::FilterType;
@@ -30,6 +31,7 @@ pub enum SfzOpcode {
     Lokey(u8),
     Hikey(u8),
     PitchKeycenter(u8),
+    Volume(i16),
     Pan(i8),
     Sample(String),
     LoopMode(SfzLoopMode),
@@ -108,14 +110,14 @@ pub enum SfzParseError {
 }
 
 fn parse_key_number(val: &str) -> Option<u8> {
-    match val.parse().ok() {
-        Some(val) => Some(val),
+    match val.parse::<u8>().ok() {
+        Some(val) => Some(val.clamp(0, 128)),
         None => {
             let note: String = val
                 .chars()
                 .filter(|c| !(c.is_ascii_digit() || c == &'-'))
                 .collect();
-            let semitone: i8 = match note.to_lowercase().as_str() {
+            let semitone: i16 = match note.to_lowercase().as_str() {
                 "c" => 0,
                 "c#" => 1,
                 "db" => 1,
@@ -139,31 +141,31 @@ fn parse_key_number(val: &str) -> Option<u8> {
                 .chars()
                 .filter(|c| c.is_ascii_digit() || c == &'-')
                 .collect();
-            let octave: i8 = octave.parse().ok().unwrap_or(-10);
+            let octave: i16 = octave.parse().ok().unwrap_or(-10);
             if octave < -1 {
                 None
             } else {
                 let midi_note = 12 + semitone + octave * 12;
-                Some(midi_note as u8)
+                Some(midi_note.clamp(0, 128) as u8)
             }
         }
     }
 }
 
-fn parse_vel_number(val: &str) -> Option<u8> {
-    val.parse().ok()
+fn parse_u8_in_range(val: &str, range: RangeInclusive<u8>) -> Option<u8> {
+    val.parse().ok().map(|val: u8| val.clamp(*range.start(), *range.end()))
 }
 
-fn parse_pan_number(val: &str) -> Option<i8> {
-    val.parse().ok()
+fn parse_i8_in_range(val: &str, range: RangeInclusive<i8>) -> Option<i8> {
+    val.parse().ok().map(|val: i8| val.clamp(*range.start(), *range.end()))
 }
 
-fn parse_i16(val: &str) -> Option<i16> {
-    val.parse().ok()
+fn parse_i16_in_range(val: &str, range: RangeInclusive<i16>) -> Option<i16> {
+    val.parse().ok().map(|val: i16| val.clamp(*range.start(), *range.end()))
 }
 
-fn parse_float(val: &str) -> Option<f32> {
-    val.parse().ok()
+fn parse_float_in_range(val: &str, range: RangeInclusive<f32>) -> Option<f32> {
+    val.parse().ok().map(|val: f32| val.clamp(*range.start(), *range.end()))
 }
 
 fn parse_filter_kind(val: &str) -> Option<FilterType> {
@@ -220,26 +222,27 @@ fn parse_sfz_opcode(
     Ok(match name {
         "lokey" => parse_key_number(val).map(Lokey),
         "hikey" => parse_key_number(val).map(Hikey),
-        "lovel" => parse_vel_number(val).map(Lovel),
-        "hivel" => parse_vel_number(val).map(Hivel),
-        "pan" => parse_pan_number(val).map(Pan),
+        "lovel" => parse_u8_in_range(val, 0..=128).map(Lovel),
+        "hivel" => parse_u8_in_range(val, 0..=128).map(Hivel),
+        "volume" => parse_i16_in_range(val, -144..=6).map(Volume),
+        "pan" => parse_i8_in_range(val, -100..=100).map(Pan),
         "pitch_keycenter" => parse_key_number(val).map(PitchKeycenter),
         "key" => parse_key_number(val).map(Key),
-        "cutoff" => parse_float(val).map(Cutoff),
-        "fil_veltrack" => parse_i16(val).map(FilVeltrack),
-        "fil_keytrack" => parse_i16(val).map(FilKeytrack),
+        "cutoff" => parse_float_in_range(val, 1.0..=100000.0).map(Cutoff),
+        "fil_veltrack" => parse_i16_in_range(val, -9600..=9600).map(FilVeltrack),
+        "fil_keytrack" => parse_i16_in_range(val, 0..=1200).map(FilKeytrack),
         "fil_keycenter" => parse_key_number(val).map(FilKeycenter),
         "fil_type" => parse_filter_kind(val).map(FilterType),
         "loop_mode" => parse_loop_mode(val).map(LoopMode),
-        "default_path" => Some(DefaultPath(val.to_string())),
+        "default_path" => Some(DefaultPath(val.replace('\\', "/"))),
 
-        "ampeg_delay" => parse_float(val).map(AmpegDelay).map(AmpegEnvelope),
-        "ampeg_start" => parse_float(val).map(AmpegStart).map(AmpegEnvelope),
-        "ampeg_attack" => parse_float(val).map(AmpegAttack).map(AmpegEnvelope),
-        "ampeg_hold" => parse_float(val).map(AmpegHold).map(AmpegEnvelope),
-        "ampeg_decay" => parse_float(val).map(AmpegDecay).map(AmpegEnvelope),
-        "ampeg_sustain" => parse_float(val).map(AmpegSustain).map(AmpegEnvelope),
-        "ampeg_release" => parse_float(val).map(AmpegRelease).map(AmpegEnvelope),
+        "ampeg_delay" => parse_float_in_range(val, 0.0..=100.0).map(AmpegDelay).map(AmpegEnvelope),
+        "ampeg_start" => parse_float_in_range(val, 0.0..=100.0).map(AmpegStart).map(AmpegEnvelope),
+        "ampeg_attack" => parse_float_in_range(val, 0.0..=100.0).map(AmpegAttack).map(AmpegEnvelope),
+        "ampeg_hold" => parse_float_in_range(val, 0.0..=100.0).map(AmpegHold).map(AmpegEnvelope),
+        "ampeg_decay" => parse_float_in_range(val, 0.0..=100.0).map(AmpegDecay).map(AmpegEnvelope),
+        "ampeg_sustain" => parse_float_in_range(val, 0.0..=100.0).map(AmpegSustain).map(AmpegEnvelope),
+        "ampeg_release" => parse_float_in_range(val, 0.0..=100.0).map(AmpegRelease).map(AmpegEnvelope),
 
         "sample" => Some(Sample(val.replace('\\', "/"))),
 
