@@ -275,7 +275,7 @@ fn grammar_token_into_sfz_token(
         ))),
         TokenKind::Define(define) => {
             let variable = define.variable.text.to_owned();
-            let value = define.value.text.to_owned();
+            let value = define.value.first.value.text.text.to_owned();
             //defines.borrow_mut().insert(variable.clone(), value.clone());
             Ok(Some(SfzTokenWithMeta::Define(variable, value)))
         }
@@ -345,7 +345,8 @@ fn parse_tokens_resolved_recursive(
                 SfzTokenWithMeta::Group(group) => tokens.push(SfzToken::Group(group)),
                 SfzTokenWithMeta::Opcode(opcode) => tokens.push(SfzToken::Opcode(opcode)),
                 SfzTokenWithMeta::Define(variable, value) => {
-                    defines.borrow_mut().insert(variable.clone(), value.clone());
+                    defines.borrow_mut().insert(variable.trim().to_owned(), value.trim().to_owned());
+                    //dbg!(defines);
                 }
             },
             Err(e) => return Err(e),

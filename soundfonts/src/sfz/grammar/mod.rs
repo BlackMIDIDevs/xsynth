@@ -29,7 +29,7 @@ use self::opcode_simd::parse_opcode_value_simd;
 bnf! {
     Include = "#include" <Spaces> "\"" path:#"[^\"]+" "\"";
     Group = "<" name:#"\\w+" ">";
-    Define = "#define" <Spaces> variable:#"\\$\\w+" <Spaces> value:#".*";
+    Define = "#define" <Spaces> variable:#"\\$\\w+" <Spaces> value: <OpcodeValue>;
     Comment = "//" <UntilNextLine>;
 
     Opcode = name:<OpcodeName> <?Spaces> "=" <?Spaces> value: <OpcodeValue>;
