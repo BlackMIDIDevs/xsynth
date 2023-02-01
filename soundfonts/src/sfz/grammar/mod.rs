@@ -3,37 +3,21 @@
 
 use std::borrow::Cow;
 
-use soundfonts_macro::bnf;
+use regex_bnf::*;
 
 mod opcode_simd;
 use opcode_simd::parse_opcode_name_simd;
 
-pub mod helpers;
-use helpers::*;
-
 use self::opcode_simd::parse_opcode_value_simd;
 
-// Basically I made a custom bnf syntax that automatically converts into rust code
-//
-// The syntax is:
-// Tag = <AnotherTag> "some text" #"some regex";
-// Labelled = name:<Tag> name2:#"some regex";
-//
-// enum Enum = [Tag1 | Tag2 | Tag3];
-//
-// Modifiers = <?Optional> <!Not> <[Array]> <[ArrayUntilEof]^> <(LookAhead)>;
-// CustomFn = (fn_name)
-// Eof = ^;
-//
-
 bnf! {
-    Include = "#include" <Spaces> "\"" path:#"[^\"]+" "\"";
-    Group = "<" name:#"\\w+" ">";
-    Define = "#define" <Spaces> variable:#"\\$\\w+" <Spaces> value: <OpcodeValue>;
+    Include = "#include" <Spaces> "\"" path:r#"[^"]+"# "\"";
+    Group = "<" name:r"\w+" ">";
+    Define = "#define" <Spaces> variable:r"\$\w+" <Spaces> value: <OpcodeValue>;
     Comment = "//" <UntilNextLine>;
 
     Opcode = name:<OpcodeName> <?Spaces> "=" <?Spaces> value: <OpcodeValue>;
-    OpcodeValue = first:<OpcodeValuePart> rest:<[OpcodeValuePart]>;
+    OpcodeValue = first:<OpcodeValuePart> rest:<[OpcodeValuePart]*>;
 
     // We have "beginnings" so that we can know when to stop parsing an opcode value faster
     IncludeBeginning = "#include";
@@ -55,20 +39,20 @@ bnf! {
     enum ErrorTolerantToken = [Token | SkipErroringLine];
     ErrorTolerantRoot = items:<[ErrorTolerantToken]^>;
 
-    Spaces = #"[ ]+";
-    UntilNextLine = #"[^\r\n]*" <NewLineOrEof>;
-    SpacedAndNewLines = #"[ \n\r]+";
-    NewLine = #"[\n\r]+";
+    Spaces = r"[ ]+";
+    UntilNextLine = r"[^\r\n]*" <NewLineOrEof>;
+    SpacedAndNewLines = r"[ \n\r]+";
+    NewLine = r"[\n\r]+";
     enum NewLineOrEof = [NewLine | Eof];
     Eof = ^;
     Empty = ;
 
-    SkipErroringLine = #"[^\r\n]*" <NewLine>; // Can't use NewLineOrEof or we may end up in n infinite loop
+    SkipErroringLine = r"[^\r\n]*" <NewLine>; // Can't use NewLineOrEof or we may end up in n infinite loop
 
-    // OpcodeName = name:#"[\\w\\$]+";
+    // OpcodeName = name:r"[\\w\\$]+";
     OpcodeName = name:(parse_opcode_name_simd);
 
-    // ParseOpcodeValuePart = text:#"[^ \n\r]*[ ]*";
+    // ParseOpcodeValuePart = text:r"[^ \n\r]*[ ]*";
     ParseOpcodeValuePart = text:(parse_opcode_value_simd);
 }
 

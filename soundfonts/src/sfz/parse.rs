@@ -8,10 +8,8 @@ use std::{
 
 use crate::FilterType;
 
-use super::grammar::{
-    helpers::{FileLocation, ParseError},
-    ErrorTolerantToken, Group, Opcode, Token, TokenKind,
-};
+use super::grammar::{ErrorTolerantToken, Group, Opcode, Token, TokenKind};
+use regex_bnf::{FileLocation, ParseError};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]

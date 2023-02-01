@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 lazy-regex = "2.3.0"
-soundfonts_macro = { path = "./soundfonts_macro", package = "soundfonts_macro" }
+regex-bnf = "0.1.2"
 simdeez = { git = "https://github.com/arduano/simdeez.git", rev = "86f8bf9" }
 thiserror = "1.0.38"
 
