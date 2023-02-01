@@ -1,9 +1,9 @@
 use simdeez::prelude::*;
 
-use super::helpers::{ParseError, StringParser, TextLit};
+use regex_bnf::{ParseError, StringParser, TextSlice};
 
 simd_runtime_generate_v2! {
-    pub fn parse_opcode_name_simd<'a>(input: StringParser<'a>) -> Result<(TextLit<'a>, StringParser<'a>), ParseError> {
+    pub fn parse_opcode_name_simd<'a>(input: StringParser<'a>) -> Result<(TextSlice<'a>, StringParser<'a>), ParseError> {
         let mut length = 0;
 
         // Manually implement parsing "[\w$]+"
@@ -63,7 +63,7 @@ simd_runtime_generate_v2! {
 }
 
 simd_runtime_generate_v2! {
-    pub fn parse_opcode_value_simd<'a>(input: StringParser<'a>) -> Result<(TextLit<'a>, StringParser<'a>), ParseError> {
+    pub fn parse_opcode_value_simd<'a>(input: StringParser<'a>) -> Result<(TextSlice<'a>, StringParser<'a>), ParseError> {
         let mut length = 0;
 
         // Manually implement parsing "[^ \r\n]+[ ]*"
