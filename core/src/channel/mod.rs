@@ -185,11 +185,12 @@ impl VoiceChannel {
         }
 
         // Panning
+        let pan = control.pan.get();
         for sample in out.iter_mut().skip(0).step_by(2) {
-            *sample *= ((control.pan.get() * std::f32::consts::PI / 2.0).cos()).min(1.0);
+            *sample *= ((pan * std::f32::consts::PI / 2.0).cos()).min(1.0);
         }
         for sample in out.iter_mut().skip(1).step_by(2) {
-            *sample *= ((control.pan.get() * std::f32::consts::PI / 2.0).sin()).min(1.0);
+            *sample *= ((pan * std::f32::consts::PI / 2.0).sin()).min(1.0);
         }
 
         // Cutoff
@@ -325,7 +326,8 @@ impl VoiceChannel {
                 0x4A => {
                     // Cutoff
                     if value < 64 {
-                        let cutoff = (value as f32 / 64.0).powi(2) * 20000.0 + 100.0;
+                        let max = self.stream_params.sample_rate as f32 / 2.0 - 500.0;
+                        let cutoff = (value as f32 / 64.0).powi(3) * max + 500.0;
                         if let Some(lpf) = self.control_event_data.cutoff.as_mut() {
                             lpf.set_end(cutoff);
                         } else {
