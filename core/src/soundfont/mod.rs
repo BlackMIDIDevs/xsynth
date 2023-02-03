@@ -219,9 +219,19 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct SoundfontInitOptions {
     pub linear_release: bool,
+    pub use_effects: bool,
+}
+
+impl Default for SoundfontInitOptions {
+    fn default() -> Self {
+        Self {
+            linear_release: false,
+            use_effects: true,
+        }
+    }
 }
 
 fn key_vel_to_index(key: u8, vel: u8) -> usize {
@@ -340,7 +350,7 @@ impl SampleSoundfont {
                                     * region.fil_keytrack as f32;
                             cutoff_t *= 2.0f32.powf(cents / 1200.0);
                             cutoff =
-                                Some(cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0));
+                                Some(cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0 - 100.0));
                         }
                     }
 
