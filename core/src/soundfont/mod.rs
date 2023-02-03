@@ -349,8 +349,9 @@ impl SampleSoundfont {
                                 + (key as f32 - region.fil_keycenter as f32)
                                     * region.fil_keytrack as f32;
                             cutoff_t *= 2.0f32.powf(cents / 1200.0);
-                            cutoff =
-                                Some(cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0 - 100.0));
+                            cutoff = Some(
+                                cutoff_t.clamp(1.0, stream_params.sample_rate as f32 / 2.0 - 100.0),
+                            );
                         }
                     }
 
