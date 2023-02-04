@@ -27,29 +27,29 @@ mod voice_spawner;
 mod event;
 pub use event::*;
 
-struct ValueLerp {
-    lerp_length: u32,
+pub struct ValueLerp {
+    lerp_length: f32,
     step: f32,
     current: f32,
     end: f32,
 }
 
 impl ValueLerp {
-    fn new(current: f32, lerp_length: u32) -> Self {
+    pub fn new(current: f32, sample_rate: u32) -> Self {
         Self {
-            lerp_length,
+            lerp_length: sample_rate as f32 * 0.01,
             step: 0.0,
             current,
             end: current,
         }
     }
 
-    fn set_end(&mut self, end: f32) {
-        self.step = (end - self.current) / self.lerp_length as f32;
+    pub fn set_end(&mut self, end: f32) {
+        self.step = (end - self.current) / self.lerp_length;
         self.end = end;
     }
 
-    fn get(&mut self) -> f32 {
+    pub fn get_next(&mut self) -> f32 {
         if self.end > self.current {
             self.current = (self.current + self.step).min(self.end);
         } else if self.end < self.current {
@@ -84,14 +84,12 @@ struct ControlEventData {
     pitch_bend_value: f32,
     volume: ValueLerp, // 0.0 = silent, 1.0 = max volume
     pan: ValueLerp,    // 0.0 = left, 0.5 = center, 1.0 = right
-    cutoff: Option<ValueLerp>,
+    cutoff: Option<f32>,
     expression: ValueLerp,
 }
 
 impl ControlEventData {
     pub fn new_defaults(sample_rate: u32) -> Self {
-        let lerp_length = (sample_rate as f32 * 0.005) as u32;
-
         ControlEventData {
             selected_lsb: -1,
             selected_msb: -1,
@@ -99,10 +97,10 @@ impl ControlEventData {
             pitch_bend_sensitivity_msb: 2,
             pitch_bend_sensitivity: 2.0,
             pitch_bend_value: 0.0,
-            volume: ValueLerp::new(1.0, lerp_length),
-            pan: ValueLerp::new(0.5, lerp_length),
+            volume: ValueLerp::new(1.0, sample_rate),
+            pan: ValueLerp::new(0.5, sample_rate),
             cutoff: None,
-            expression: ValueLerp::new(1.0, lerp_length),
+            expression: ValueLerp::new(1.0, sample_rate),
         }
     }
 }
@@ -180,22 +178,22 @@ impl VoiceChannel {
         let control = &mut self.control_event_data;
 
         // Volume
-        for sample in out.iter_mut() {
-            *sample *= control.volume.get() * control.expression.get();
+        for i in (0..out.len()).step_by(2) {
+            let vol = control.volume.get_next() * control.expression.get_next();
+            out[i] *= vol;
+            out[i + 1] *= vol;
         }
 
         // Panning
-        let pan = control.pan.get();
-        for sample in out.iter_mut().skip(0).step_by(2) {
-            *sample *= ((pan * std::f32::consts::PI / 2.0).cos()).min(1.0);
-        }
-        for sample in out.iter_mut().skip(1).step_by(2) {
-            *sample *= ((pan * std::f32::consts::PI / 2.0).sin()).min(1.0);
+        for i in (0..out.len()).step_by(2) {
+            let pan = control.pan.get_next();
+            out[i] *= ((pan * std::f32::consts::PI / 2.0).cos()).min(1.0);
+            out[i + 1] *= ((pan * std::f32::consts::PI / 2.0).sin()).min(1.0);
         }
 
         // Cutoff
-        if let Some(cutoff) = control.cutoff.as_mut() {
-            self.cutoff.set_filter_type(FilterType::LowPass, cutoff.get());
+        if let Some(cutoff) = control.cutoff {
+            self.cutoff.set_filter_type(FilterType::LowPass, cutoff);
             self.cutoff.process(out);
         }
     }
@@ -326,14 +324,10 @@ impl VoiceChannel {
                 0x4A => {
                     // Cutoff
                     if value < 64 {
-                        let max = self.stream_params.sample_rate as f32 / 2.0 - 500.0;
-                        let cutoff = (value as f32 / 64.0).powi(3) * max + 500.0;
-                        if let Some(lpf) = self.control_event_data.cutoff.as_mut() {
-                            lpf.set_end(cutoff);
-                        } else {
-                            let lerp_length = (self.stream_params.sample_rate as f32 * 0.005) as u32;
-                            self.control_event_data.cutoff = Some(ValueLerp::new(cutoff, lerp_length));
-                        }
+                        let max = self.stream_params.sample_rate as f32 / 2.0 - 310.0;
+                        let cutoff = -0.625 * (value as f32 / 64.0).acos() + 1.0;
+                        let cutoff = cutoff.min(1.0).powi(2) * max + 300.0;
+                        self.control_event_data.cutoff = Some(cutoff);
                     } else {
                         self.control_event_data.cutoff = None;
                     }
