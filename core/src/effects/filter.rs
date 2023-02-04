@@ -1,3 +1,4 @@
+use crate::channel::ValueLerp;
 use biquad::*;
 use simdeez::prelude::*;
 use soundfonts::FilterType;
@@ -69,6 +70,8 @@ impl BiQuadFilter {
 
 pub struct MultiChannelBiQuad {
     channels: Vec<BiQuadFilter>,
+    fil_type: FilterType,
+    value: ValueLerp,
     sample_rate: f32,
 }
 
@@ -78,12 +81,19 @@ impl MultiChannelBiQuad {
             channels: (0..channels)
                 .map(|_| BiQuadFilter::new(fil_type, freq, sample_rate))
                 .collect(),
+            fil_type,
+            value: ValueLerp::new(freq, sample_rate as u32),
             sample_rate,
         }
     }
 
     pub fn set_filter_type(&mut self, fil_type: FilterType, freq: f32) {
-        let coeffs = BiQuadFilter::get_coeffs(fil_type, freq, self.sample_rate);
+        self.value.set_end(freq);
+        self.fil_type = fil_type;
+    }
+
+    fn set_coefficients(&mut self, freq: f32) {
+        let coeffs = BiQuadFilter::get_coeffs(self.fil_type, freq, self.sample_rate);
         for filter in self.channels.iter_mut() {
             filter.set_coefficients(coeffs);
         }
@@ -92,6 +102,10 @@ impl MultiChannelBiQuad {
     pub fn process(&mut self, sample: &mut [f32]) {
         let channel_count = self.channels.len();
         for (i, s) in sample.iter_mut().enumerate() {
+            if i % channel_count == 0 {
+                let v = self.value.get_next();
+                self.set_coefficients(v);
+            }
             *s = self.channels[i % channel_count].process(*s);
         }
     }
