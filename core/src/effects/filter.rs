@@ -1,7 +1,7 @@
+use crate::channel::ValueLerp;
 use biquad::*;
 use simdeez::prelude::*;
 use soundfonts::FilterType;
-use crate::channel::ValueLerp;
 
 #[derive(Clone)]
 pub struct BiQuadFilter {
