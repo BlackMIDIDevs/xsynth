@@ -178,17 +178,17 @@ impl VoiceChannel {
         let control = &mut self.control_event_data;
 
         // Volume
-        for i in (0..out.len()).step_by(2) {
+        for sample in out.chunks_mut(2) {
             let vol = control.volume.get_next() * control.expression.get_next();
-            out[i] *= vol;
-            out[i + 1] *= vol;
+            sample[0] *= vol;
+            sample[1] *= vol;
         }
 
         // Panning
-        for i in (0..out.len()).step_by(2) {
+        for sample in out.chunks_mut(2) {
             let pan = control.pan.get_next();
-            out[i] *= ((pan * std::f32::consts::PI / 2.0).cos()).min(1.0);
-            out[i + 1] *= ((pan * std::f32::consts::PI / 2.0).sin()).min(1.0);
+            sample[0] *= ((pan * std::f32::consts::PI / 2.0).cos()).min(1.0);
+            sample[1] *= ((pan * std::f32::consts::PI / 2.0).sin()).min(1.0);
         }
 
         // Cutoff
