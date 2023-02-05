@@ -4,21 +4,23 @@ use simdeez::prelude::*;
 
 use super::{BufferSampler, SIMDSampleGrabber, SampleReader};
 
-pub struct SIMDLinearSampleGrabber<S: Simd, Sampler: BufferSampler> {
-    sampler_reader: SampleReader<Sampler>,
+pub struct SIMDLinearSampleGrabber<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> {
+    sampler_reader: Reader,
     _s: PhantomData<S>,
+    _sampler: PhantomData<Sampler>,
 }
 
-impl<S: Simd, Sampler: BufferSampler> SIMDLinearSampleGrabber<S, Sampler> {
-    pub fn new(sampler_reader: SampleReader<Sampler>) -> Self {
+impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDLinearSampleGrabber<S, Sampler, Reader> {
+    pub fn new(sampler_reader: Reader) -> Self {
         SIMDLinearSampleGrabber {
             sampler_reader,
             _s: PhantomData,
+            _sampler: PhantomData,
         }
     }
 }
 
-impl<S: Simd, Sampler: BufferSampler> SIMDSampleGrabber<S> for SIMDLinearSampleGrabber<S, Sampler> {
+impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleGrabber<S> for SIMDLinearSampleGrabber<S, Sampler, Reader> {
     fn get(&self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
         simd_invoke!(S, {
             let ones = unsafe { S::Vf32::set1(1.0f32) };
