@@ -5,8 +5,7 @@ use std::{
 };
 
 use self::parse::{
-    parse_tokens_resolved, SfzAmpegEnvelope, SfzGroupType, SfzOpcode, SfzParseError,
-    SfzToken,
+    parse_tokens_resolved, SfzAmpegEnvelope, SfzGroupType, SfzOpcode, SfzParseError, SfzToken,
 };
 
 use crate::{FilterType, LoopMode};

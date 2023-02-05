@@ -165,8 +165,8 @@ fn parse_i16_in_range(val: &str, range: RangeInclusive<i16>) -> Option<i16> {
 
 fn parse_u32_in_range(val: &str, range: RangeInclusive<u32>) -> Option<u32> {
     val.parse()
-    .ok()
-    .map(|val: u32| val.clamp(*range.start(), *range.end()))
+        .ok()
+        .map(|val: u32| val.clamp(*range.start(), *range.end()))
 }
 
 fn parse_float_in_range(val: &str, range: RangeInclusive<f32>) -> Option<f32> {

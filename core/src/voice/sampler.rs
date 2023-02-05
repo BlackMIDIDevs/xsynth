@@ -2,8 +2,8 @@ use std::{marker::PhantomData, sync::Arc};
 
 use simdeez::prelude::*;
 
-use crate::voice::{ReleaseType, VoiceControlData};
 use crate::soundfont::LoopParams;
+use crate::voice::{ReleaseType, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase};
 
@@ -102,7 +102,11 @@ pub struct SampleReaderNoLoop<Sampler: BufferSampler> {
 impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderNoLoop<Sampler> {
     fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
         let length = Some(buffer.length());
-        Self { buffer, length, offset: loop_params.offset as usize }
+        Self {
+            buffer,
+            length,
+            offset: loop_params.offset as usize,
+        }
     }
 
     fn get(&self, pos: usize) -> f32 {
@@ -111,7 +115,7 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderNoLoop<Sample
 
     fn is_past_end(&self, pos: usize) -> bool {
         if let Some(len) = self.length {
-            pos - self.offset as usize >= len
+            pos - self.offset >= len
         } else {
             false
         }
@@ -140,7 +144,7 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderLoop<Sampler>
         let end = self.loop_end;
         let start = self.loop_start;
 
-        if pos > end as usize {
+        if pos > end {
             let tmp = pos - end;
             let diff = end - start;
             let loop_count = tmp / diff + 1;
@@ -163,7 +167,9 @@ pub enum SIMDSampleGrabbers<S: Simd, Sampler: BufferSampler, Reader: SampleReade
     Linear(SIMDLinearSampleGrabber<S, Sampler, Reader>),
 }
 
-impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleGrabbers<S, Sampler, Reader> {
+impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>>
+    SIMDSampleGrabbers<S, Sampler, Reader>
+{
     pub fn nearest(reader: Reader) -> Self {
         SIMDSampleGrabbers::Nearest(SIMDNearestSampleGrabber::new(reader))
     }
@@ -173,7 +179,9 @@ impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleG
     }
 }
 
-impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleGrabber<S> for SIMDSampleGrabbers<S, Sampler, Reader> {
+impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleGrabber<S>
+    for SIMDSampleGrabbers<S, Sampler, Reader>
+{
     #[inline(always)]
     fn get(&self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
         match self {

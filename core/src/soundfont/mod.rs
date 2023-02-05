@@ -19,7 +19,8 @@ use super::{
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
         SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
-        SIMDVoiceEnvelope, SampleReader, SampleReaderLoop, SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
+        SIMDVoiceEnvelope, SampleReader, SampleReaderLoop, SampleReaderNoLoop, Voice, VoiceBase,
+        VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -136,8 +137,14 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         &self,
         control: &VoiceControlData,
     ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
-        let left = SIMDNearestSampleGrabber::new(SampleReaderNoLoop::new(BufferSamplers::new_f32(self.samples[0].clone()), self.loop_params.clone()));
-        let right = SIMDNearestSampleGrabber::new(SampleReaderNoLoop::new(BufferSamplers::new_f32(self.samples[1].clone()), self.loop_params.clone()));
+        let left = SIMDNearestSampleGrabber::new(SampleReaderNoLoop::new(
+            BufferSamplers::new_f32(self.samples[0].clone()),
+            self.loop_params.clone(),
+        ));
+        let right = SIMDNearestSampleGrabber::new(SampleReaderNoLoop::new(
+            BufferSamplers::new_f32(self.samples[1].clone()),
+            self.loop_params.clone(),
+        ));
 
         let pitch_fac = self.create_pitch_fac(control);
 
@@ -149,8 +156,14 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         &self,
         control: &VoiceControlData,
     ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
-        let left = SIMDNearestSampleGrabber::new(SampleReaderLoop::new(BufferSamplers::new_f32(self.samples[0].clone()), self.loop_params.clone()));
-        let right = SIMDNearestSampleGrabber::new(SampleReaderLoop::new(BufferSamplers::new_f32(self.samples[1].clone()), self.loop_params.clone()));
+        let left = SIMDNearestSampleGrabber::new(SampleReaderLoop::new(
+            BufferSamplers::new_f32(self.samples[0].clone()),
+            self.loop_params.clone(),
+        ));
+        let right = SIMDNearestSampleGrabber::new(SampleReaderLoop::new(
+            BufferSamplers::new_f32(self.samples[1].clone()),
+            self.loop_params.clone(),
+        ));
 
         let pitch_fac = self.create_pitch_fac(control);
 
@@ -240,7 +253,9 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        if self.loop_params.mode == LoopMode::LoopContinuous || self.loop_params.mode == LoopMode::LoopSustain {
+        if self.loop_params.mode == LoopMode::LoopContinuous
+            || self.loop_params.mode == LoopMode::LoopSustain
+        {
             let gen = self.get_sampler_loop(control);
             self.finalize(gen, control)
         } else {
@@ -393,7 +408,7 @@ impl SampleSoundfont {
                     let volume = 10f32.powf(region.volume as f32 / 20.0);
 
                     let loop_params = LoopParams {
-                        mode: region.loop_mode.clone(),
+                        mode: region.loop_mode,
                         offset: region.offset,
                         start: region.loop_start,
                         end: region.loop_end,

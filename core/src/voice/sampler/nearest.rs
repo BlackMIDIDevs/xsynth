@@ -5,13 +5,16 @@ use simdeez::Simd;
 
 use super::{BufferSampler, SIMDSampleGrabber, SampleReader};
 
-pub struct SIMDNearestSampleGrabber<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> {
+pub struct SIMDNearestSampleGrabber<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>>
+{
     sampler_reader: Reader,
     _s: PhantomData<S>,
     _sampler: PhantomData<Sampler>,
 }
 
-impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDNearestSampleGrabber<S, Sampler, Reader> {
+impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>>
+    SIMDNearestSampleGrabber<S, Sampler, Reader>
+{
     pub fn new(sampler_reader: Reader) -> Self {
         SIMDNearestSampleGrabber {
             sampler_reader,
