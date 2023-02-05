@@ -32,7 +32,7 @@ use crate::{
     AudioStreamParams, ChannelCount,
 };
 
-use soundfonts::FilterType;
+use soundfonts::{FilterType, LoopMode};
 
 pub mod audio;
 
@@ -47,12 +47,21 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
+#[derive(Clone)]
+pub struct LoopParams {
+    pub mode: LoopMode,
+    pub offset: u32,
+    pub start: u32,
+    pub end: u32,
+}
+
 struct SampleVoiceSpawnerParams {
     volume: f32,
     pan: f32,
     speed_mult: f32,
     cutoff: Option<f32>,
     filter_type: FilterType,
+    loop_params: LoopParams,
     envelope: Arc<EnvelopeParameters>,
     sample: Arc<[Arc<[f32]>]>,
 }
@@ -77,6 +86,7 @@ impl SampleCache {
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
     filter: Option<BiQuadFilter>,
+    loop_params: LoopParams,
     amp: f32,
     pan: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
@@ -101,6 +111,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         Self {
             speed_mult: params.speed_mult,
             filter,
+            loop_params: params.loop_params.clone(),
             amp,
             pan: params.pan,
             volume_envelope_params: params.envelope.clone(),
@@ -125,12 +136,8 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         &self,
         control: &VoiceControlData,
     ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
-        let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
-            self.samples[0].clone(),
-        )));
-        let right = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
-            self.samples[1].clone(),
-        )));
+        let left = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(self.samples[0].clone()), self.loop_params.clone()));
+        let right = SIMDNearestSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(self.samples[1].clone()), self.loop_params.clone()));
 
         let pitch_fac = self.create_pitch_fac(control);
 
@@ -361,6 +368,13 @@ impl SampleSoundfont {
                     let pan = ((region.pan as f32 / 100.0) + 1.0) / 2.0;
                     let volume = 10f32.powf(region.volume as f32 / 20.0);
 
+                    let loop_params = LoopParams {
+                        mode: region.loop_mode.clone(),
+                        offset: region.offset,
+                        start: region.loop_start,
+                        end: region.loop_end,
+                    };
+
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                         pan,
                         volume,
@@ -368,6 +382,7 @@ impl SampleSoundfont {
                         speed_mult,
                         cutoff,
                         filter_type: region.filter_type,
+                        loop_params,
                         sample: samples[&params].clone(),
                     });
 

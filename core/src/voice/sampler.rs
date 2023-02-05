@@ -3,8 +3,11 @@ use std::{marker::PhantomData, sync::Arc};
 use simdeez::prelude::*;
 
 use crate::voice::{ReleaseType, VoiceControlData};
+use crate::soundfont::LoopParams;
 
 use super::{SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase};
+
+use soundfonts::LoopMode;
 
 mod linear;
 pub use linear::*;
@@ -89,24 +92,47 @@ impl BufferSampler for BufferSamplers {
 pub struct SampleReader<Sampler: BufferSampler> {
     buffer: Sampler,
     length: Option<usize>,
-    // TODO: add start/end/loop points
+    loop_params: LoopParams,
 }
 
 impl<Sampler: BufferSampler> SampleReader<Sampler> {
-    pub fn new(buffer: Sampler) -> Self {
+    pub fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
         let length = Some(buffer.length());
-        SampleReader { buffer, length }
+        SampleReader { buffer, length, loop_params }
     }
 
     pub fn get(&self, pos: usize) -> f32 {
-        self.buffer.get(pos)
+        let pos = pos + self.loop_params.offset as usize;
+
+        match self.loop_params.mode {
+            LoopMode::NoLoop | LoopMode::OneShot => self.buffer.get(pos),
+            LoopMode::LoopContinuous | LoopMode::LoopSustain => {
+                let end = self.loop_params.end as usize;
+                let start = self.loop_params.start as usize;
+
+                if pos > end as usize {
+                    let tmp = pos - end;
+                    let diff = end - start;
+                    let loop_count = tmp / diff + 1;
+                    let pos = pos - diff * loop_count;
+                    self.buffer.get(pos)
+                } else {
+                    self.buffer.get(pos)
+                }
+            }
+        }
     }
 
     fn is_past_end(&self, pos: usize) -> bool {
-        if let Some(len) = self.length {
-            pos >= len
-        } else {
-            false
+        match self.loop_params.mode {
+            LoopMode::NoLoop | LoopMode::OneShot => {
+                if let Some(len) = self.length {
+                    pos - self.loop_params.offset as usize >= len
+                } else {
+                    false
+                }
+            },
+            LoopMode::LoopContinuous | LoopMode::LoopSustain => false,
         }
     }
 }
