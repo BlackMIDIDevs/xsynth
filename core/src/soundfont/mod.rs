@@ -239,7 +239,7 @@ fn key_vel_to_index(key: u8, vel: u8) -> usize {
 }
 
 pub struct SampleSoundfont {
-    spawner_params_list: Vec<Option<Arc<SampleVoiceSpawnerParams>>>,
+    spawner_params_list: Vec<Vec<Arc<SampleVoiceSpawnerParams>>>,
     stream_params: AudioStreamParams,
 }
 
@@ -319,9 +319,9 @@ impl SampleSoundfont {
         }
 
         // Generate region params
-        let mut spawner_params_list = Vec::<Option<Arc<SampleVoiceSpawnerParams>>>::new();
+        let mut spawner_params_list = Vec::<Vec<Arc<SampleVoiceSpawnerParams>>>::new();
         for _ in 0..(128 * 128) {
-            spawner_params_list.push(None);
+            spawner_params_list.push(Vec::new());
         }
 
         // Write region params
@@ -371,7 +371,7 @@ impl SampleSoundfont {
                         sample: samples[&params].clone(),
                     });
 
-                    spawner_params_list[index] = Some(spawner_params.clone());
+                    spawner_params_list[index].push(spawner_params.clone());
                 }
             }
         }
@@ -405,16 +405,15 @@ impl SoundfontBase for SampleSoundfont {
         simd_runtime_generate!(
             fn get(key: u8, vel: u8, sf: &SampleSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
                 let index = key_vel_to_index(key, vel);
-                let spawner_params = sf.spawner_params_list[index].as_ref();
-                if let Some(spawner_params) = spawner_params {
-                    vec![Box::new(SampledVoiceSpawner::<S>::new(
-                        spawner_params,
+                let mut vec = Vec::<Box<dyn VoiceSpawner>>::new();
+                for spawner in &sf.spawner_params_list[index] {
+                    vec.push(Box::new(SampledVoiceSpawner::<S>::new(
+                        spawner,
                         vel,
                         sf.stream_params,
-                    ))]
-                } else {
-                    vec![]
+                    )));
                 }
+                vec
             }
         );
 
