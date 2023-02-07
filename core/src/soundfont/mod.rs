@@ -333,7 +333,7 @@ impl SampleSoundfont {
                 for vel in region.velrange.clone() {
                     let index = key_vel_to_index(key, vel);
                     let speed_mult =
-                        get_speed_mult_from_keys(key, region.pitch_keycenter.unwrap_or(key));
+                        get_speed_mult_from_keys(key, region.pitch_keycenter);
 
                     let envelope_params = unique_envelope_params
                         .iter()

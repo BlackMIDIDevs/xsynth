@@ -58,6 +58,7 @@ pub enum SfzAmpegEnvelope {
 pub enum SfzGroupType {
     Region,
     Group,
+    Master,
     Global,
     Control,
     Other,
@@ -274,9 +275,9 @@ fn parse_sfz_group(group: Group) -> Result<SfzGroupType, SfzValidationError> {
     Ok(match group.name.text {
         "region" => SfzGroupType::Region,
         "group" => SfzGroupType::Group,
-        "master" => SfzGroupType::Global,
-        "control" => SfzGroupType::Control,
+        "master" => SfzGroupType::Master,
         "global" => SfzGroupType::Global,
+        "control" => SfzGroupType::Control,
         _ => SfzGroupType::Other,
     })
 }
