@@ -57,7 +57,8 @@ impl AmpegEnvelopeParams {
 pub struct RegionParamsBuilder {
     lovel: u8,
     hivel: u8,
-    keyrange: RangeInclusive<u8>,
+    lokey: u8,
+    hikey: u8,
     pitch_keycenter: u8,
     volume: i16,
     pan: i8,
@@ -77,7 +78,8 @@ impl Default for RegionParamsBuilder {
         RegionParamsBuilder {
             lovel: 0,
             hivel: 127,
-            keyrange: 0..=127,
+            lokey: 0,
+            hikey: 127,
             pitch_keycenter: 60,
             volume: 0,
             pan: 0,
@@ -100,11 +102,12 @@ impl RegionParamsBuilder {
             SfzOpcode::Lovel(val) => self.lovel = val,
             SfzOpcode::Hivel(val) => self.hivel = val,
             SfzOpcode::Key(val) => {
-                self.keyrange = val..=val;
+                self.lokey = val;
+                self.hikey = val;
                 self.pitch_keycenter = val;
             },
-            SfzOpcode::Lokey(val) => self.keyrange = val..=*self.keyrange.end(),
-            SfzOpcode::Hikey(val) => self.keyrange = *self.keyrange.start()..=val,
+            SfzOpcode::Lokey(val) => self.lokey = val,
+            SfzOpcode::Hikey(val) => self.hikey = val,
             SfzOpcode::PitchKeycenter(val) => self.pitch_keycenter = val,
             SfzOpcode::Pan(val) => self.pan = val,
             SfzOpcode::Volume(val) => self.volume = val,
@@ -135,7 +138,7 @@ impl RegionParamsBuilder {
 
         Some(RegionParams {
             velrange: self.lovel..=self.hivel,
-            keyrange: self.keyrange,
+            keyrange: self.lokey..=self.hikey,
             pitch_keycenter: self.pitch_keycenter,
             volume: self.volume,
             pan: self.pan,
