@@ -105,7 +105,7 @@ impl RegionParamsBuilder {
                 self.lokey = val;
                 self.hikey = val;
                 self.pitch_keycenter = val;
-            },
+            }
             SfzOpcode::Lokey(val) => self.lokey = val,
             SfzOpcode::Hikey(val) => self.hikey = val,
             SfzOpcode::PitchKeycenter(val) => self.pitch_keycenter = val,
