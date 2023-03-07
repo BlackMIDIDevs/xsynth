@@ -318,6 +318,10 @@ pub enum LoadSfzError {
     SfzParseError(#[from] SfzParseError),
 }
 
+fn convert_sample_index(idx: u32, old_sample_rate: u32, new_sample_rate: u32) -> u32 {
+    (new_sample_rate as f32 * idx as f32 / old_sample_rate as f32).round() as u32
+}
+
 impl SampleSoundfont {
     pub fn new(
         sfz_path: impl Into<PathBuf>,
@@ -407,11 +411,13 @@ impl SampleSoundfont {
                     let pan = ((region.pan as f32 / 100.0) + 1.0) / 2.0;
                     let volume = 10f32.powf(region.volume as f32 / 20.0);
 
+                    let sample_rate = samples[&params].1;
+
                     let loop_params = LoopParams {
                         mode: region.loop_mode,
-                        offset: region.offset,
-                        start: region.loop_start,
-                        end: region.loop_end,
+                        offset: convert_sample_index(region.offset, sample_rate, stream_params.sample_rate),
+                        start: convert_sample_index(region.loop_start, sample_rate, stream_params.sample_rate),
+                        end: convert_sample_index(region.loop_end, sample_rate, stream_params.sample_rate),
                     };
 
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
@@ -422,7 +428,7 @@ impl SampleSoundfont {
                         cutoff,
                         filter_type: region.filter_type,
                         loop_params,
-                        sample: samples[&params].clone(),
+                        sample: samples[&params].0.clone(),
                     });
 
                     spawner_params_list[index].push(spawner_params.clone());
