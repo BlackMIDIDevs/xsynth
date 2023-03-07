@@ -415,9 +415,21 @@ impl SampleSoundfont {
 
                     let loop_params = LoopParams {
                         mode: region.loop_mode,
-                        offset: convert_sample_index(region.offset, sample_rate, stream_params.sample_rate),
-                        start: convert_sample_index(region.loop_start, sample_rate, stream_params.sample_rate),
-                        end: convert_sample_index(region.loop_end, sample_rate, stream_params.sample_rate),
+                        offset: convert_sample_index(
+                            region.offset,
+                            sample_rate,
+                            stream_params.sample_rate,
+                        ),
+                        start: convert_sample_index(
+                            region.loop_start,
+                            sample_rate,
+                            stream_params.sample_rate,
+                        ),
+                        end: convert_sample_index(
+                            region.loop_end,
+                            sample_rate,
+                            stream_params.sample_rate,
+                        ),
                     };
 
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
