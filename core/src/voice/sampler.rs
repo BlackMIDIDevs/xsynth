@@ -140,19 +140,15 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderLoop<Sampler>
     }
 
     fn get(&self, pos: usize) -> f32 {
-        let pos = pos + self.offset;
+        let mut pos = pos + self.offset;
         let end = self.loop_end;
         let start = self.loop_start;
 
         if pos > end {
-            let tmp = pos - end;
-            let diff = end - start;
-            let loop_count = tmp / diff + 1;
-            let pos = pos - diff * loop_count;
-            self.buffer.get(pos)
-        } else {
-            self.buffer.get(pos)
+            pos = (pos - end - 1) % (end - start) + start;
         }
+
+        self.buffer.get(pos)
     }
 
     fn is_past_end(&self, _pos: usize) -> bool {
