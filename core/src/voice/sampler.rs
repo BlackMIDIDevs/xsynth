@@ -110,7 +110,7 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderNoLoop<Sample
     }
 
     fn get(&self, pos: usize) -> f32 {
-        self.buffer.get(pos)
+        self.buffer.get(pos + self.offset)
     }
 
     fn is_past_end(&self, pos: usize) -> bool {

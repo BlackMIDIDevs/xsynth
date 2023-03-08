@@ -5,6 +5,8 @@ use crate::voice::{EnvelopeControlData, ReleaseType, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
 
+use soundfonts::LoopMode;
+
 /// The stages in envelopes as a numbered enum
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EnvelopeStage {
@@ -344,6 +346,7 @@ struct VoiceEnvelopeState<T: Simd> {
 pub struct SIMDVoiceEnvelope<T: Simd> {
     original_params: EnvelopeParameters,
     params: EnvelopeParameters,
+    loop_mode: LoopMode,
     state: VoiceEnvelopeState<T>,
     sample_rate: f32,
     killed: bool,
@@ -353,6 +356,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
     pub fn new(
         original_params: EnvelopeParameters,
         params: EnvelopeParameters,
+        loop_mode: LoopMode,
         sample_rate: f32,
     ) -> Self {
         let state = params.get_stage_data(EnvelopeStage::Delay, params.start);
@@ -360,6 +364,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         SIMDVoiceEnvelope {
             original_params,
             params,
+            loop_mode,
             state,
             sample_rate,
             killed: false,
@@ -490,8 +495,10 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
             self.update_stage();
             self.killed = true;
         }
-        let amp = self.get_value_at_current_time();
-        self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
+        if self.loop_mode != LoopMode::OneShot && !self.killed {
+            let amp = self.get_value_at_current_time();
+            self.state = self.params.get_stage_data(EnvelopeStage::Release, amp);
+        }
     }
 
     #[inline(always)]
