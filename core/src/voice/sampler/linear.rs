@@ -32,7 +32,7 @@ impl<S: Simd, Sampler: BufferSampler> SIMDSampleGrabber<S> for SIMDLinearSampleG
                 values_second[i] = self.sampler_reader.get(index + 1);
             }
 
-            let blended = values_first * blend + values_second * (ones - blend);
+            let blended = values_first * (ones - blend) + values_second * blend;
 
             blended
         },)
