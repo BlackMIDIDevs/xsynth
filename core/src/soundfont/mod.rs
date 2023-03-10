@@ -18,9 +18,8 @@ use super::{
     voice::VoiceControlData,
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
-        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
-        SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase, VoiceCombineSIMD,
-        SIMDNearestSampleGrabber, SIMDLinearSampleGrabber,
+        SIMDLinearSampleGrabber, SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler,
+        SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -228,7 +227,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
     fn finalize<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
     where
-    Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
+        Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
     {
         let gen = self.apply_velocity(gen);
         let gen = self.apply_pan(gen);
