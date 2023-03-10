@@ -18,8 +18,9 @@ use super::{
     voice::VoiceControlData,
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
-        SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
+        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
         SIMDVoiceEnvelope, SampleReader, Voice, VoiceBase, VoiceCombineSIMD,
+        SIMDNearestSampleGrabber, SIMDLinearSampleGrabber,
     },
 };
 use crate::{
@@ -47,6 +48,12 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
+#[derive(Clone, PartialEq, Eq, Copy, Debug)]
+pub enum Interpolator {
+    Nearest,
+    Linear,
+}
+
 struct SampleVoiceSpawnerParams {
     volume: f32,
     pan: f32,
@@ -55,6 +62,7 @@ struct SampleVoiceSpawnerParams {
     filter_type: FilterType,
     envelope: Arc<EnvelopeParameters>,
     sample: Arc<[Arc<[f32]>]>,
+    interpolator: Interpolator,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -81,6 +89,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     pan: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Arc<[Arc<[f32]>]>,
+    interpolator: Interpolator,
     vel: u8,
     stream_params: AudioStreamParams,
     _s: PhantomData<S>,
@@ -105,6 +114,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             pan: params.pan,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
+            interpolator: params.interpolator,
             vel,
             stream_params,
             _s: PhantomData,
@@ -121,7 +131,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         pitch_fac
     }
 
-    fn get_sampler(
+    fn get_sampler_nearest(
         &self,
         control: &VoiceControlData,
     ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
@@ -133,7 +143,22 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         )));
 
         let pitch_fac = self.create_pitch_fac(control);
+        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
+        sampler
+    }
 
+    fn get_sampler_linear(
+        &self,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
+        let left = SIMDLinearSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
+            self.samples[0].clone(),
+        )));
+        let right = SIMDLinearSampleGrabber::new(SampleReader::new(BufferSamplers::new_f32(
+            self.samples[1].clone(),
+        )));
+
+        let pitch_fac = self.create_pitch_fac(control);
         let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
         sampler
     }
@@ -200,12 +225,11 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
         Box::new(base)
     }
-}
 
-impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
-    fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        let gen = self.get_sampler(control);
-
+    fn finalize<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
+    where
+    Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
+    {
         let gen = self.apply_velocity(gen);
         let gen = self.apply_pan(gen);
         let gen = self.apply_envelope(gen, control);
@@ -219,10 +243,26 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     }
 }
 
+impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
+    fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
+        match self.interpolator {
+            Interpolator::Nearest => {
+                let gen = self.get_sampler_nearest(control);
+                self.finalize(gen, control)
+            }
+            Interpolator::Linear => {
+                let gen = self.get_sampler_linear(control);
+                self.finalize(gen, control)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct SoundfontInitOptions {
     pub linear_release: bool,
     pub use_effects: bool,
+    pub interpolator: Interpolator,
 }
 
 impl Default for SoundfontInitOptions {
@@ -230,6 +270,7 @@ impl Default for SoundfontInitOptions {
         Self {
             linear_release: false,
             use_effects: true,
+            interpolator: Interpolator::Nearest,
         }
     }
 }
@@ -368,6 +409,7 @@ impl SampleSoundfont {
                         cutoff,
                         filter_type: region.filter_type,
                         sample: samples[&params].clone(),
+                        interpolator: options.interpolator,
                     });
 
                     spawner_params_list[index].push(spawner_params.clone());
