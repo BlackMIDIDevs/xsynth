@@ -282,7 +282,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
                 let gen = self.get_sampler_loop_sustain(control);
                 self.finalize(gen, control)
             }
-            _ => {
+            LoopMode::NoLoop | LoopMode::OneShot => {
                 let gen = self.get_sampler(control);
                 self.finalize(gen, control)
             }

@@ -695,7 +695,7 @@ mod tests {
                 };
                 let params = descriptor.to_envelope_params(1, Default::default());
 
-                let mut env = SIMDVoiceEnvelope::<S>::new(params, params, 1.0);
+                let mut env = SIMDVoiceEnvelope::<S>::new(params, params, LoopMode::NoLoop, 1.0);
 
                 let mut i = 0;
                 while i < 48 {
