@@ -25,7 +25,7 @@ impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>>
 impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleGrabber<S>
     for SIMDLinearSampleGrabber<S, Sampler, Reader>
 {
-    fn get(&self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
+    fn get(&mut self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
         simd_invoke!(S, {
             let ones = unsafe { S::Vf32::set1(1.0f32) };
             let blend = fractional;
@@ -47,5 +47,9 @@ impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleG
     fn is_past_end(&self, pos: f64) -> bool {
         let pos = pos as usize;
         self.sampler_reader.is_past_end(pos)
+    }
+
+    fn signal_release(&mut self) {
+        self.sampler_reader.signal_release();
     }
 }

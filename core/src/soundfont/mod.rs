@@ -19,8 +19,8 @@ use super::{
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
         SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
-        SIMDVoiceEnvelope, SampleReader, SampleReaderLoop, SampleReaderNoLoop, Voice, VoiceBase,
-        VoiceCombineSIMD,
+        SIMDVoiceEnvelope, SampleReader, SampleReaderLoop, SampleReaderLoopSustain,
+        SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -171,6 +171,25 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         sampler
     }
 
+    fn get_sampler_loop_sustain(
+        &self,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
+        let left = SIMDNearestSampleGrabber::new(SampleReaderLoopSustain::new(
+            BufferSamplers::new_f32(self.samples[0].clone()),
+            self.loop_params.clone(),
+        ));
+        let right = SIMDNearestSampleGrabber::new(SampleReaderLoopSustain::new(
+            BufferSamplers::new_f32(self.samples[1].clone()),
+            self.loop_params.clone(),
+        ));
+
+        let pitch_fac = self.create_pitch_fac(control);
+
+        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
+        sampler
+    }
+
     fn apply_velocity<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
     where
         Sample: SIMDSample<S>,
@@ -254,14 +273,19 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        if self.loop_params.mode == LoopMode::LoopContinuous
-            || self.loop_params.mode == LoopMode::LoopSustain
-        {
-            let gen = self.get_sampler_loop(control);
-            self.finalize(gen, control)
-        } else {
-            let gen = self.get_sampler(control);
-            self.finalize(gen, control)
+        match self.loop_params.mode {
+            LoopMode::LoopContinuous => {
+                let gen = self.get_sampler_loop(control);
+                self.finalize(gen, control)
+            }
+            LoopMode::LoopSustain => {
+                let gen = self.get_sampler_loop_sustain(control);
+                self.finalize(gen, control)
+            }
+            _ => {
+                let gen = self.get_sampler(control);
+                self.finalize(gen, control)
+            }
         }
     }
 }
