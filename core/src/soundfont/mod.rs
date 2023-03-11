@@ -233,10 +233,12 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             self.stream_params.sample_rate as f32,
         );
 
+        let allow_release = self.loop_params.mode != LoopMode::OneShot;
+
         let volume_envelope = SIMDVoiceEnvelope::new(
             *self.volume_envelope_params.clone(),
             modified_params,
-            self.loop_params.mode,
+            allow_release,
             self.stream_params.sample_rate as f32,
         );
 
