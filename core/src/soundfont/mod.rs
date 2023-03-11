@@ -27,8 +27,8 @@ use crate::{
     effects::BiQuadFilter,
     helpers::FREQS,
     voice::{
-        EnvelopeDescriptor, SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff,
-        SIMDVoiceGenerator,
+        BufferSampler, EnvelopeDescriptor, SIMDSample, SIMDSampleGrabber, SIMDSampleMono,
+        SIMDSampleStereo, SIMDStereoVoiceCutoff, SIMDVoiceGenerator,
     },
     AudioStreamParams, ChannelCount,
 };
@@ -123,71 +123,51 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         }
     }
 
-    fn create_pitch_fac(
-        &self,
-        control: &VoiceControlData,
-    ) -> impl SIMDVoiceGenerator<S, SIMDSampleMono<S>> {
-        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult);
-        let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
-        let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
-        pitch_fac
+    fn begin_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
+        // Currently there's only the f32 buffer samples, more could be added in the future.
+        #[allow(clippy::redundant_closure)]
+        self.make_sample_reader(control, |s| BufferSamplers::new_f32(s))
     }
 
-    fn get_sampler(
+    fn make_sample_reader<BS: 'static + BufferSampler>(
         &self,
         control: &VoiceControlData,
-    ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
-        let left = SIMDNearestSampleGrabber::new(SampleReaderNoLoop::new(
-            BufferSamplers::new_f32(self.samples[0].clone()),
-            self.loop_params.clone(),
-        ));
-        let right = SIMDNearestSampleGrabber::new(SampleReaderNoLoop::new(
-            BufferSamplers::new_f32(self.samples[1].clone()),
-            self.loop_params.clone(),
-        ));
+        make_bs: impl Fn(Arc<[f32]>) -> BS,
+    ) -> Box<dyn Voice> {
+        match self.loop_params.mode {
+            LoopMode::LoopContinuous => self.make_sample_grabber(control, move |s| {
+                SampleReaderLoop::new(make_bs(s), self.loop_params.clone())
+            }),
+            LoopMode::LoopSustain => self.make_sample_grabber(control, move |s| {
+                SampleReaderLoopSustain::new(make_bs(s), self.loop_params.clone())
+            }),
+            LoopMode::NoLoop | LoopMode::OneShot => self.make_sample_grabber(control, move |s| {
+                SampleReaderNoLoop::new(make_bs(s), self.loop_params.clone())
+            }),
+        }
+    }
+
+    fn make_sample_grabber<SR: 'static + SampleReader>(
+        &self,
+        control: &VoiceControlData,
+        make_bs: impl Fn(Arc<[f32]>) -> SR,
+    ) -> Box<dyn Voice> {
+        // Add more interpolation modes here
+        self.generate_sampler(control, |s| SIMDNearestSampleGrabber::new(make_bs(s)))
+    }
+
+    fn generate_sampler<SG: 'static + SIMDSampleGrabber<S>>(
+        &self,
+        control: &VoiceControlData,
+        make_sampler: impl Fn(Arc<[f32]>) -> SG,
+    ) -> Box<dyn Voice> {
+        let left = make_sampler(self.samples[0].clone());
+        let right = make_sampler(self.samples[1].clone());
 
         let pitch_fac = self.create_pitch_fac(control);
 
         let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
-        sampler
-    }
-
-    fn get_sampler_loop(
-        &self,
-        control: &VoiceControlData,
-    ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
-        let left = SIMDNearestSampleGrabber::new(SampleReaderLoop::new(
-            BufferSamplers::new_f32(self.samples[0].clone()),
-            self.loop_params.clone(),
-        ));
-        let right = SIMDNearestSampleGrabber::new(SampleReaderLoop::new(
-            BufferSamplers::new_f32(self.samples[1].clone()),
-            self.loop_params.clone(),
-        ));
-
-        let pitch_fac = self.create_pitch_fac(control);
-
-        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
-        sampler
-    }
-
-    fn get_sampler_loop_sustain(
-        &self,
-        control: &VoiceControlData,
-    ) -> impl SIMDVoiceGenerator<S, SIMDSampleStereo<S>> {
-        let left = SIMDNearestSampleGrabber::new(SampleReaderLoopSustain::new(
-            BufferSamplers::new_f32(self.samples[0].clone()),
-            self.loop_params.clone(),
-        ));
-        let right = SIMDNearestSampleGrabber::new(SampleReaderLoopSustain::new(
-            BufferSamplers::new_f32(self.samples[1].clone()),
-            self.loop_params.clone(),
-        ));
-
-        let pitch_fac = self.create_pitch_fac(control);
-
-        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
-        sampler
+        self.apply_voice_params(sampler, control)
     }
 
     fn apply_velocity<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
@@ -215,6 +195,16 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
         let panned = VoiceCombineSIMD::mult(gains, gen);
         panned
+    }
+
+    fn create_pitch_fac(
+        &self,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, SIMDSampleMono<S>> {
+        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult);
+        let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
+        let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
+        pitch_fac
     }
 
     fn apply_envelope<Gen, Sample>(
@@ -256,7 +246,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         Box::new(base)
     }
 
-    fn finalize<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
+    fn apply_voice_params<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
     where
         Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
     {
@@ -264,6 +254,13 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let gen = self.apply_pan(gen);
         let gen = self.apply_envelope(gen, control);
 
+        self.apply_cutoff_effect(gen)
+    }
+
+    fn apply_cutoff_effect(
+        &self,
+        gen: impl 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
+    ) -> Box<dyn Voice> {
         if let Some(filter) = &self.filter {
             let gen = SIMDStereoVoiceCutoff::new(gen, filter);
             self.convert_to_voice(gen)
@@ -275,20 +272,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
 
 impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        match self.loop_params.mode {
-            LoopMode::LoopContinuous => {
-                let gen = self.get_sampler_loop(control);
-                self.finalize(gen, control)
-            }
-            LoopMode::LoopSustain => {
-                let gen = self.get_sampler_loop_sustain(control);
-                self.finalize(gen, control)
-            }
-            LoopMode::NoLoop | LoopMode::OneShot => {
-                let gen = self.get_sampler(control);
-                self.finalize(gen, control)
-            }
-        }
+        self.begin_voice(control)
     }
 }
 

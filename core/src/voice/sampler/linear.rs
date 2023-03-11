@@ -2,29 +2,23 @@ use std::marker::PhantomData;
 
 use simdeez::prelude::*;
 
-use super::{BufferSampler, SIMDSampleGrabber, SampleReader};
+use super::{SIMDSampleGrabber, SampleReader};
 
-pub struct SIMDLinearSampleGrabber<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> {
+pub struct SIMDLinearSampleGrabber<S: Simd, Reader: SampleReader> {
     sampler_reader: Reader,
     _s: PhantomData<S>,
-    _sampler: PhantomData<Sampler>,
 }
 
-impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>>
-    SIMDLinearSampleGrabber<S, Sampler, Reader>
-{
+impl<S: Simd, Reader: SampleReader> SIMDLinearSampleGrabber<S, Reader> {
     pub fn new(sampler_reader: Reader) -> Self {
         SIMDLinearSampleGrabber {
             sampler_reader,
             _s: PhantomData,
-            _sampler: PhantomData,
         }
     }
 }
 
-impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleGrabber<S>
-    for SIMDLinearSampleGrabber<S, Sampler, Reader>
-{
+impl<S: Simd, Reader: SampleReader> SIMDSampleGrabber<S> for SIMDLinearSampleGrabber<S, Reader> {
     fn get(&mut self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
         simd_invoke!(S, {
             let ones = unsafe { S::Vf32::set1(1.0f32) };

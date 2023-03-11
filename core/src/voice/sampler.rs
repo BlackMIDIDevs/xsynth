@@ -89,8 +89,7 @@ impl BufferSampler for BufferSamplers {
 
 // Enum sampler reader
 
-pub trait SampleReader<Sampler: BufferSampler>: Send + Sync {
-    fn new(buffer: Sampler, _loop_params: LoopParams) -> Self;
+pub trait SampleReader: Send + Sync {
     fn get(&mut self, pos: usize) -> f32;
     fn is_past_end(&self, pos: usize) -> bool;
     fn signal_release(&mut self);
@@ -102,8 +101,8 @@ pub struct SampleReaderNoLoop<Sampler: BufferSampler> {
     offset: usize,
 }
 
-impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderNoLoop<Sampler> {
-    fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
+impl<Sampler: BufferSampler> SampleReaderNoLoop<Sampler> {
+    pub fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
         let length = Some(buffer.length());
         Self {
             buffer,
@@ -111,7 +110,9 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderNoLoop<Sample
             offset: loop_params.offset as usize,
         }
     }
+}
 
+impl<Sampler: BufferSampler> SampleReader for SampleReaderNoLoop<Sampler> {
     fn get(&mut self, pos: usize) -> f32 {
         self.buffer.get(pos + self.offset)
     }
@@ -134,8 +135,8 @@ pub struct SampleReaderLoop<Sampler: BufferSampler> {
     loop_end: usize,
 }
 
-impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderLoop<Sampler> {
-    fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
+impl<Sampler: BufferSampler> SampleReaderLoop<Sampler> {
+    pub fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
         Self {
             buffer,
             offset: loop_params.offset as usize,
@@ -143,7 +144,9 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderLoop<Sampler>
             loop_end: loop_params.end as usize,
         }
     }
+}
 
+impl<Sampler: BufferSampler> SampleReader for SampleReaderLoop<Sampler> {
     fn get(&mut self, pos: usize) -> f32 {
         let mut pos = pos + self.offset;
         let end = self.loop_end;
@@ -173,8 +176,8 @@ pub struct SampleReaderLoopSustain<Sampler: BufferSampler> {
     is_released: bool,
 }
 
-impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderLoopSustain<Sampler> {
-    fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
+impl<Sampler: BufferSampler> SampleReaderLoopSustain<Sampler> {
+    pub fn new(buffer: Sampler, loop_params: LoopParams) -> Self {
         let length = Some(buffer.length());
         Self {
             buffer,
@@ -186,7 +189,9 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderLoopSustain<S
             is_released: false,
         }
     }
+}
 
+impl<Sampler: BufferSampler> SampleReader for SampleReaderLoopSustain<Sampler> {
     fn get(&mut self, pos: usize) -> f32 {
         let mut pos = pos + self.offset;
         let end = self.loop_end;
@@ -219,14 +224,12 @@ impl<Sampler: BufferSampler> SampleReader<Sampler> for SampleReaderLoopSustain<S
 
 // Sample grabbers enum
 
-pub enum SIMDSampleGrabbers<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> {
-    Nearest(SIMDNearestSampleGrabber<S, Sampler, Reader>),
-    Linear(SIMDLinearSampleGrabber<S, Sampler, Reader>),
+pub enum SIMDSampleGrabbers<S: Simd, Reader: SampleReader> {
+    Nearest(SIMDNearestSampleGrabber<S, Reader>),
+    Linear(SIMDLinearSampleGrabber<S, Reader>),
 }
 
-impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>>
-    SIMDSampleGrabbers<S, Sampler, Reader>
-{
+impl<S: Simd, Reader: SampleReader> SIMDSampleGrabbers<S, Reader> {
     pub fn nearest(reader: Reader) -> Self {
         SIMDSampleGrabbers::Nearest(SIMDNearestSampleGrabber::new(reader))
     }
@@ -236,9 +239,7 @@ impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>>
     }
 }
 
-impl<S: Simd, Sampler: BufferSampler, Reader: SampleReader<Sampler>> SIMDSampleGrabber<S>
-    for SIMDSampleGrabbers<S, Sampler, Reader>
-{
+impl<S: Simd, Reader: SampleReader> SIMDSampleGrabber<S> for SIMDSampleGrabbers<S, Reader> {
     #[inline(always)]
     fn get(&mut self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
         match self {
