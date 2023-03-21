@@ -2,12 +2,15 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    fs,
+    fs::File,
+    io::{BufReader, Read},
     ops::RangeInclusive,
     path::{Path, PathBuf},
 };
 
 use crate::FilterType;
+use encoding_rs::UTF_8;
+use encoding_rs_io::DecodeReaderBytesBuilder;
 
 use super::grammar::{ErrorTolerantToken, Group, Opcode, Token, TokenKind};
 use regex_bnf::{FileLocation, ParseError};
@@ -330,8 +333,18 @@ fn parse_tokens_resolved_recursive(
     let file_path = file_path
         .canonicalize()
         .map_err(|_| SfzParseError::FailedToReadFile(file_path.to_owned()))?;
-    let file = fs::read_to_string(&file_path)
+
+    let f = File::open(&file_path)
         .map_err(|_| SfzParseError::FailedToReadFile(file_path.to_owned()))?;
+
+    let mut reader = BufReader::new(
+        DecodeReaderBytesBuilder::new()
+            .encoding(Some(UTF_8))
+            .build(f),
+    );
+    let mut file = String::new();
+
+    reader.read_to_string(&mut file).unwrap();
 
     // Unwrap here is safe because the path is confirmed to be a file (read above)
     // and therefore it will always have a parent folder. The path is also canonicalized.
