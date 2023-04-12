@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::FilterType;
+use crate::{FilterType, LoopMode};
 use encoding_rs::UTF_8;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 
