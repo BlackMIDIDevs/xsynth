@@ -56,10 +56,9 @@ impl AmpegEnvelopeParams {
 pub struct RegionParamsBuilder {
     lovel: u8,
     hivel: u8,
-    key: Option<u8>,
-    lokey: Option<u8>,
-    hikey: Option<u8>,
-    pitch_keycenter: Option<u8>,
+    lokey: u8,
+    hikey: u8,
+    pitch_keycenter: u8,
     volume: i16,
     pan: i8,
     sample: Option<String>,
@@ -81,10 +80,9 @@ impl Default for RegionParamsBuilder {
         RegionParamsBuilder {
             lovel: 0,
             hivel: 127,
-            key: None,
-            lokey: None,
-            hikey: None,
-            pitch_keycenter: None,
+            lokey: 0,
+            hikey: 127,
+            pitch_keycenter: 60,
             volume: 0,
             pan: 0,
             sample: None,
@@ -108,10 +106,14 @@ impl RegionParamsBuilder {
         match flag {
             SfzOpcode::Lovel(val) => self.lovel = val,
             SfzOpcode::Hivel(val) => self.hivel = val,
-            SfzOpcode::Key(val) => self.key = Some(val),
-            SfzOpcode::Lokey(val) => self.lokey = Some(val),
-            SfzOpcode::Hikey(val) => self.hikey = Some(val),
-            SfzOpcode::PitchKeycenter(val) => self.pitch_keycenter = Some(val),
+            SfzOpcode::Key(val) => {
+                self.lokey = val;
+                self.hikey = val;
+                self.pitch_keycenter = val;
+            }
+            SfzOpcode::Lokey(val) => self.lokey = val,
+            SfzOpcode::Hikey(val) => self.hikey = val,
+            SfzOpcode::PitchKeycenter(val) => self.pitch_keycenter = val,
             SfzOpcode::Pan(val) => self.pan = val,
             SfzOpcode::Volume(val) => self.volume = val,
             SfzOpcode::Sample(val) => self.sample = Some(val),
@@ -142,28 +144,9 @@ impl RegionParamsBuilder {
             Err(_) => return None,
         }
 
-        let keyrange: RangeInclusive<u8>;
-
-        if let (Some(lokey), Some(hikey)) = (self.lokey, self.hikey) {
-            // If key is present, the region is only valid if the key falls between
-            // lokey and hikey. Then key is used.
-            if let Some(key) = self.key {
-                if key < lokey || key > hikey {
-                    return None;
-                }
-                keyrange = key..=key;
-            } else {
-                keyrange = lokey..=hikey;
-            }
-        } else if let Some(key) = self.key {
-            keyrange = key..=key;
-        } else {
-            return None;
-        };
-
         Some(RegionParams {
             velrange: self.lovel..=self.hivel,
-            keyrange,
+            keyrange: self.lokey..=self.hikey,
             pitch_keycenter: self.pitch_keycenter,
             volume: self.volume,
             pan: self.pan,
@@ -186,7 +169,7 @@ impl RegionParamsBuilder {
 pub struct RegionParams {
     pub velrange: RangeInclusive<u8>,
     pub keyrange: RangeInclusive<u8>,
-    pub pitch_keycenter: Option<u8>,
+    pub pitch_keycenter: u8,
     pub volume: i16,
     pub pan: i8,
     pub sample_path: PathBuf,
@@ -206,8 +189,9 @@ fn get_group_level(group_type: SfzGroupType) -> Option<usize> {
     match group_type {
         SfzGroupType::Control => Some(1),
         SfzGroupType::Global => Some(2),
-        SfzGroupType::Group => Some(3),
-        SfzGroupType::Region => Some(4),
+        SfzGroupType::Master => Some(3),
+        SfzGroupType::Group => Some(4),
+        SfzGroupType::Region => Some(5),
         SfzGroupType::Other => None,
     }
 }
