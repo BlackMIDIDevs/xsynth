@@ -18,9 +18,9 @@ use super::{
     voice::VoiceControlData,
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
-        SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
-        SIMDVoiceEnvelope, SampleReader, SampleReaderLoop, SampleReaderLoopSustain,
-        SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD, SIMDLinearSampleGrabber,
+        SIMDLinearSampleGrabber, SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler,
+        SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, SampleReaderLoop,
+        SampleReaderLoopSustain, SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -47,7 +47,6 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
     fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
 }
-
 
 #[derive(Clone, PartialEq, Eq, Copy, Debug)]
 pub enum Interpolator {
