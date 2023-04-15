@@ -18,9 +18,9 @@ use super::{
     voice::VoiceControlData,
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
-        SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl,
-        SIMDVoiceEnvelope, SampleReader, SampleReaderLoop, SampleReaderLoopSustain,
-        SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
+        SIMDLinearSampleGrabber, SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler,
+        SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, SampleReaderLoop,
+        SampleReaderLoopSustain, SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 use crate::{
@@ -48,6 +48,12 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
+#[derive(Clone, PartialEq, Eq, Copy, Debug)]
+pub enum Interpolator {
+    Nearest,
+    Linear,
+}
+
 #[derive(Clone)]
 pub struct LoopParams {
     pub mode: LoopMode,
@@ -65,6 +71,7 @@ struct SampleVoiceSpawnerParams {
     loop_params: LoopParams,
     envelope: Arc<EnvelopeParameters>,
     sample: Arc<[Arc<[f32]>]>,
+    interpolator: Interpolator,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -92,6 +99,7 @@ struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     pan: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
     samples: Arc<[Arc<[f32]>]>,
+    interpolator: Interpolator,
     vel: u8,
     stream_params: AudioStreamParams,
     _s: PhantomData<S>,
@@ -117,6 +125,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
             pan: params.pan,
             volume_envelope_params: params.envelope.clone(),
             samples: params.sample.clone(),
+            interpolator: params.interpolator,
             vel,
             stream_params,
             _s: PhantomData,
@@ -152,8 +161,14 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         control: &VoiceControlData,
         make_bs: impl Fn(Arc<[f32]>) -> SR,
     ) -> Box<dyn Voice> {
-        // Add more interpolation modes here
-        self.generate_sampler(control, |s| SIMDNearestSampleGrabber::new(make_bs(s)))
+        match self.interpolator {
+            Interpolator::Nearest => {
+                self.generate_sampler(control, |s| SIMDNearestSampleGrabber::new(make_bs(s)))
+            }
+            Interpolator::Linear => {
+                self.generate_sampler(control, |s| SIMDLinearSampleGrabber::new(make_bs(s)))
+            }
+        }
     }
 
     fn generate_sampler<SG: 'static + SIMDSampleGrabber<S>>(
@@ -280,6 +295,7 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 pub struct SoundfontInitOptions {
     pub linear_release: bool,
     pub use_effects: bool,
+    pub interpolator: Interpolator,
 }
 
 impl Default for SoundfontInitOptions {
@@ -287,6 +303,7 @@ impl Default for SoundfontInitOptions {
         Self {
             linear_release: false,
             use_effects: true,
+            interpolator: Interpolator::Nearest,
         }
     }
 }
@@ -449,6 +466,7 @@ impl SampleSoundfont {
                         speed_mult,
                         cutoff,
                         filter_type: region.filter_type,
+                        interpolator: options.interpolator,
                         loop_params,
                         sample: samples[&params].0.clone(),
                     });
