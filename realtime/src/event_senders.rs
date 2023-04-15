@@ -301,6 +301,13 @@ impl RealtimeEventSender {
 
     pub fn reset_synth(&mut self) {
         self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::AllNotesKilled));
+
+        for sender in &mut self.senders {
+            for i in 0..128 {
+                sender.skipped_notes[i] = 0;
+            }
+        }
+
         self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::ResetControl));
     }
 }
