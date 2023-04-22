@@ -14,7 +14,7 @@ impl<S: Simd> SIMDVoiceControl<S> {
         control: &VoiceControlData,
         update: fn(&VoiceControlData) -> f32,
     ) -> SIMDVoiceControl<S> {
-        simd_invoke!(S,  {
+        simd_invoke!(S, {
             SIMDVoiceControl {
                 values: S::Vf32::set1((update)(control)),
                 update,
@@ -34,7 +34,7 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceControl<S> {
 
     #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
-        simd_invoke!(S,  {
+        simd_invoke!(S, {
             self.values = S::Vf32::set1((self.update)(control));
         })
     }
