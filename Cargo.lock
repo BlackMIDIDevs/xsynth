@@ -1321,9 +1321,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "simdeez"
-version = "2.0.0-dev2"
+version = "2.0.0-dev3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "749b52d02a385ee9ddd83ea7e3f58027a07a75ebaa12cebce0704afd4ba05c41"
+checksum = "f03e3cf4b84e534adb37350c2ad56fb27e58d10eb2fe8daffc26103b8ae39d3f"
 dependencies = [
  "cfg-if",
  "paste",
