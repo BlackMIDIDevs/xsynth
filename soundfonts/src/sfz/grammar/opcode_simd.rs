@@ -2,7 +2,7 @@ use simdeez::prelude::*;
 
 use regex_bnf::{ParseError, StringParser, TextSlice};
 
-simd_runtime_generate_v2! {
+simd_runtime_generate! {
     pub fn parse_opcode_name_simd<'a>(input: StringParser<'a>) -> Result<(TextSlice<'a>, StringParser<'a>), ParseError> {
         let mut length = 0;
 
@@ -62,7 +62,7 @@ simd_runtime_generate_v2! {
     }
 }
 
-simd_runtime_generate_v2! {
+simd_runtime_generate! {
     pub fn parse_opcode_value_simd<'a>(input: StringParser<'a>) -> Result<(TextSlice<'a>, StringParser<'a>), ParseError> {
         let mut length = 0;
 
