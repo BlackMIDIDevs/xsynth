@@ -10,7 +10,7 @@ pub struct SIMDConstant<S: Simd> {
 
 impl<S: Simd> SIMDConstant<S> {
     pub fn new(value: f32) -> SIMDConstant<S> {
-        simd_invoke!(S, unsafe {
+        simd_invoke!(S,  {
             SIMDConstant {
                 values: S::Vf32::set1(value),
             }
@@ -45,7 +45,7 @@ pub struct SIMDConstantStereo<S: Simd> {
 
 impl<S: Simd> SIMDConstantStereo<S> {
     pub fn new(value_left: f32, value_right: f32) -> SIMDConstantStereo<S> {
-        simd_invoke!(S, unsafe {
+        simd_invoke!(S,  {
             SIMDConstantStereo {
                 values_left: S::Vf32::set1(value_left),
                 values_right: S::Vf32::set1(value_right),
