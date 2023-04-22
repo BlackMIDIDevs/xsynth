@@ -1265,18 +1265,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "simdeez"
-version = "1.0.8"
-source = "git+https://github.com/arduano/simdeez.git?rev=86f8bf9#86f8bf998c3b403d3b8795e4b3fd891ce3a311dc"
-dependencies = [
- "cfg-if",
- "paste",
-]
-
-[[package]]
-name = "simdeez"
-version = "2.0.0-dev1"
+version = "2.0.0-dev2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9325045a2d8c5a539638af4d16b18ce89635f0861588f9070d4724ab5200fc4a"
+checksum = "749b52d02a385ee9ddd83ea7e3f58027a07a75ebaa12cebce0704afd4ba05c41"
 dependencies = [
  "cfg-if",
  "paste",
@@ -1805,7 +1796,7 @@ dependencies = [
  "midi-toolkit-rs 0.1.0 (git+https://github.com/arduano/midi-toolkit-rs?rev=51ff0dc)",
  "rand",
  "rayon",
- "simdeez 2.0.0-dev1",
+ "simdeez",
  "spin_sleep",
  "symphonia",
  "thiserror",
@@ -1855,6 +1846,6 @@ dependencies = [
  "encoding_rs_io",
  "lazy-regex",
  "regex-bnf",
- "simdeez 1.0.8",
+ "simdeez",
  "thiserror",
 ]
