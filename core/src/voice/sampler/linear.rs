@@ -21,7 +21,7 @@ impl<S: Simd, Reader: SampleReader> SIMDLinearSampleGrabber<S, Reader> {
 impl<S: Simd, Reader: SampleReader> SIMDSampleGrabber<S> for SIMDLinearSampleGrabber<S, Reader> {
     fn get(&mut self, indexes: S::Vi32, fractional: S::Vf32) -> S::Vf32 {
         simd_invoke!(S, {
-            let ones = unsafe { S::Vf32::set1(1.0f32) };
+            let ones = S::Vf32::set1(1.0f32);
             let blend = fractional;
             let mut values_first = ones;
             let mut values_second = ones;

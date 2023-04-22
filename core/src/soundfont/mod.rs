@@ -497,10 +497,7 @@ impl SoundfontBase for SampleSoundfont {
     fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>> {
         use simdeez::*; // nuts
 
-        use simdeez::avx2::*;
-        use simdeez::scalar::*;
-        use simdeez::sse2::*;
-        use simdeez::sse41::*;
+        use simdeez::prelude::*;
 
         simd_runtime_generate!(
             fn get(key: u8, vel: u8, sf: &SampleSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
@@ -517,7 +514,7 @@ impl SoundfontBase for SampleSoundfont {
             }
         );
 
-        get_runtime_select(key, vel, self)
+        get(key, vel, self)
     }
 
     fn get_release_voice_spawners_at(&self, _key: u8, _vel: u8) -> Vec<Box<dyn VoiceSpawner>> {

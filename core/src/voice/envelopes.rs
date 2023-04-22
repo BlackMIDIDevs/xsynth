@@ -46,7 +46,7 @@ struct SIMDLerper<T: Simd> {
 
 impl<T: Simd> SIMDLerper<T> {
     fn new(start: f32, end: f32) -> Self {
-        simd_invoke!(T, unsafe {
+        simd_invoke!(T, {
             SIMDLerper {
                 start_simd: T::Vf32::set1(start),
                 length_simd: T::Vf32::set1(end - start),
@@ -72,7 +72,7 @@ struct SIMDLerpToZeroCurve<T: Simd> {
 
 impl<T: Simd> SIMDLerpToZeroCurve<T> {
     fn new(start: f32) -> Self {
-        simd_invoke!(T, unsafe {
+        simd_invoke!(T, {
             SIMDLerpToZeroCurve {
                 start_simd: T::Vf32::set1(start),
                 start,
@@ -87,7 +87,7 @@ impl<T: Simd> SIMDLerpToZeroCurve<T> {
 
     fn lerp_simd(&self, factor: T::Vf32) -> T::Vf32 {
         simd_invoke!(T, {
-            let one = unsafe { T::Vf32::set1(1.0) };
+            let one = T::Vf32::set1(1.0);
             let r1 = one - factor;
             let r2 = r1 * r1;
             let r3 = r2 * r2;
@@ -106,7 +106,7 @@ struct StageTime<T: Simd> {
 
 impl<T: Simd> StageTime<T> {
     fn new(start_offset: u32, stage_end_time: u32) -> Self {
-        simd_invoke!(T, unsafe {
+        simd_invoke!(T, {
             let mut stage_time_simd = T::Vf32::set1(start_offset as f32);
             for i in 0..T::Vf32::WIDTH {
                 stage_time_simd[i] += i as f32;
@@ -128,10 +128,7 @@ impl<T: Simd> StageTime<T> {
 
     #[inline(always)]
     fn increment_by(&mut self, by: u32) {
-        simd_invoke!(
-            T,
-            self.stage_time_simd += unsafe { T::Vf32::set1(by as f32) }
-        );
+        simd_invoke!(T, self.stage_time_simd += T::Vf32::set1(by as f32));
     }
 
     #[inline(always)]
@@ -303,7 +300,7 @@ impl EnvelopeParameters {
                     }
                 }
                 EnvelopePart::Hold(value) => {
-                    let data = StageData::Constant(unsafe { T::Vf32::set1(*value) });
+                    let data = StageData::Constant(T::Vf32::set1(*value));
                     VoiceEnvelopeState {
                         current_stage: stage,
                         stage_data: data,
@@ -411,7 +408,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
 
     fn manually_build_simd_sample(&mut self) -> SIMDSampleMono<T> {
         simd_invoke!(T, {
-            let mut values = unsafe { T::Vf32::set1(0.0) };
+            let mut values = T::Vf32::set1(0.0);
             for i in 0..T::Vf32::WIDTH {
                 let sample = self.get_value_at_current_time();
                 values[i] = sample;
@@ -561,13 +558,6 @@ mod tests {
 
     use super::*;
 
-    use simdeez::*; // nuts
-
-    use simdeez::avx2::*;
-    use simdeez::scalar::*;
-    use simdeez::sse2::*;
-    use simdeez::sse41::*;
-
     fn assert_vf32_equal<S: Simd>(a: S::Vf32, b: S::Vf32) {
         for i in 0..S::Vf32::WIDTH {
             assert_eq!(a[i], b[i]);
@@ -575,14 +565,12 @@ mod tests {
     }
 
     fn simd_from_vec<S: Simd>(vec: Vec<f32>) -> S::Vf32 {
-        unsafe {
-            let mut initial = S::Vf32::set1(0.0);
-            let mut iter = vec.into_iter();
-            for i in 0..S::Vf32::WIDTH {
-                initial[i] = iter.next().unwrap();
-            }
-            initial
+        let mut initial = S::Vf32::set1(0.0);
+        let mut iter = vec.into_iter();
+        for i in 0..S::Vf32::WIDTH {
+            initial[i] = iter.next().unwrap();
         }
+        initial
     }
 
     #[test]
@@ -599,7 +587,7 @@ mod tests {
             }
         );
 
-        run_runtime_select();
+        run();
     }
 
     #[test]
@@ -656,7 +644,7 @@ mod tests {
             }
         );
 
-        run_runtime_select();
+        run();
     }
 
     #[test]
@@ -734,6 +722,6 @@ mod tests {
             }
         );
 
-        run_runtime_select();
+        run();
     }
 }

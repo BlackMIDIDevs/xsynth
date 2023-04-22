@@ -17,7 +17,7 @@ to_vec = "0.1.0"
 thiserror = "1.0.31"
 symphonia = "0.5.1"
 biquad = "0.4.2"
-simdeez = { git = "https://github.com/arduano/simdeez.git", rev = "2f94d88" }
+simdeez = "2.0.0-dev"
 
 [dev-dependencies]
 midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "51ff0dc" }

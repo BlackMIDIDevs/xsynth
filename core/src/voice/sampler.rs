@@ -341,8 +341,8 @@ where
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
         simd_invoke!(S, {
             let speed = self.pitch_gen.next_sample().0;
-            let mut indexes = unsafe { S::Vi32::zeroes() };
-            let mut fractionals = unsafe { S::Vf32::zeroes() };
+            let mut indexes = S::Vi32::zeroes();
+            let mut fractionals = S::Vf32::zeroes();
 
             unsafe {
                 for i in 0..S::Vf32::WIDTH {

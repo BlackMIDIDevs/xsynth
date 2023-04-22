@@ -52,7 +52,7 @@ impl<T: Simd> Add<SIMDSampleStereo<T>> for SIMDSampleMono<T> {
 
 impl<T: Simd> SIMDSample<T> for SIMDSampleMono<T> {
     fn zero() -> Self {
-        simd_invoke!(T, unsafe { SIMDSampleMono(T::Vf32::zeroes()) })
+        simd_invoke!(T, SIMDSampleMono(T::Vf32::zeroes()))
     }
 }
 
@@ -94,7 +94,7 @@ impl<T: Simd> Add<SIMDSampleMono<T>> for SIMDSampleStereo<T> {
 
 impl<T: Simd> SIMDSample<T> for SIMDSampleStereo<T> {
     fn zero() -> Self {
-        simd_invoke!(T, unsafe {
+        simd_invoke!(T, {
             let val = T::Vf32::zeroes();
             SIMDSampleStereo(val, val)
         })
@@ -240,13 +240,6 @@ mod tests {
 
     use super::*;
 
-    use simdeez::*; // nuts
-
-    use simdeez::avx2::*;
-    use simdeez::scalar::*;
-    use simdeez::sse2::*;
-    use simdeez::sse41::*;
-
     #[test]
     fn test_simd_voice_combine() {
         simd_runtime_generate!(
@@ -276,7 +269,7 @@ mod tests {
 
                 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for StereoVoiceGenSIMD {
                     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-                        simd_invoke!(S, unsafe {
+                        simd_invoke!(S, {
                             let new = S::Vf32::set1(1.0);
                             SIMDSampleStereo(new, new)
                         })
@@ -285,7 +278,7 @@ mod tests {
 
                 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for MonoVoiceGenSIMD {
                     fn next_sample(&mut self) -> SIMDSampleMono<S> {
-                        simd_invoke!(S, unsafe {
+                        simd_invoke!(S, {
                             let new = S::Vf32::set1(2.0);
                             SIMDSampleMono(new)
                         })
@@ -311,6 +304,6 @@ mod tests {
             }
         );
 
-        run_runtime_select();
+        run();
     }
 }

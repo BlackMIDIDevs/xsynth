@@ -1,9 +1,6 @@
 use simdeez::*; // nuts
 
-use simdeez::avx2::*;
-use simdeez::scalar::*;
-use simdeez::sse2::*;
-use simdeez::sse41::*;
+use simdeez::prelude::*;
 
 /// Sum the values of `source` to the values of `target`, writing to `target`.
 ///
@@ -16,8 +13,8 @@ pub fn sum_simd(source: &[f32], target: &mut [f32]) {
             let mut target = &mut target[..source.len()];
 
             loop {
-                let src: S::Vf32 = SimdBase::load_from_slice(source);
-                let src2: S::Vf32 = SimdBase::load_from_slice(target);
+                let src = S::Vf32::load_from_slice(source);
+                let src2 = S::Vf32::load_from_slice(target);
                 let sum = src + src2;
 
                 sum.copy_to_slice(target);
@@ -32,7 +29,7 @@ pub fn sum_simd(source: &[f32], target: &mut [f32]) {
         }
     );
 
-    sum_runtime_select(source, target);
+    sum(source, target);
 }
 
 #[cfg(test)]
