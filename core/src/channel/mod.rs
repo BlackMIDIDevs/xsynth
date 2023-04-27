@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::{
     effects::MultiChannelBiQuad,
-    helpers::{prepapre_cache_vec, sum_simd},
+    helpers::{prepapre_cache_vec, sum_simd, FREQS},
     voice::VoiceControlData,
     AudioStreamParams,
 };
@@ -324,10 +324,8 @@ impl VoiceChannel {
                 0x4A => {
                     // Cutoff
                     if value < 64 {
-                        let max = self.stream_params.sample_rate as f32 / 2.0 - 310.0;
-                        let cutoff = -0.625 * (value as f32 / 64.0).acos() + 1.0;
-                        let cutoff = cutoff.min(1.0).powi(2) * max + 300.0;
-                        self.control_event_data.cutoff = Some(cutoff);
+                        let value = value as usize + 64;
+                        self.control_event_data.cutoff = Some(FREQS[value] * 1.66);
                     } else {
                         self.control_event_data.cutoff = None;
                     }
