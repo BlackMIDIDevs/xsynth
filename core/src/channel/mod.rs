@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::{
     effects::MultiChannelBiQuad,
-    helpers::{prepapre_cache_vec, sum_simd},
+    helpers::{db_to_amp, prepapre_cache_vec, sum_simd, FREQS},
     voice::VoiceControlData,
     AudioStreamParams,
 };
@@ -15,6 +15,8 @@ use self::{
 };
 
 use super::AudioPipe;
+
+use biquad::Q_BUTTERWORTH_F32;
 
 use rayon::prelude::*;
 
@@ -85,6 +87,7 @@ struct ControlEventData {
     volume: ValueLerp, // 0.0 = silent, 1.0 = max volume
     pan: ValueLerp,    // 0.0 = left, 0.5 = center, 1.0 = right
     cutoff: Option<f32>,
+    resonance: Option<f32>,
     expression: ValueLerp,
 }
 
@@ -100,6 +103,7 @@ impl ControlEventData {
             volume: ValueLerp::new(1.0, sample_rate),
             pan: ValueLerp::new(0.5, sample_rate),
             cutoff: None,
+            resonance: None,
             expression: ValueLerp::new(1.0, sample_rate),
         }
     }
@@ -170,6 +174,7 @@ impl VoiceChannel {
                 FilterType::LowPass,
                 20000.0,
                 stream_params.sample_rate as f32,
+                None,
             ),
         }
     }
@@ -193,7 +198,8 @@ impl VoiceChannel {
 
         // Cutoff
         if let Some(cutoff) = control.cutoff {
-            self.cutoff.set_filter_type(FilterType::LowPass, cutoff);
+            self.cutoff
+                .set_filter_type(FilterType::LowPass, cutoff, control.resonance);
             self.cutoff.process(out);
         }
     }
@@ -311,6 +317,16 @@ impl VoiceChannel {
                         key.data.set_damper(damper);
                     }
                 }
+                0x47 => {
+                    // Resonance
+                    if value > 64 {
+                        let db = (value as f32 - 64.0) / 2.4;
+                        let value = db_to_amp(db) * Q_BUTTERWORTH_F32;
+                        self.control_event_data.resonance = Some(value);
+                    } else {
+                        self.control_event_data.resonance = None;
+                    }
+                }
                 0x48 => {
                     // Release
                     self.voice_control_data.envelope.release = Some(value);
@@ -324,10 +340,15 @@ impl VoiceChannel {
                 0x4A => {
                     // Cutoff
                     if value < 64 {
-                        let max = self.stream_params.sample_rate as f32 / 2.0 - 310.0;
-                        let cutoff = -0.625 * (value as f32 / 64.0).acos() + 1.0;
-                        let cutoff = cutoff.min(1.0).powi(2) * max + 300.0;
-                        self.control_event_data.cutoff = Some(cutoff);
+                        let value = value as usize + 64;
+                        let mut freq = FREQS[value];
+                        if freq > 7000.0 {
+                            // I hate BASS
+                            let mult = freq / 7000.0 - 1.0;
+                            let mult = mult * 2.36 + 1.0;
+                            freq = mult * 7000.0;
+                        }
+                        self.control_event_data.cutoff = Some(freq);
                     } else {
                         self.control_event_data.cutoff = None;
                     }

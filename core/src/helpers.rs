@@ -14,3 +14,7 @@ pub fn prepapre_cache_vec<T: Copy>(vec: &mut Vec<T>, len: usize, default: T) {
     }
     vec.fill(default);
 }
+
+pub fn db_to_amp(db: f32) -> f32 {
+    10f32.powf(db / 20.0)
+}
