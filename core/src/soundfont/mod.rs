@@ -7,11 +7,11 @@ use std::{
     sync::Arc,
 };
 
+use biquad::Q_BUTTERWORTH_F32;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
 use soundfonts::sfz::{parse::SfzParseError, RegionParams};
 use thiserror::Error;
-use biquad::Q_BUTTERWORTH_F32;
 
 use self::audio::{load_audio_file, AudioLoadError};
 
@@ -26,7 +26,7 @@ use super::{
 };
 use crate::{
     effects::BiQuadFilter,
-    helpers::{FREQS, db_to_amp},
+    helpers::{db_to_amp, FREQS},
     voice::{
         BufferSampler, EnvelopeDescriptor, SIMDSample, SIMDSampleGrabber, SIMDSampleMono,
         SIMDSampleStereo, SIMDStereoVoiceCutoff, SIMDVoiceGenerator,
@@ -116,7 +116,12 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let amp = (vel as f32 / 127.0).powi(2) * params.volume;
 
         let filter = params.cutoff.map(|cutoff| {
-            BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32, Some(params.resonance))
+            BiQuadFilter::new(
+                params.filter_type,
+                cutoff,
+                stream_params.sample_rate as f32,
+                Some(params.resonance),
+            )
         });
 
         Self {

@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::{
     effects::MultiChannelBiQuad,
-    helpers::{prepapre_cache_vec, sum_simd, FREQS, db_to_amp},
+    helpers::{db_to_amp, prepapre_cache_vec, sum_simd, FREQS},
     voice::VoiceControlData,
     AudioStreamParams,
 };
@@ -198,7 +198,8 @@ impl VoiceChannel {
 
         // Cutoff
         if let Some(cutoff) = control.cutoff {
-            self.cutoff.set_filter_type(FilterType::LowPass, cutoff, control.resonance);
+            self.cutoff
+                .set_filter_type(FilterType::LowPass, cutoff, control.resonance);
             self.cutoff.process(out);
         }
     }
@@ -341,7 +342,8 @@ impl VoiceChannel {
                     if value < 64 {
                         let value = value as usize + 64;
                         let mut freq = FREQS[value];
-                        if freq > 7000.0 { // I hate BASS
+                        if freq > 7000.0 {
+                            // I hate BASS
                             let mult = freq / 7000.0 - 1.0;
                             let mult = mult * 2.36 + 1.0;
                             freq = mult * 7000.0;

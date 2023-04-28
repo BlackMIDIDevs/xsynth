@@ -17,20 +17,22 @@ impl BiQuadFilter {
         }
     }
 
-    fn get_coeffs(fil_type: FilterType, freq: f32, sample_rate: f32, q: Option<f32>) -> Coefficients<f32> {
+    fn get_coeffs(
+        fil_type: FilterType,
+        freq: f32,
+        sample_rate: f32,
+        q: Option<f32>,
+    ) -> Coefficients<f32> {
         let q = match q {
             Some(q) => q,
             None => Q_BUTTERWORTH_F32,
         };
 
         match fil_type {
-            FilterType::LowPass => Coefficients::<f32>::from_params(
-                Type::LowPass,
-                sample_rate.hz(),
-                freq.hz(),
-                q,
-            )
-            .unwrap(),
+            FilterType::LowPass => {
+                Coefficients::<f32>::from_params(Type::LowPass, sample_rate.hz(), freq.hz(), q)
+                    .unwrap()
+            }
             FilterType::LowPassPole => Coefficients::<f32>::from_params(
                 Type::SinglePoleLowPass,
                 sample_rate.hz(),
@@ -38,20 +40,14 @@ impl BiQuadFilter {
                 q,
             )
             .unwrap(),
-            FilterType::HighPass => Coefficients::<f32>::from_params(
-                Type::HighPass,
-                sample_rate.hz(),
-                freq.hz(),
-                q,
-            )
-            .unwrap(),
-            FilterType::BandPass => Coefficients::<f32>::from_params(
-                Type::BandPass,
-                sample_rate.hz(),
-                freq.hz(),
-                q,
-            )
-            .unwrap(),
+            FilterType::HighPass => {
+                Coefficients::<f32>::from_params(Type::HighPass, sample_rate.hz(), freq.hz(), q)
+                    .unwrap()
+            }
+            FilterType::BandPass => {
+                Coefficients::<f32>::from_params(Type::BandPass, sample_rate.hz(), freq.hz(), q)
+                    .unwrap()
+            }
         }
     }
 
@@ -82,7 +78,13 @@ pub struct MultiChannelBiQuad {
 }
 
 impl MultiChannelBiQuad {
-    pub fn new(channels: usize, fil_type: FilterType, freq: f32, sample_rate: f32, q: Option<f32>) -> Self {
+    pub fn new(
+        channels: usize,
+        fil_type: FilterType,
+        freq: f32,
+        sample_rate: f32,
+        q: Option<f32>,
+    ) -> Self {
         Self {
             channels: (0..channels)
                 .map(|_| BiQuadFilter::new(fil_type, freq, sample_rate, q))
