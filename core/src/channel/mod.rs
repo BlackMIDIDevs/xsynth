@@ -340,7 +340,13 @@ impl VoiceChannel {
                     // Cutoff
                     if value < 64 {
                         let value = value as usize + 64;
-                        self.control_event_data.cutoff = Some(FREQS[value]);
+                        let mut freq = FREQS[value];
+                        if freq > 7000.0 { // I hate BASS
+                            let mult = freq / 7000.0 - 1.0;
+                            let mult = mult * 2.36 + 1.0;
+                            freq = mult * 7000.0;
+                        }
+                        self.control_event_data.cutoff = Some(freq);
                     } else {
                         self.control_event_data.cutoff = None;
                     }
