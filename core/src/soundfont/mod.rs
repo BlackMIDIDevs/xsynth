@@ -11,6 +11,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use simdeez::Simd;
 use soundfonts::sfz::{parse::SfzParseError, RegionParams};
 use thiserror::Error;
+use biquad::Q_BUTTERWORTH_F32;
 
 use self::audio::{load_audio_file, AudioLoadError};
 
@@ -67,6 +68,7 @@ struct SampleVoiceSpawnerParams {
     pan: f32,
     speed_mult: f32,
     cutoff: Option<f32>,
+    resonance: f32,
     filter_type: FilterType,
     loop_params: LoopParams,
     envelope: Arc<EnvelopeParameters>,
@@ -114,7 +116,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let amp = (vel as f32 / 127.0).powi(2) * params.volume;
 
         let filter = params.cutoff.map(|cutoff| {
-            BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32, None)
+            BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32, Some(params.resonance))
         });
 
         Self {
@@ -465,6 +467,7 @@ impl SampleSoundfont {
                         envelope: envelope_params,
                         speed_mult,
                         cutoff,
+                        resonance: 10f32.powf(region.resonance / 20.0) * Q_BUTTERWORTH_F32,
                         filter_type: region.filter_type,
                         interpolator: options.interpolator,
                         loop_params,
