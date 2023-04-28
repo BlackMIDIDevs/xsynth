@@ -114,7 +114,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let amp = (vel as f32 / 127.0).powi(2) * params.volume;
 
         let filter = params.cutoff.map(|cutoff| {
-            BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32)
+            BiQuadFilter::new(params.filter_type, cutoff, stream_params.sample_rate as f32, None)
         });
 
         Self {

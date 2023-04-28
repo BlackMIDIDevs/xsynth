@@ -9,42 +9,47 @@ pub struct BiQuadFilter {
 }
 
 impl BiQuadFilter {
-    pub fn new(fil_type: FilterType, freq: f32, sample_rate: f32) -> Self {
-        let coeffs = Self::get_coeffs(fil_type, freq, sample_rate);
+    pub fn new(fil_type: FilterType, freq: f32, sample_rate: f32, q: Option<f32>) -> Self {
+        let coeffs = Self::get_coeffs(fil_type, freq, sample_rate, q);
 
         Self {
             filter: DirectForm1::<f32>::new(coeffs),
         }
     }
 
-    fn get_coeffs(fil_type: FilterType, freq: f32, sample_rate: f32) -> Coefficients<f32> {
+    fn get_coeffs(fil_type: FilterType, freq: f32, sample_rate: f32, q: Option<f32>) -> Coefficients<f32> {
+        let q = match q {
+            Some(q) => q,
+            None => Q_BUTTERWORTH_F32,
+        };
+
         match fil_type {
             FilterType::LowPass => Coefficients::<f32>::from_params(
                 Type::LowPass,
                 sample_rate.hz(),
                 freq.hz(),
-                Q_BUTTERWORTH_F32,
+                q,
             )
             .unwrap(),
             FilterType::LowPassPole => Coefficients::<f32>::from_params(
                 Type::SinglePoleLowPass,
                 sample_rate.hz(),
                 freq.hz(),
-                Q_BUTTERWORTH_F32,
+                q,
             )
             .unwrap(),
             FilterType::HighPass => Coefficients::<f32>::from_params(
                 Type::HighPass,
                 sample_rate.hz(),
                 freq.hz(),
-                Q_BUTTERWORTH_F32,
+                q,
             )
             .unwrap(),
             FilterType::BandPass => Coefficients::<f32>::from_params(
                 Type::BandPass,
                 sample_rate.hz(),
                 freq.hz(),
-                Q_BUTTERWORTH_F32,
+                q,
             )
             .unwrap(),
         }
@@ -72,28 +77,31 @@ pub struct MultiChannelBiQuad {
     channels: Vec<BiQuadFilter>,
     fil_type: FilterType,
     value: ValueLerp,
+    q: Option<f32>,
     sample_rate: f32,
 }
 
 impl MultiChannelBiQuad {
-    pub fn new(channels: usize, fil_type: FilterType, freq: f32, sample_rate: f32) -> Self {
+    pub fn new(channels: usize, fil_type: FilterType, freq: f32, sample_rate: f32, q: Option<f32>) -> Self {
         Self {
             channels: (0..channels)
-                .map(|_| BiQuadFilter::new(fil_type, freq, sample_rate))
+                .map(|_| BiQuadFilter::new(fil_type, freq, sample_rate, q))
                 .collect(),
             fil_type,
             value: ValueLerp::new(freq, sample_rate as u32),
+            q,
             sample_rate,
         }
     }
 
-    pub fn set_filter_type(&mut self, fil_type: FilterType, freq: f32) {
+    pub fn set_filter_type(&mut self, fil_type: FilterType, freq: f32, q: Option<f32>) {
         self.value.set_end(freq);
         self.fil_type = fil_type;
+        self.q = q;
     }
 
-    fn set_coefficients(&mut self, freq: f32) {
-        let coeffs = BiQuadFilter::get_coeffs(self.fil_type, freq, self.sample_rate);
+    fn set_coefficients(&mut self, freq: f32, q: Option<f32>) {
+        let coeffs = BiQuadFilter::get_coeffs(self.fil_type, freq, self.sample_rate, q);
         for filter in self.channels.iter_mut() {
             filter.set_coefficients(coeffs);
         }
@@ -104,7 +112,7 @@ impl MultiChannelBiQuad {
         for (i, s) in sample.iter_mut().enumerate() {
             if i % channel_count == 0 {
                 let v = self.value.get_next();
-                self.set_coefficients(v);
+                self.set_coefficients(v, self.q);
             }
             *s = self.channels[i % channel_count].process(*s);
         }

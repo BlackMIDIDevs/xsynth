@@ -85,6 +85,7 @@ struct ControlEventData {
     volume: ValueLerp, // 0.0 = silent, 1.0 = max volume
     pan: ValueLerp,    // 0.0 = left, 0.5 = center, 1.0 = right
     cutoff: Option<f32>,
+    resonance: Option<f32>,
     expression: ValueLerp,
 }
 
@@ -100,6 +101,7 @@ impl ControlEventData {
             volume: ValueLerp::new(1.0, sample_rate),
             pan: ValueLerp::new(0.5, sample_rate),
             cutoff: None,
+            resonance: None,
             expression: ValueLerp::new(1.0, sample_rate),
         }
     }
@@ -170,6 +172,7 @@ impl VoiceChannel {
                 FilterType::LowPass,
                 20000.0,
                 stream_params.sample_rate as f32,
+                None,
             ),
         }
     }
@@ -193,7 +196,7 @@ impl VoiceChannel {
 
         // Cutoff
         if let Some(cutoff) = control.cutoff {
-            self.cutoff.set_filter_type(FilterType::LowPass, cutoff);
+            self.cutoff.set_filter_type(FilterType::LowPass, cutoff, control.resonance);
             self.cutoff.process(out);
         }
     }
@@ -309,6 +312,15 @@ impl VoiceChannel {
 
                     for key in self.key_voices.iter_mut() {
                         key.data.set_damper(damper);
+                    }
+                }
+                0x47 => {
+                    // Resonance
+                    if value > 64 {
+                        let value = ((value as f32 - 65.0) * 0.15 + 1.0) / 1.414213562373095;
+                        self.control_event_data.resonance = Some(value);
+                    } else {
+                        self.control_event_data.resonance = None;
                     }
                 }
                 0x48 => {
