@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::{
     effects::MultiChannelBiQuad,
-    helpers::{prepapre_cache_vec, sum_simd, FREQS},
+    helpers::{prepapre_cache_vec, sum_simd, FREQS, db_to_amp},
     voice::VoiceControlData,
     AudioStreamParams,
 };
@@ -15,6 +15,8 @@ use self::{
 };
 
 use super::AudioPipe;
+
+use biquad::Q_BUTTERWORTH_F32;
 
 use rayon::prelude::*;
 
@@ -317,7 +319,8 @@ impl VoiceChannel {
                 0x47 => {
                     // Resonance
                     if value > 64 {
-                        let value = ((value as f32 - 65.0) * 0.15 + 1.0) / 1.414213562373095;
+                        let db = (value as f32 - 64.0) / 2.4;
+                        let value = db_to_amp(db) * Q_BUTTERWORTH_F32;
                         self.control_event_data.resonance = Some(value);
                     } else {
                         self.control_event_data.resonance = None;
@@ -337,7 +340,7 @@ impl VoiceChannel {
                     // Cutoff
                     if value < 64 {
                         let value = value as usize + 64;
-                        self.control_event_data.cutoff = Some(FREQS[value] * 1.66);
+                        self.control_event_data.cutoff = Some(FREQS[value]);
                     } else {
                         self.control_event_data.cutoff = None;
                     }

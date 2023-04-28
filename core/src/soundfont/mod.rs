@@ -26,7 +26,7 @@ use super::{
 };
 use crate::{
     effects::BiQuadFilter,
-    helpers::FREQS,
+    helpers::{FREQS, db_to_amp},
     voice::{
         BufferSampler, EnvelopeDescriptor, SIMDSample, SIMDSampleGrabber, SIMDSampleMono,
         SIMDSampleStereo, SIMDStereoVoiceCutoff, SIMDVoiceGenerator,
@@ -438,7 +438,7 @@ impl SampleSoundfont {
                     }
 
                     let pan = ((region.pan as f32 / 100.0) + 1.0) / 2.0;
-                    let volume = 10f32.powf(region.volume as f32 / 20.0);
+                    let volume = db_to_amp(region.volume as f32);
 
                     let sample_rate = samples[&params].1;
 
@@ -467,7 +467,7 @@ impl SampleSoundfont {
                         envelope: envelope_params,
                         speed_mult,
                         cutoff,
-                        resonance: 10f32.powf(region.resonance / 20.0) * Q_BUTTERWORTH_F32,
+                        resonance: db_to_amp(region.resonance) * Q_BUTTERWORTH_F32,
                         filter_type: region.filter_type,
                         interpolator: options.interpolator,
                         loop_params,
