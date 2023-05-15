@@ -333,11 +333,11 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
     EnvelopeDescriptor {
         start_percent: env.ampeg_start / 100.0,
         delay: env.ampeg_delay,
-        attack: env.ampeg_attack.max(0.01),
+        attack: env.ampeg_attack,
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release.max(0.02),
+        release: env.ampeg_release,
     }
 }
 

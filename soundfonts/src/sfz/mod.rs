@@ -29,11 +29,11 @@ impl Default for AmpegEnvelopeParams {
         AmpegEnvelopeParams {
             ampeg_start: 0.0,
             ampeg_delay: 0.0,
-            ampeg_attack: 0.001,
+            ampeg_attack: 0.01,
             ampeg_hold: 0.0,
             ampeg_decay: 0.0,
             ampeg_sustain: 100.0,
-            ampeg_release: 0.001,
+            ampeg_release: 0.01,
         }
     }
 }
