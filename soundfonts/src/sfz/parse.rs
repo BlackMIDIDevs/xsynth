@@ -38,6 +38,7 @@ pub enum SfzOpcode {
     FilKeytrack(i16),
     FilterType(FilterType),
     DefaultPath(String),
+    Tune(i16),
     AmpegEnvelope(SfzAmpegEnvelope),
 }
 
@@ -251,6 +252,7 @@ fn parse_sfz_opcode(
         "loop_end" | "loopend" => parse_u32_in_range(val, 0..=u32::MAX).map(LoopEnd),
         "offset" => parse_u32_in_range(val, 0..=u32::MAX).map(Offset),
         "default_path" => Some(DefaultPath(val.replace('\\', "/"))),
+        "tune" => parse_i16_in_range(val, -2400..=2400).map(Tune),
 
         "ampeg_delay" => parse_float_in_range(val, 0.0..=100.0)
             .map(AmpegDelay)

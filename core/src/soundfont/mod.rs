@@ -319,6 +319,10 @@ fn key_vel_to_index(key: u8, vel: u8) -> usize {
     (key as usize) * 128 + (vel as usize)
 }
 
+fn cents_factor(cents: f32) -> f32 {
+    2.0f32.powf(cents / 1200.0)
+}
+
 pub struct SampleSoundfont {
     spawner_params_list: Vec<Vec<Arc<SampleVoiceSpawnerParams>>>,
     stream_params: AudioStreamParams,
@@ -417,7 +421,8 @@ impl SampleSoundfont {
             for key in region.keyrange.clone() {
                 for vel in region.velrange.clone() {
                     let index = key_vel_to_index(key, vel);
-                    let speed_mult = get_speed_mult_from_keys(key, region.pitch_keycenter);
+                    let speed_mult = get_speed_mult_from_keys(key, region.pitch_keycenter)
+                        * cents_factor(region.tune as f32);
 
                     let envelope_params = unique_envelope_params
                         .iter()
@@ -433,7 +438,7 @@ impl SampleSoundfont {
                                 let cents = vel as f32 / 127.0 * region.fil_veltrack as f32
                                     + (key as f32 - region.fil_keycenter as f32)
                                         * region.fil_keytrack as f32;
-                                cutoff_t *= 2.0f32.powf(cents / 1200.0);
+                                cutoff_t *= cents_factor(cents);
                                 cutoff = Some(
                                     cutoff_t
                                         .clamp(1.0, stream_params.sample_rate as f32 / 2.0 - 100.0),

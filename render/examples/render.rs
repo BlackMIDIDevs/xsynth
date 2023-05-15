@@ -1,4 +1,5 @@
 use atomic_float::AtomicF64;
+use core::soundfont::SoundfontInitOptions;
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -7,7 +8,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use xsynth_render::{builder::xsynth_renderer, XSynthRenderStats};
+use xsynth_render::{builder::xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
@@ -54,8 +55,16 @@ fn main() {
         );
     });
 
+    let config = XSynthRenderConfig {
+        sf_init_options: SoundfontInitOptions {
+            interpolator: core::soundfont::Interpolator::Linear,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
     xsynth_renderer(&midi, out)
-        .with_config(Default::default())
+        .with_config(config)
         .add_soundfonts(vec![sfz.as_str()])
         .with_layer_count(Some(128))
         .with_progress_callback(callback)
