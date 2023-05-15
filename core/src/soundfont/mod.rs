@@ -337,7 +337,7 @@ fn envelope_descriptor_from_region_params(region_params: &RegionParams) -> Envel
         hold: env.ampeg_hold,
         decay: env.ampeg_decay,
         sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release.max(0.02),
+        release: env.ampeg_release,
     }
 }
 
