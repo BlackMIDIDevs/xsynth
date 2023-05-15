@@ -74,6 +74,7 @@ pub struct RegionParamsBuilder {
     fil_keytrack: i16,
     filter_type: FilterType,
     ampeg_envelope: AmpegEnvelopeParams,
+    tune: i16,
 }
 
 impl Default for RegionParamsBuilder {
@@ -99,6 +100,7 @@ impl Default for RegionParamsBuilder {
             fil_keytrack: 0,
             filter_type: FilterType::default(),
             ampeg_envelope: AmpegEnvelopeParams::default(),
+            tune: 0,
         }
     }
 }
@@ -131,6 +133,7 @@ impl RegionParamsBuilder {
             SfzOpcode::FilterType(val) => self.filter_type = val,
             SfzOpcode::DefaultPath(val) => self.default_path = Some(val),
             SfzOpcode::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
+            SfzOpcode::Tune(val) => self.tune = val,
         }
     }
 
@@ -165,6 +168,7 @@ impl RegionParamsBuilder {
             fil_keytrack: self.fil_keytrack.clamp(0, 1200),
             filter_type: self.filter_type,
             ampeg_envelope: self.ampeg_envelope,
+            tune: self.tune,
         })
     }
 }
@@ -188,6 +192,7 @@ pub struct RegionParams {
     pub fil_keytrack: i16,
     pub filter_type: FilterType,
     pub ampeg_envelope: AmpegEnvelopeParams,
+    pub tune: i16,
 }
 
 fn get_group_level(group_type: SfzGroupType) -> Option<usize> {
