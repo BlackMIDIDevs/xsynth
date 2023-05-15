@@ -1,5 +1,4 @@
 use atomic_float::AtomicF64;
-use core::soundfont::SoundfontInitOptions;
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
