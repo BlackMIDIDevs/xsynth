@@ -59,4 +59,10 @@ pub enum ControlEvent {
 
     /// The pitch bend, product of value * sensitivity
     PitchBend(f32),
+
+    /// Fine tune value in cents
+    FineTune(f32),
+
+    /// Coarse tune value in semitones
+    CoarseTune(f32),
 }
