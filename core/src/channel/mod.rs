@@ -84,6 +84,10 @@ struct ControlEventData {
     pitch_bend_sensitivity_msb: u8,
     pitch_bend_sensitivity: f32,
     pitch_bend_value: f32,
+    fine_tune_lsb: u8,
+    fine_tune_msb: u8,
+    fine_tune_value: f32,
+    coarse_tune_value: f32,
     volume: ValueLerp, // 0.0 = silent, 1.0 = max volume
     pan: ValueLerp,    // 0.0 = left, 0.5 = center, 1.0 = right
     cutoff: Option<f32>,
@@ -100,6 +104,10 @@ impl ControlEventData {
             pitch_bend_sensitivity_msb: 2,
             pitch_bend_sensitivity: 2.0,
             pitch_bend_value: 0.0,
+            fine_tune_lsb: 0,
+            fine_tune_msb: 0,
+            fine_tune_value: 0.0,
+            coarse_tune_value: 0.0,
             volume: ValueLerp::new(1.0, sample_rate),
             pan: ValueLerp::new(0.5, sample_rate),
             cutoff: None,
@@ -274,20 +282,53 @@ impl VoiceChannel {
                         let data = &self.control_event_data;
                         (data.selected_lsb, data.selected_msb)
                     };
-                    if lsb == 0 && msb == 0 {
-                        match controller {
-                            0x06 => self.control_event_data.pitch_bend_sensitivity_msb = value,
-                            0x26 => self.control_event_data.pitch_bend_sensitivity_lsb = value,
-                            _ => (),
+                    if msb == 0 {
+                        match lsb {
+                            0 => {
+                                // Pitch
+                                match controller {
+                                    0x06 => {
+                                        self.control_event_data.pitch_bend_sensitivity_msb = value
+                                    }
+                                    0x26 => {
+                                        self.control_event_data.pitch_bend_sensitivity_lsb = value
+                                    }
+                                    _ => (),
+                                }
+
+                                let sensitivity = {
+                                    let data = &self.control_event_data;
+                                    (data.pitch_bend_sensitivity_msb as f32)
+                                        + (data.pitch_bend_sensitivity_lsb as f32) / 100.0
+                                };
+
+                                self.process_control_event(ControlEvent::PitchBendSensitivity(
+                                    sensitivity,
+                                ))
+                            }
+                            1 => {
+                                // Fine tune
+                                match controller {
+                                    0x06 => self.control_event_data.fine_tune_msb = value,
+                                    0x26 => self.control_event_data.fine_tune_lsb = value,
+                                    _ => (),
+                                }
+                                let val: u16 = ((self.control_event_data.fine_tune_msb as u16)
+                                    << 6)
+                                    + self.control_event_data.fine_tune_lsb as u16;
+                                let val = (val as f32 - 4096.0) / 4096.0 * 100.0;
+                                self.process_control_event(ControlEvent::FineTune(val));
+                            }
+                            2 => {
+                                // Coarse tune
+                                if controller == 0x06 {
+                                    self.process_control_event(ControlEvent::CoarseTune(
+                                        value as f32 - 64.0,
+                                    ))
+                                }
+                            }
+                            _ => {}
                         }
-
-                        let sensitivity = {
-                            let data = &self.control_event_data;
-                            (data.pitch_bend_sensitivity_msb as f32)
-                                + (data.pitch_bend_sensitivity_lsb as f32) / 100.0
-                        };
-
-                        self.process_control_event(ControlEvent::PitchBendSensitivity(sensitivity))
                     }
                 }
                 0x07 => {
@@ -390,11 +431,30 @@ impl VoiceChannel {
                 self.process_control_event(ControlEvent::PitchBend(pitch_bend));
             }
             ControlEvent::PitchBend(value) => {
-                let multiplier = 2.0f32.powf(value / 12.0);
-                self.voice_control_data.voice_pitch_multiplier = multiplier;
-                self.propagate_voice_controls();
+                self.control_event_data.pitch_bend_value =
+                    value / self.control_event_data.pitch_bend_sensitivity;
+                self.process_pitch();
+            }
+            ControlEvent::FineTune(value) => {
+                self.control_event_data.fine_tune_value = value;
+                self.process_pitch();
+            }
+            ControlEvent::CoarseTune(value) => {
+                self.control_event_data.coarse_tune_value = value;
+                self.process_pitch();
             }
         }
+    }
+
+    fn process_pitch(&mut self) {
+        let data = &mut self.control_event_data;
+        let pitch_bend = data.pitch_bend_sensitivity * data.pitch_bend_value;
+        let fine_tune = data.fine_tune_value;
+        let coarse_tune = data.coarse_tune_value;
+        let combined = pitch_bend + coarse_tune + fine_tune / 100.0;
+
+        self.voice_control_data.voice_pitch_multiplier = 2.0f32.powf(combined / 12.0);
+        self.propagate_voice_controls();
     }
 
     pub fn process_event(&mut self, event: ChannelEvent) {
