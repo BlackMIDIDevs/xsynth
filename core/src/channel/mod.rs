@@ -316,16 +316,16 @@ impl VoiceChannel {
                                 let val: u16 = ((self.control_event_data.fine_tune_msb as u16)
                                     << 6)
                                     + self.control_event_data.fine_tune_lsb as u16;
-                                self.control_event_data.fine_tune_value =
-                                    (val as f32 - 4096.0) / 4096.0 * 100.0;
-                                self.process_pitch()
+                                let val = (val as f32 - 4096.0) / 4096.0 * 100.0;
+                                self.process_control_event(ControlEvent::FineTune(val));
                             }
                             2 => {
                                 // Coarse tune
                                 if controller == 0x06 {
-                                    self.control_event_data.coarse_tune_value = value as f32 - 64.0
+                                    self.process_control_event(ControlEvent::CoarseTune(
+                                        value as f32 - 64.0,
+                                    ))
                                 }
-                                self.process_pitch()
                             }
                             _ => {}
                         }
