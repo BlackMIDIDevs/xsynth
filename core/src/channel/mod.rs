@@ -193,6 +193,7 @@ impl VoiceChannel {
         // Volume
         for sample in out.chunks_mut(2) {
             let vol = control.volume.get_next() * control.expression.get_next();
+            let vol = vol.powi(2);
             sample[0] *= vol;
             sample[1] *= vol;
         }
