@@ -425,10 +425,10 @@ impl SampleSoundfont {
 
             for key in region.keyrange.clone() {
                 for vel in region.velrange.clone() {
-                    let index = key_vel_to_index(key.max(0) as u8, vel);
+                    let index = key_vel_to_index(key as u8, vel);
                     let speed_mult = get_speed_mult_from_keys(
-                        key.max(0) as u8,
-                        region.pitch_keycenter.max(0) as u8,
+                        key as u8,
+                        region.pitch_keycenter as u8,
                     ) * cents_factor(region.tune as f32);
 
                     let envelope_params = unique_envelope_params
