@@ -1,5 +1,5 @@
 [workspace]
-
+resolver = "1"
 members = ["core", "realtime", "kdmapi", "soundfonts", "render"]
 
 [profile.release]
