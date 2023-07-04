@@ -432,8 +432,7 @@ impl VoiceChannel {
                 self.process_control_event(ControlEvent::PitchBend(pitch_bend));
             }
             ControlEvent::PitchBend(value) => {
-                self.control_event_data.pitch_bend_value =
-                    value / self.control_event_data.pitch_bend_sensitivity;
+                self.control_event_data.pitch_bend_value = value;
                 self.process_pitch();
             }
             ControlEvent::FineTune(value) => {
@@ -449,7 +448,7 @@ impl VoiceChannel {
 
     fn process_pitch(&mut self) {
         let data = &mut self.control_event_data;
-        let pitch_bend = data.pitch_bend_sensitivity * data.pitch_bend_value;
+        let pitch_bend = data.pitch_bend_value;
         let fine_tune = data.fine_tune_value;
         let coarse_tune = data.coarse_tune_value;
         let combined = pitch_bend + coarse_tune + fine_tune / 100.0;
