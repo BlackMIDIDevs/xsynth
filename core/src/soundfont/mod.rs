@@ -418,11 +418,18 @@ impl SampleSoundfont {
             let params = sample_cache_from_region_params(&region);
             let envelope = envelope_descriptor_from_region_params(&region);
 
+            // Key value -1 is used for CC triggered regions which are not supported by XSynth
+            if region.keyrange.contains(&-1) {
+                continue;
+            }
+
             for key in region.keyrange.clone() {
                 for vel in region.velrange.clone() {
-                    let index = key_vel_to_index(key, vel);
-                    let speed_mult = get_speed_mult_from_keys(key, region.pitch_keycenter)
-                        * cents_factor(region.tune as f32);
+                    let index = key_vel_to_index(key.max(0) as u8, vel);
+                    let speed_mult = get_speed_mult_from_keys(
+                        key.max(0) as u8,
+                        region.pitch_keycenter.max(0) as u8,
+                    ) * cents_factor(region.tune as f32);
 
                     let envelope_params = unique_envelope_params
                         .iter()
