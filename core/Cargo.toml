@@ -18,6 +18,7 @@ thiserror = "1.0.31"
 symphonia = "0.5.1"
 biquad = "0.4.2"
 simdeez = "2.0.0-dev3"
+proc-macro2 = "1.0.63"
 
 [dev-dependencies]
 midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "51ff0dc" }

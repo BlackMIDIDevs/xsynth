@@ -21,9 +21,14 @@ use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
-    let (Some(midi), Some(sfz)) =
-        (args.get(1).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_MIDI").ok()),
-         args.get(2).cloned().or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok())) else {
+    let (Some(midi), Some(sfz)) = (
+        args.get(1)
+            .cloned()
+            .or_else(|| std::env::var("XSYNTH_EXAMPLE_MIDI").ok()),
+        args.get(2)
+            .cloned()
+            .or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok()),
+    ) else {
         println!(
             "Usage: {} [midi] [sfz]",
             std::env::current_exe()

@@ -20,10 +20,10 @@ use thiserror::Error;
 pub enum SfzOpcode {
     Lovel(u8),
     Hivel(u8),
-    Key(u8),
-    Lokey(u8),
-    Hikey(u8),
-    PitchKeycenter(u8),
+    Key(i8),
+    Lokey(i8),
+    Hikey(i8),
+    PitchKeycenter(i8),
     Volume(i16),
     Pan(i8),
     Sample(String),
@@ -34,7 +34,7 @@ pub enum SfzOpcode {
     Cutoff(f32),
     Resonance(f32),
     FilVeltrack(i16),
-    FilKeycenter(u8),
+    FilKeycenter(i8),
     FilKeytrack(i16),
     FilterType(FilterType),
     DefaultPath(String),
@@ -108,9 +108,9 @@ pub enum SfzParseError {
     FailedToReadFile(PathBuf),
 }
 
-fn parse_key_number(val: &str) -> Option<u8> {
-    match val.parse::<u8>().ok() {
-        Some(val) => Some(val.clamp(0, 128)),
+fn parse_key_number(val: &str) -> Option<i8> {
+    match val.parse::<i8>().ok() {
+        Some(val) => Some(val.clamp(-1, 127)),
         None => {
             let note: String = val
                 .chars()
@@ -145,7 +145,7 @@ fn parse_key_number(val: &str) -> Option<u8> {
                 None
             } else {
                 let midi_note = 12 + semitone + octave * 12;
-                Some(midi_note.clamp(0, 128) as u8)
+                Some(midi_note.clamp(-1, 127) as i8)
             }
         }
     }
