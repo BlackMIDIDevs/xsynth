@@ -4,7 +4,7 @@ use std::{
         atomic::{AtomicI64, AtomicUsize, Ordering},
         Arc, RwLock,
     },
-    thread,
+    thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
@@ -82,6 +82,11 @@ pub struct BufferedRenderer {
     /// Remainder of samples from the last received samples vec.
     remainder: Vec<f32>,
 
+    /// Whether the render thread should be killed.
+    killed: Arc<RwLock<bool>>,
+    /// The thread handle to wait for at the end.
+    thread_handle: Option<JoinHandle<()>>,
+
     stream_params: AudioStreamParams,
 }
 
@@ -101,63 +106,73 @@ impl BufferedRenderer {
 
         let render_time = Arc::new(RwLock::new(VecDeque::new()));
 
-        {
+        let killed = Arc::new(RwLock::new(false));
+
+        let thread_handle = {
             let samples = samples.clone();
             let last_request_samples = last_request_samples.clone();
             let render_size = render_size.clone();
             let render_time = render_time.clone();
-            thread::spawn(move || loop {
-                let size = render_size.load(Ordering::SeqCst);
+            let killed = killed.clone();
+            thread::Builder::new()
+                .name("xsynth_buffered_rendering".to_string())
+                .spawn(move || loop {
+                    let size = render_size.load(Ordering::SeqCst);
 
-                // The expected render time per iteration. It is slightly smaller (*90/100) than
-                // the real time so the render thread can catch up if it's behind.
-                let delay =
-                    Duration::from_secs(1) * size as u32 / stream_params.sample_rate * 90 / 100;
+                    // The expected render time per iteration. It is slightly smaller (*90/100) than
+                    // the real time so the render thread can catch up if it's behind.
+                    let delay =
+                        Duration::from_secs(1) * size as u32 / stream_params.sample_rate * 90 / 100;
 
-                // If the render thread is ahead by over ~10%, wait until more samples are required.
-                loop {
-                    let samples = samples.load(Ordering::SeqCst);
-                    let last_requested = last_request_samples.load(Ordering::SeqCst);
-                    if samples > last_requested * 110 / 100 {
-                        spin_sleep::sleep(delay / 10);
-                    } else {
-                        break;
+                    // If the render thread is ahead by over ~10%, wait until more samples are required.
+                    loop {
+                        let samples = samples.load(Ordering::SeqCst);
+                        let last_requested = last_request_samples.load(Ordering::SeqCst);
+                        if samples > last_requested * 110 / 100 {
+                            spin_sleep::sleep(delay / 10);
+                        } else {
+                            break;
+                        }
+
+                        if *killed.read().unwrap() {
+                            return;
+                        }
                     }
-                }
 
-                let start = Instant::now();
-                let end = start + delay;
+                    let start = Instant::now();
+                    let end = start + delay;
 
-                // Create the vec and write the samples
-                let mut vec =
-                    vec![Default::default(); size * stream_params.channels.count() as usize];
-                render.read_samples(&mut vec);
+                    // Create the vec and write the samples
+                    let mut vec =
+                        vec![Default::default(); size * stream_params.channels.count() as usize];
+                    render.read_samples(&mut vec);
 
-                // Send the samples, break if the pipe is broken
-                samples.fetch_add(vec.len() as i64, Ordering::SeqCst);
-                match tx.send(vec) {
-                    Ok(_) => {}
-                    Err(_) => break,
-                };
+                    // Send the samples, break if the pipe is broken
+                    samples.fetch_add(vec.len() as i64, Ordering::SeqCst);
+                    match tx.send(vec) {
+                        Ok(_) => {}
+                        Err(_) => break,
+                    };
 
-                // Write the elapsed render time percentage to the render_time queue
-                {
-                    let mut queue = render_time.write().unwrap();
-                    let elaspsed = start.elapsed().as_secs_f64();
-                    let total = delay.as_secs_f64();
-                    queue.push_front(elaspsed / total);
-                    if queue.len() > 100 {
-                        queue.pop_back();
+                    // Write the elapsed render time percentage to the render_time queue
+                    {
+                        let mut queue = render_time.write().unwrap();
+                        let elaspsed = start.elapsed().as_secs_f64();
+                        let total = delay.as_secs_f64();
+                        queue.push_front(elaspsed / total);
+                        if queue.len() > 100 {
+                            queue.pop_back();
+                        }
                     }
-                }
 
-                // Sleep until the next iteration
-                let now = Instant::now();
-                if end > now {
-                    spin_sleep::sleep(end - now);
-                }
-            });
-        }
+                    // Sleep until the next iteration
+                    let now = Instant::now();
+                    if end > now {
+                        spin_sleep::sleep(end - now);
+                    }
+                })
+                .unwrap()
+        };
 
         Self {
             stats: BufferedRendererStats {
@@ -170,6 +185,8 @@ impl BufferedRenderer {
             receive: rx,
             remainder: Vec::new(),
             stream_params,
+            thread_handle: Some(thread_handle),
+            killed,
         }
     }
 
@@ -219,6 +236,13 @@ impl BufferedRenderer {
         BufferedRendererStatsReader {
             stats: self.stats.clone(),
         }
+    }
+}
+
+impl Drop for BufferedRenderer {
+    fn drop(&mut self) {
+        *self.killed.write().unwrap() = true;
+        self.thread_handle.take().unwrap().join().unwrap();
     }
 }
 

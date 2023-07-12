@@ -62,12 +62,17 @@ impl RealtimeSynthStatsReader {
     }
 }
 
-pub struct RealtimeSynth {
+struct RealtimeSynthThreadSharedData {
     buffered_renderer: Arc<Mutex<BufferedRenderer>>,
 
     stream: Stream,
 
     event_senders: RealtimeEventSender,
+}
+
+pub struct RealtimeSynth {
+    data: Option<RealtimeSynthThreadSharedData>,
+    join_handles: Vec<thread::JoinHandle<()>>,
 
     stats: RealtimeSynthStats,
 
@@ -121,6 +126,8 @@ impl RealtimeSynth {
 
         let (output_sender, output_receiver) = bounded::<Vec<f32>>(config.channel_count as usize);
 
+        let mut thread_handles = vec![];
+
         for _ in 0u32..(config.channel_count) {
             let mut channel =
                 VoiceChannel::new(config.channel_init_options, stream_params, pool.clone());
@@ -135,16 +142,21 @@ impl RealtimeSynth {
             command_senders.push(command_sender);
 
             let output_sender = output_sender.clone();
-            thread::spawn(move || loop {
-                channel.push_events_iter(event_receiver.try_iter());
-                let mut vec = match command_receiver.recv() {
-                    Ok(vec) => vec,
-                    Err(_) => break,
-                };
-                channel.push_events_iter(event_receiver.try_iter());
-                channel.read_samples(&mut vec);
-                output_sender.send(vec).unwrap();
-            });
+            let join_handle = thread::Builder::new()
+                .name("xsynth_channel_handler".to_string())
+                .spawn(move || loop {
+                    channel.push_events_iter(event_receiver.try_iter());
+                    let mut vec = match command_receiver.recv() {
+                        Ok(vec) => vec,
+                        Err(_) => break,
+                    };
+                    channel.push_events_iter(event_receiver.try_iter());
+                    channel.read_samples(&mut vec);
+                    output_sender.send(vec).unwrap();
+                })
+                .unwrap();
+
+            thread_handles.push(join_handle);
         }
 
         let mut vec_cache: VecDeque<Vec<f32>> = VecDeque::new();
@@ -217,25 +229,32 @@ impl RealtimeSynth {
         let max_nps = Arc::new(ReadWriteAtomicU64::new(10000));
 
         Self {
-            buffered_renderer: buffered,
+            data: Some(RealtimeSynthThreadSharedData {
+                buffered_renderer: buffered,
 
-            event_senders: RealtimeEventSender::new(senders, max_nps, config.ignore_range),
-            stream,
+                event_senders: RealtimeEventSender::new(senders, max_nps, config.ignore_range),
+                stream,
+            }),
+            join_handles: thread_handles,
+
             stats,
             stream_params,
         }
     }
 
     pub fn send_event(&mut self, event: SynthEvent) {
-        self.event_senders.send_event(event);
+        let data = self.data.as_mut().unwrap();
+        data.event_senders.send_event(event);
     }
 
     pub fn get_senders(&self) -> RealtimeEventSender {
-        self.event_senders.clone()
+        let data = self.data.as_ref().unwrap();
+        data.event_senders.clone()
     }
 
     pub fn get_stats(&self) -> RealtimeSynthStatsReader {
-        let buffered_stats = self.buffered_renderer.lock().unwrap().get_buffer_stats();
+        let data = self.data.as_ref().unwrap();
+        let buffered_stats = data.buffered_renderer.lock().unwrap().get_buffer_stats();
 
         RealtimeSynthStatsReader::new(self.stats.clone(), buffered_stats)
     }
@@ -245,10 +264,23 @@ impl RealtimeSynth {
     }
 
     pub fn pause(&mut self) -> Result<(), PauseStreamError> {
-        self.stream.pause()
+        let data = self.data.as_mut().unwrap();
+        data.stream.pause()
     }
 
     pub fn resume(&mut self) -> Result<(), PlayStreamError> {
-        self.stream.play()
+        let data = self.data.as_mut().unwrap();
+        data.stream.play()
+    }
+}
+
+impl Drop for RealtimeSynth {
+    fn drop(&mut self) {
+        let data = self.data.take().unwrap();
+        // data.stream.pause().unwrap();
+        drop(data);
+        for handle in self.join_handles.drain(..) {
+            handle.join().unwrap();
+        }
     }
 }
