@@ -14,11 +14,11 @@ fn main() {
     let params = synth.stream_params();
 
     let args = std::env::args().collect::<Vec<String>>();
-    let (Some(sfz),) = (
-        args.get(1)
-            .cloned()
-            .or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok()),
-    ) else {
+    let Some(sfz) = args
+        .get(1)
+        .cloned()
+        .or_else(|| std::env::var("XSYNTH_EXAMPLE_SFZ").ok())
+    else {
         println!(
             "Usage: {} [sfz]",
             std::env::current_exe()
