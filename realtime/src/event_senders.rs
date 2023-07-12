@@ -2,7 +2,7 @@ use std::{
     collections::VecDeque,
     ops::RangeInclusive,
     sync::{Arc, RwLock},
-    thread::{self},
+    thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
@@ -28,6 +28,7 @@ struct RoughNpsTracker {
     total_window_sum: u64,
     current_window_sum: u64,
     stop: Arc<RwLock<bool>>,
+    join_handle: Option<JoinHandle<()>>,
 }
 
 impl RoughNpsTracker {
@@ -35,21 +36,24 @@ impl RoughNpsTracker {
         let rough_time = Arc::new(ReadWriteAtomicU64::new(0));
         let stop = Arc::new(RwLock::new(false));
 
-        {
+        let join_handle = {
             let rough_time = rough_time.clone();
             let stop = stop.clone();
-            thread::spawn(move || {
-                let mut last_time = 0;
-                let mut now = Instant::now();
-                while !*stop.read().unwrap() {
-                    thread::sleep(Duration::from_millis(NPS_WINDOW_MILLISECONDS));
-                    let diff = now.elapsed();
-                    last_time += diff.as_millis() as u64;
-                    rough_time.write(last_time);
-                    now = Instant::now();
-                }
-            });
-        }
+            thread::Builder::new()
+                .name("xsynth_nps_tracker".to_string())
+                .spawn(move || {
+                    let mut last_time = 0;
+                    let mut now = Instant::now();
+                    while !*stop.read().unwrap() {
+                        thread::sleep(Duration::from_millis(NPS_WINDOW_MILLISECONDS));
+                        let diff = now.elapsed();
+                        last_time += diff.as_millis() as u64;
+                        rough_time.write(last_time);
+                        now = Instant::now();
+                    }
+                })
+                .unwrap()
+        };
 
         RoughNpsTracker {
             rough_time,
@@ -58,6 +62,7 @@ impl RoughNpsTracker {
             total_window_sum: 0,
             current_window_sum: 0,
             stop,
+            join_handle: Some(join_handle),
         }
     }
 
@@ -105,6 +110,7 @@ impl RoughNpsTracker {
 impl Drop for RoughNpsTracker {
     fn drop(&mut self) {
         *self.stop.write().unwrap() = true;
+        self.join_handle.take().unwrap().join().unwrap();
     }
 }
 
