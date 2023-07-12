@@ -1,22 +1,10 @@
-use std::{
-    sync::Arc,
-    thread,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use core::{
-    channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
+    channel::{ChannelAudioEvent, ChannelConfigEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };
-use midi_toolkit::{
-    events::Event,
-    io::MIDIFile,
-    pipe,
-    sequence::{
-        event::{cancel_tempo_events, scale_event_time},
-        unwrap_items, TimeCaster,
-    },
-};
+
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
 fn main() {
