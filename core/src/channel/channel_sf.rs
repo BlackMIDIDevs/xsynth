@@ -31,16 +31,20 @@ impl ChannelSoundfont {
 
     pub fn set_soundfonts(&mut self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
         self.soundfonts = soundfonts;
-        self.rebuild_matrix();
+        self.rebuild_matrix(0, 0);
     }
 
-    fn rebuild_matrix(&mut self) {
+    pub fn change_program(&mut self, bank: u8, preset: u8) {
+        self.rebuild_matrix(bank, preset);
+    }
+
+    fn rebuild_matrix(&mut self, bank: u8, preset: u8) {
         for k in 0..128u8 {
             for v in 0..128u8 {
                 let vec = self
                     .soundfonts
                     .iter()
-                    .map(|sf| sf.get_attack_voice_spawners_at(k, v))
+                    .map(|sf| sf.get_attack_voice_spawners_at(bank, preset, k, v))
                     .find(|vec| !vec.is_empty())
                     .unwrap_or_default();
                 self.matrix.set_spawners_attack(k, v, vec);
@@ -48,7 +52,7 @@ impl ChannelSoundfont {
                 let vec = self
                     .soundfonts
                     .iter()
-                    .map(|sf| sf.get_release_voice_spawners_at(k, v))
+                    .map(|sf| sf.get_release_voice_spawners_at(bank, preset, k, v))
                     .find(|vec| !vec.is_empty())
                     .unwrap_or_default();
                 self.matrix.set_spawners_release(k, v, vec);

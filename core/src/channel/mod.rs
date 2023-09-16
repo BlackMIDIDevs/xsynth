@@ -93,6 +93,8 @@ struct ControlEventData {
     cutoff: Option<f32>,
     resonance: Option<f32>,
     expression: ValueLerp,
+    preset: u8,
+    bank: u8,
 }
 
 impl ControlEventData {
@@ -113,6 +115,8 @@ impl ControlEventData {
             cutoff: None,
             resonance: None,
             expression: ValueLerp::new(1.0, sample_rate),
+            preset: 0,
+            bank: 0,
         }
     }
 }
@@ -272,6 +276,14 @@ impl VoiceChannel {
     pub fn process_control_event(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Raw(controller, value) => match controller {
+                0x00 => {
+                    // Bank select
+                    self.control_event_data.bank = value;
+                    self.params.channel_sf.change_program(
+                        self.control_event_data.bank,
+                        self.control_event_data.preset,
+                    );
+                }
                 0x64 => {
                     self.control_event_data.selected_lsb = value as i8;
                 }
@@ -494,6 +506,13 @@ impl VoiceChannel {
                     }
                     ChannelAudioEvent::Control(control) => {
                         self.process_control_event(control);
+                    }
+                    ChannelAudioEvent::ProgramChange(preset) => {
+                        self.control_event_data.preset = preset;
+                        self.params.channel_sf.change_program(
+                            self.control_event_data.bank,
+                            self.control_event_data.preset,
+                        );
                     }
                 },
                 ChannelEvent::Config(config) => self.params.process_config_event(config),

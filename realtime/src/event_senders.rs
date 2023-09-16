@@ -292,6 +292,12 @@ impl RealtimeEventSender {
                     ChannelAudioEvent::Control(ControlEvent::Raw(val1!(), val2!())),
                 ));
             }
+            0xC => {
+                self.send_event(SynthEvent::Channel(
+                    channel,
+                    ChannelAudioEvent::ProgramChange(val1!()),
+                ));
+            }
             0xE => {
                 let value = (((val2!() as i16) << 7) | val1!() as i16) - 8192;
                 let value = value as f32 / 8192.0;

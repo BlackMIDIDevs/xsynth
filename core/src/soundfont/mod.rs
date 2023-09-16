@@ -45,8 +45,20 @@ pub trait VoiceSpawner: Sync + Send {
 pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     fn stream_params(&self) -> &'_ AudioStreamParams;
 
-    fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
-    fn get_release_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>>;
+    fn get_attack_voice_spawners_at(
+        &self,
+        bank: u8,
+        preset: u8,
+        key: u8,
+        vel: u8,
+    ) -> Vec<Box<dyn VoiceSpawner>>;
+    fn get_release_voice_spawners_at(
+        &self,
+        bank: u8,
+        preset: u8,
+        key: u8,
+        vel: u8,
+    ) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
 #[derive(Clone, PartialEq, Eq, Copy, Debug)]
@@ -300,6 +312,8 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct SoundfontInitOptions {
+    pub bank: Option<u8>,
+    pub preset: Option<u8>,
     pub linear_release: bool,
     pub use_effects: bool,
     pub interpolator: Interpolator,
@@ -308,6 +322,8 @@ pub struct SoundfontInitOptions {
 impl Default for SoundfontInitOptions {
     fn default() -> Self {
         Self {
+            bank: Some(0),
+            preset: Some(0),
             linear_release: false,
             use_effects: true,
             interpolator: Interpolator::Nearest,
@@ -323,8 +339,14 @@ fn cents_factor(cents: f32) -> f32 {
     2.0f32.powf(cents / 1200.0)
 }
 
-pub struct SampleSoundfont {
+pub struct SoundfontInstrument {
+    bank: u8,
+    preset: u8,
     spawner_params_list: Vec<Vec<Arc<SampleVoiceSpawnerParams>>>,
+}
+
+pub struct SampleSoundfont {
+    instruments: Vec<SoundfontInstrument>,
     stream_params: AudioStreamParams,
 }
 
@@ -496,7 +518,11 @@ impl SampleSoundfont {
         }
 
         Ok(SampleSoundfont {
-            spawner_params_list,
+            instruments: vec![SoundfontInstrument {
+                bank: options.bank.unwrap_or(0),
+                preset: options.preset.unwrap_or(0),
+                spawner_params_list,
+            }],
             stream_params,
         })
     }
@@ -513,30 +539,63 @@ impl SoundfontBase for SampleSoundfont {
         &self.stream_params
     }
 
-    fn get_attack_voice_spawners_at(&self, key: u8, vel: u8) -> Vec<Box<dyn VoiceSpawner>> {
+    fn get_attack_voice_spawners_at(
+        &self,
+        bank: u8,
+        preset: u8,
+        key: u8,
+        vel: u8,
+    ) -> Vec<Box<dyn VoiceSpawner>> {
         use simdeez::*; // nuts
 
         use simdeez::prelude::*;
 
         simd_runtime_generate!(
-            fn get(key: u8, vel: u8, sf: &SampleSoundfont) -> Vec<Box<dyn VoiceSpawner>> {
+            fn get(
+                key: u8,
+                vel: u8,
+                sf: &SoundfontInstrument,
+                stream_params: &AudioStreamParams,
+            ) -> Vec<Box<dyn VoiceSpawner>> {
+                if sf.spawner_params_list.is_empty() {
+                    return Vec::new();
+                }
+
                 let index = key_vel_to_index(key, vel);
                 let mut vec = Vec::<Box<dyn VoiceSpawner>>::new();
                 for spawner in &sf.spawner_params_list[index] {
                     vec.push(Box::new(SampledVoiceSpawner::<S>::new(
                         spawner,
                         vel,
-                        sf.stream_params,
+                        *stream_params,
                     )));
                 }
                 vec
             }
         );
 
-        get(key, vel, self)
+        let empty = SoundfontInstrument {
+            bank: 0,
+            preset: 0,
+            spawner_params_list: Vec::new(),
+        };
+
+        let instrument = self
+            .instruments
+            .iter()
+            .find(|i| i.bank == bank && i.preset == preset)
+            .unwrap_or(&empty);
+
+        get(key, vel, instrument, self.stream_params())
     }
 
-    fn get_release_voice_spawners_at(&self, _key: u8, _vel: u8) -> Vec<Box<dyn VoiceSpawner>> {
+    fn get_release_voice_spawners_at(
+        &self,
+        _bank: u8,
+        _preset: u8,
+        _key: u8,
+        _vel: u8,
+    ) -> Vec<Box<dyn VoiceSpawner>> {
         vec![]
     }
 }
