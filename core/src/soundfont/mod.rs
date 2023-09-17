@@ -322,8 +322,8 @@ pub struct SoundfontInitOptions {
 impl Default for SoundfontInitOptions {
     fn default() -> Self {
         Self {
-            bank: Some(0),
-            preset: Some(0),
+            bank: None,
+            preset: None,
             linear_release: false,
             use_effects: true,
             interpolator: Interpolator::Nearest,

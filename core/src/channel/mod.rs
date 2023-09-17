@@ -124,6 +124,7 @@ impl ControlEventData {
 #[derive(Debug, Clone, Copy)]
 pub struct ChannelInitOptions {
     pub fade_out_killing: bool,
+    pub drums_only: bool,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -131,6 +132,7 @@ impl Default for ChannelInitOptions {
     fn default() -> Self {
         Self {
             fade_out_killing: false,
+            drums_only: false,
         }
     }
 }
@@ -142,6 +144,7 @@ pub struct VoiceChannel {
     threadpool: Option<Arc<rayon::ThreadPool>>,
 
     stream_params: AudioStreamParams,
+    options: ChannelInitOptions,
 
     /// The helper struct for keeping track of MIDI control event data
     control_event_data: ControlEventData,
@@ -170,6 +173,11 @@ impl VoiceChannel {
         let params = VoiceChannelParams::new(stream_params);
         let shared_voice_counter = params.stats.voice_counter.clone();
 
+        let mut control_event_data = ControlEventData::new_defaults(stream_params.sample_rate);
+        if options.drums_only {
+            control_event_data.bank = 128;
+        }
+
         VoiceChannel {
             params,
             key_voices: fill_key_array(|i| Key::new(i, shared_voice_counter.clone(), options)),
@@ -177,8 +185,9 @@ impl VoiceChannel {
             threadpool,
 
             stream_params,
+            options,
 
-            control_event_data: ControlEventData::new_defaults(stream_params.sample_rate),
+            control_event_data,
             voice_control_data: VoiceControlData::new_defaults(),
 
             cutoff: MultiChannelBiQuad::new(
@@ -278,11 +287,13 @@ impl VoiceChannel {
             ControlEvent::Raw(controller, value) => match controller {
                 0x00 => {
                     // Bank select
-                    self.control_event_data.bank = value;
-                    self.params.channel_sf.change_program(
-                        self.control_event_data.bank,
-                        self.control_event_data.preset,
-                    );
+                    if !self.options.drums_only {
+                        self.control_event_data.bank = value;
+                        self.params.channel_sf.change_program(
+                            self.control_event_data.bank,
+                            self.control_event_data.preset,
+                        );
+                    }
                 }
                 0x64 => {
                     self.control_event_data.selected_lsb = value as i8;
