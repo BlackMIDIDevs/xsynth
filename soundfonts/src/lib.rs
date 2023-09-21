@@ -1,3 +1,4 @@
+pub mod sf2;
 pub mod sfz;
 
 #[derive(Debug, PartialEq, Clone, Copy, Default)]
