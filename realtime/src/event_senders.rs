@@ -231,10 +231,7 @@ impl RealtimeEventSender {
     pub fn send_event(&mut self, event: SynthEvent) {
         match event {
             SynthEvent::Channel(channel, event) => {
-                if channel != 9 {
-                    self.senders[channel as usize].send_audio(event);
-                }
-                //self.senders[channel as usize].send(event);
+                self.senders[channel as usize].send_audio(event);
             }
             SynthEvent::AllChannels(event) => {
                 for sender in self.senders.iter_mut() {

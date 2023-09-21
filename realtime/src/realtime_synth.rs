@@ -128,9 +128,13 @@ impl RealtimeSynth {
 
         let mut thread_handles = vec![];
 
-        for _ in 0u32..(config.channel_count) {
-            let mut channel =
-                VoiceChannel::new(config.channel_init_options, stream_params, pool.clone());
+        for i in 0u32..(config.channel_count) {
+            let mut init = config.channel_init_options;
+            if config.drums_channels.clone().into_iter().any(|c| c == i) {
+                init.drums_only = true;
+            }
+
+            let mut channel = VoiceChannel::new(init, stream_params, pool.clone());
             let stats = channel.get_channel_stats();
             channel_stats.push(stats);
 
