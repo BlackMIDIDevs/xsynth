@@ -11,8 +11,8 @@ encoding_rs_io = "0.1.7"
 lazy-regex = "3.0.2"
 regex-bnf = "0.1.2"
 simdeez = "2.0.0-dev3"
-riff = "2.0.0"
 thiserror = "1.0.38"
+soundfont = { path = "../../OxiSynth/soundfont-rs" }
 
 [dev-dependencies]
 criterion = "0.5.1"
