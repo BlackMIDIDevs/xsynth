@@ -123,6 +123,12 @@ fn main() {
                         )),
                     ));
                 }
+                Event::ProgramChange(e) => {
+                    sender.send_event(SynthEvent::Channel(
+                        e.channel as u32,
+                        ChannelAudioEvent::ProgramChange(e.program),
+                    ));
+                }
                 _ => {}
             }
         }

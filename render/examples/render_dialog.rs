@@ -1,4 +1,9 @@
-use xsynth_render::{xsynth_renderer, XSynthRenderStats};
+use xsynth_render::{xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
+
+use core::{
+    soundfont::{SampleSoundfont, SoundfontBase},
+    AudioStreamParams, ChannelCount,
+};
 
 use midi_toolkit::{io::MIDIFile, sequence::event::get_channels_array_statistics};
 
@@ -71,11 +76,23 @@ fn main() {
         }
     });
 
+    let config: XSynthRenderConfig = Default::default();
+
+    let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
+    soundfonts.push(Arc::new(
+        SampleSoundfont::new(
+            sfz_path,
+            AudioStreamParams::new(sample_rate, ChannelCount::from(2)),
+            config.sf_init_options,
+        )
+        .unwrap(),
+    ));
+
     xsynth_renderer(&midi_path, &out_path)
         .with_sample_rate(sample_rate)
         .use_threadpool(use_threadpool)
         .use_limiter(use_limiter)
-        .add_soundfont(&sfz_path)
+        .add_soundfonts(soundfonts)
         .with_layer_count(layers)
         .with_progress_callback(callback)
         .run()

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
     channel_group::SynthEvent,
-    soundfont::{LoadSfzError, SampleSoundfont, SoundfontBase},
+    soundfont::{LoadSfzError, SoundfontBase},
 };
 
 use thiserror::Error;
@@ -47,7 +47,7 @@ impl From<MIDILoadError> for XSynthRenderError {
 pub struct XSynthRenderBuilder<'a, StatsCallback: FnMut(XSynthRenderStats)> {
     config: XSynthRenderConfig,
     midi_path: &'a str,
-    soundfont_paths: Vec<&'a str>,
+    soundfonts: Vec<Arc<dyn SoundfontBase>>,
     layer_count: Option<usize>,
     out_path: &'a str,
     stats_callback: StatsCallback,
@@ -60,7 +60,7 @@ pub fn xsynth_renderer<'a>(
     XSynthRenderBuilder {
         config: XSynthRenderConfig::default(),
         midi_path,
-        soundfont_paths: vec![],
+        soundfonts: vec![],
         layer_count: Some(4),
         out_path,
         stats_callback: |_| {},
@@ -111,13 +111,8 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
     }
 
     // Set up functions
-    pub fn add_soundfonts(mut self, soundfont_paths: impl IntoIterator<Item = &'a str>) -> Self {
-        self.soundfont_paths.extend(soundfont_paths);
-        self
-    }
-
-    pub fn add_soundfont(mut self, soundfont_path: &'a str) -> Self {
-        self.soundfont_paths.push(soundfont_path);
+    pub fn add_soundfonts(mut self, soundfonts: Vec<Arc<dyn SoundfontBase>>) -> Self {
+        self.soundfonts.extend(soundfonts);
         self
     }
 
@@ -128,7 +123,7 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
         XSynthRenderBuilder {
             config: self.config,
             midi_path: self.midi_path,
-            soundfont_paths: self.soundfont_paths,
+            soundfonts: self.soundfonts,
             layer_count: self.layer_count,
             out_path: self.out_path,
             stats_callback,
@@ -136,19 +131,14 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
     }
 
     pub fn run(mut self) -> Result<(), XSynthRenderError> {
-        let mut synth = XSynthRender::new(self.config, self.out_path.into());
-
-        let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
-        for sfz in self.soundfont_paths {
-            soundfonts.push(Arc::new(SampleSoundfont::new(
-                sfz,
-                synth.get_params(),
-                self.config.sf_init_options,
-            )?));
-        }
+        let mut synth = XSynthRender::new(self.config.clone(), self.out_path.into());
 
         synth.send_event(SynthEvent::ChannelConfig(
-            ChannelConfigEvent::SetSoundfonts(soundfonts),
+            ChannelConfigEvent::SetSoundfonts(
+                self.soundfonts
+                    .drain(..)
+                    .collect::<Vec<Arc<dyn SoundfontBase>>>(),
+            ),
         ));
 
         synth.send_event(SynthEvent::ChannelConfig(
@@ -206,6 +196,12 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
                             ChannelAudioEvent::Control(ControlEvent::PitchBendValue(
                                 e.pitch as f32 / 8192.0,
                             )),
+                        ));
+                    }
+                    Event::ProgramChange(e) => {
+                        synth.send_event(SynthEvent::Channel(
+                            e.channel as u32,
+                            ChannelAudioEvent::ProgramChange(e.program),
                         ));
                     }
                     _ => {}

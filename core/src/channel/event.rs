@@ -36,6 +36,8 @@ pub enum ChannelAudioEvent {
     ResetControl,
     /// Control event for the channel
     Control(ControlEvent),
+    /// Program change event
+    ProgramChange(u8),
 }
 
 #[derive(Debug, Clone)]
