@@ -24,6 +24,7 @@ pub struct ChannelGroup {
 pub struct ChannelGroupConfig {
     pub channel_init_options: ChannelInitOptions,
     pub channel_count: u32,
+    pub drums_channels: Vec<u32>,
     pub audio_params: AudioStreamParams,
     pub use_threadpool: bool,
 }
@@ -41,12 +42,13 @@ impl ChannelGroup {
             None
         };
 
-        for _ in 0..config.channel_count {
-            channels.push(VoiceChannel::new(
-                config.channel_init_options,
-                config.audio_params,
-                pool.clone(),
-            ));
+        for i in 0..config.channel_count {
+            let mut init = config.channel_init_options;
+            if config.drums_channels.clone().into_iter().any(|c| c == i) {
+                init.drums_only = true;
+            }
+
+            channels.push(VoiceChannel::new(init, config.audio_params, pool.clone()));
             channel_events_cache.push(Vec::new());
             sample_cache_vecs.push(Vec::new());
         }
