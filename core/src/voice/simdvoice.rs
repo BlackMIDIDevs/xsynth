@@ -2,7 +2,10 @@ use std::marker::PhantomData;
 
 use simdeez::prelude::*;
 
-use crate::voice::{ReleaseType, VoiceControlData};
+use crate::{
+    voice::{ReleaseType, VoiceControlData},
+    ChannelCount,
+};
 
 use super::{
     SIMDSample, SIMDSampleMono, SIMDSampleStereo, SIMDVoiceGenerator, VoiceGeneratorBase,
@@ -53,24 +56,41 @@ where
     S: Simd,
     T: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
-    fn render_to(&mut self, buffer: &mut [f32]) {
+    fn render_to(&mut self, channels: ChannelCount, buffer: &mut [f32]) {
         simd_invoke!(S, {
-            // We need an even number of samples. This lets us guarantee unsafe access below.
-            assert!(buffer.len() % 2 == 0);
-            for chunk in buffer.chunks_exact_mut(2) {
-                if self.remainder_pos == S::Vf32::WIDTH {
-                    self.remainder = self.generator.next_sample();
-                    self.remainder_pos = 0;
-                }
+            match channels {
+                ChannelCount::Stereo => {
+                    for chunk in buffer.chunks_exact_mut(2) {
+                        if self.remainder_pos == S::Vf32::WIDTH {
+                            self.remainder = self.generator.next_sample();
+                            self.remainder_pos = 0;
+                        }
 
-                unsafe {
-                    // using get_unchecked here is safe because we check the bounds above
-                    // however the compiler doesn't seem to detect it otherwise.
-                    chunk[0] += self.remainder.0.get_unchecked(self.remainder_pos);
-                    chunk[1] += self.remainder.1.get_unchecked(self.remainder_pos);
-                }
+                        unsafe {
+                            // using get_unchecked here is safe because we check the bounds above
+                            // however the compiler doesn't seem to detect it otherwise.
+                            chunk[0] += self.remainder.0.get_unchecked(self.remainder_pos);
+                            chunk[1] += self.remainder.1.get_unchecked(self.remainder_pos);
+                        }
 
-                self.remainder_pos += 1;
+                        self.remainder_pos += 1;
+                    }
+                }
+                ChannelCount::Mono => {
+                    let mut i = 0;
+                    while i < buffer.len() {
+                        if self.remainder_pos == S::Vf32::WIDTH {
+                            self.remainder = self.generator.next_sample();
+                            self.remainder_pos = 0;
+                        }
+
+                        buffer[i] += self.remainder.0[self.remainder_pos];
+                        buffer[i] += self.remainder.1[self.remainder_pos];
+                        i += 1;
+
+                        self.remainder_pos += 1;
+                    }
+                }
             }
         })
     }
@@ -120,19 +140,41 @@ where
     S: Simd,
     T: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
 {
-    fn render_to(&mut self, buffer: &mut [f32]) {
+    fn render_to(&mut self, channels: ChannelCount, buffer: &mut [f32]) {
         simd_invoke!(S, {
-            let mut i = 0;
-            while i < buffer.len() {
-                if self.remainder_pos == S::Vf32::WIDTH {
-                    self.remainder = self.generator.next_sample();
-                    self.remainder_pos = 0;
+            match channels {
+                ChannelCount::Mono => {
+                    let mut i = 0;
+                    while i < buffer.len() {
+                        if self.remainder_pos == S::Vf32::WIDTH {
+                            self.remainder = self.generator.next_sample();
+                            self.remainder_pos = 0;
+                        }
+
+                        buffer[i] += self.remainder.0[self.remainder_pos];
+                        i += 1;
+
+                        self.remainder_pos += 1;
+                    }
                 }
+                ChannelCount::Stereo => {
+                    for chunk in buffer.chunks_exact_mut(2) {
+                        if self.remainder_pos == S::Vf32::WIDTH {
+                            self.remainder = self.generator.next_sample();
+                            self.remainder_pos = 0;
+                        }
 
-                buffer[i] += self.remainder.0[self.remainder_pos];
-                i += 1;
+                        unsafe {
+                            // using get_unchecked here is safe because we check the bounds above
+                            // however the compiler doesn't seem to detect it otherwise.
+                            let s = self.remainder.0.get_unchecked(self.remainder_pos);
+                            chunk[0] += s;
+                            chunk[1] += s;
+                        }
 
-                self.remainder_pos += 1;
+                        self.remainder_pos += 1;
+                    }
+                }
             }
         })
     }

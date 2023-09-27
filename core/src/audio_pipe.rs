@@ -6,7 +6,7 @@ pub trait AudioPipe {
 
     /// Reads samples from the pipe
     fn read_samples(&mut self, to: &mut [f32]) {
-        assert!(to.len() as u32 % self.stream_params().channels as u32 == 0);
+        assert!(to.len() as u32 % self.stream_params().channels.count() as u32 == 0);
         self.read_samples_unchecked(to);
     }
 

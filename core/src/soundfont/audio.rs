@@ -8,8 +8,6 @@ use symphonia::core::{codecs::DecoderOptions, errors::Error};
 
 use thiserror::Error;
 
-use crate::ChannelCount;
-
 use self::resample::SincResampler;
 
 pub mod resample;
@@ -77,9 +75,6 @@ pub fn load_audio_file(
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
     let channel_count = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
 
-    let channel_count_value = ChannelCount::from_count(channel_count as u16)
-        .ok_or_else(|| AudioLoadError::InvalidChannelCount(path.clone()))?;
-
     // Create a decoder for the track.
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &decoder_opts)
@@ -122,15 +117,7 @@ pub fn load_audio_file(
 
     let built = builder.finish(sample_rate as f32, new_sample_rate);
 
-    Ok((
-        match channel_count_value {
-            ChannelCount::Mono => vec![built[0].clone(), built[0].clone()]
-                .into_iter()
-                .collect(),
-            ChannelCount::Stereo => built,
-        },
-        sample_rate,
-    ))
+    Ok((built, sample_rate))
 }
 
 struct BuilderVecs {

@@ -7,7 +7,67 @@ use crate::{
     voice::{ReleaseType, SIMDVoiceGenerator, VoiceControlData},
 };
 
-use super::{SIMDSampleStereo, VoiceGeneratorBase};
+use super::{SIMDSampleMono, SIMDSampleStereo, VoiceGeneratorBase};
+
+pub struct SIMDMonoVoiceCutoff<S, V>
+where
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+{
+    v: V,
+    cutoff: BiQuadFilter,
+    _s: PhantomData<S>,
+}
+
+impl<S, V> SIMDMonoVoiceCutoff<S, V>
+where
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+{
+    pub fn new(v: V, filter: &BiQuadFilter) -> Self {
+        SIMDMonoVoiceCutoff {
+            v,
+            cutoff: filter.clone(),
+            _s: PhantomData,
+        }
+    }
+}
+
+impl<S, V> VoiceGeneratorBase for SIMDMonoVoiceCutoff<S, V>
+where
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+{
+    #[inline(always)]
+    fn ended(&self) -> bool {
+        self.v.ended()
+    }
+
+    #[inline(always)]
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        self.v.signal_release(rel_type);
+    }
+
+    #[inline(always)]
+    fn process_controls(&mut self, control: &VoiceControlData) {
+        self.v.process_controls(control);
+    }
+}
+
+impl<S, V> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for SIMDMonoVoiceCutoff<S, V>
+where
+    S: Simd,
+    V: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+{
+    #[inline(always)]
+    fn next_sample(&mut self) -> SIMDSampleMono<S> {
+        simd_invoke!(S, {
+            let mut next_sample = self.v.next_sample();
+            next_sample.0 = self.cutoff.process_simd::<S>(next_sample.0);
+            next_sample
+        })
+    }
+}
 
 pub struct SIMDStereoVoiceCutoff<S, V>
 where

@@ -28,6 +28,8 @@ pub use control::*;
 mod cutoff;
 pub use cutoff::*;
 
+use crate::ChannelCount;
+
 #[derive(Copy, Clone)]
 pub struct EnvelopeControlData {
     pub attack: Option<u8>,
@@ -65,7 +67,7 @@ pub trait VoiceGeneratorBase: Sync + Send {
 }
 
 pub trait VoiceSampleGenerator: VoiceGeneratorBase {
-    fn render_to(&mut self, buffer: &mut [f32]);
+    fn render_to(&mut self, channels: ChannelCount, buffer: &mut [f32]);
 }
 
 pub trait Voice: VoiceSampleGenerator + Send + Sync {

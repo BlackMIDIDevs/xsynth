@@ -7,12 +7,14 @@ use super::{
     channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer,
     ChannelInitOptions, VoiceControlData,
 };
+use crate::ChannelCount;
 
 pub struct KeyData {
     key: u8,
     voices: VoiceBuffer,
     last_voice_count: usize,
     shared_voice_counter: Arc<AtomicU64>,
+    channels: ChannelCount,
 }
 
 impl KeyData {
@@ -20,12 +22,14 @@ impl KeyData {
         key: u8,
         shared_voice_counter: Arc<AtomicU64>,
         options: ChannelInitOptions,
+        channels: ChannelCount,
     ) -> KeyData {
         KeyData {
             key,
             voices: VoiceBuffer::new(options),
             last_voice_count: 0,
             shared_voice_counter,
+            channels,
         }
     }
 
@@ -70,8 +74,9 @@ impl KeyData {
         if !self.has_voices() {
             return;
         }
+
         for voice in &mut self.voices.iter_voices_mut() {
-            voice.render_to(out);
+            voice.render_to(self.channels, out);
         }
         self.voices.remove_ended_voices();
 

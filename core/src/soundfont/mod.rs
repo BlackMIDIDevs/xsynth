@@ -19,17 +19,18 @@ use super::{
     voice::VoiceControlData,
     voice::{
         BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
-        SIMDLinearSampleGrabber, SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler,
-        SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, SampleReaderLoop,
-        SampleReaderLoopSustain, SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
+        SIMDLinearSampleGrabber, SIMDMonoVoice, SIMDMonoVoiceSampler, SIMDNearestSampleGrabber,
+        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader,
+        SampleReaderLoop, SampleReaderLoopSustain, SampleReaderNoLoop, Voice, VoiceBase,
+        VoiceCombineSIMD,
     },
 };
 use crate::{
     effects::BiQuadFilter,
     helpers::{db_to_amp, FREQS},
     voice::{
-        BufferSampler, EnvelopeDescriptor, SIMDSample, SIMDSampleGrabber, SIMDSampleMono,
-        SIMDSampleStereo, SIMDStereoVoiceCutoff, SIMDVoiceGenerator,
+        BufferSampler, EnvelopeDescriptor, SIMDMonoVoiceCutoff, SIMDSample, SIMDSampleGrabber,
+        SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff, SIMDVoiceGenerator,
     },
     AudioStreamParams, ChannelCount,
 };
@@ -106,6 +107,7 @@ impl SampleCache {
 }
 
 struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
+    channels: ChannelCount,
     speed_mult: f32,
     filter: Option<BiQuadFilter>,
     loop_params: LoopParams,
@@ -137,6 +139,7 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         });
 
         Self {
+            channels: ChannelCount::from(params.sample.len() as u16),
             speed_mult: params.speed_mult,
             filter,
             loop_params: params.loop_params.clone(),
@@ -195,13 +198,25 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         control: &VoiceControlData,
         make_sampler: impl Fn(Arc<[f32]>) -> SG,
     ) -> Box<dyn Voice> {
-        let left = make_sampler(self.samples[0].clone());
-        let right = make_sampler(self.samples[1].clone());
+        match self.channels {
+            ChannelCount::Mono => {
+                let sample = make_sampler(self.samples[0].clone());
 
-        let pitch_fac = self.create_pitch_fac(control);
+                let pitch_fac = self.create_pitch_fac(control);
 
-        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
-        self.apply_voice_params(sampler, control)
+                let sampler = SIMDMonoVoiceSampler::new(sample, pitch_fac);
+                self.apply_voice_params_mono(sampler, control)
+            }
+            ChannelCount::Stereo => {
+                let left = make_sampler(self.samples[0].clone());
+                let right = make_sampler(self.samples[1].clone());
+
+                let pitch_fac = self.create_pitch_fac(control);
+
+                let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
+                self.apply_voice_params_stereo(sampler, control)
+            }
+        }
     }
 
     fn apply_velocity<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
@@ -270,7 +285,17 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         amp
     }
 
-    fn convert_to_voice<Gen>(&self, gen: Gen) -> Box<dyn Voice>
+    fn convert_to_voice_mono<Gen>(&self, gen: Gen) -> Box<dyn Voice>
+    where
+        Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+    {
+        let flattened = SIMDMonoVoice::new(gen);
+        let base = VoiceBase::new(self.vel, flattened);
+
+        Box::new(base)
+    }
+
+    fn convert_to_voice_stereo<Gen>(&self, gen: Gen) -> Box<dyn Voice>
     where
         Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
     {
@@ -280,7 +305,17 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         Box::new(base)
     }
 
-    fn apply_voice_params<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
+    fn apply_voice_params_mono<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
+    where
+        Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+    {
+        let gen = self.apply_velocity(gen);
+        let gen = self.apply_envelope(gen, control);
+
+        self.apply_cutoff_effect_mono(gen)
+    }
+
+    fn apply_voice_params_stereo<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
     where
         Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
     {
@@ -288,18 +323,30 @@ impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
         let gen = self.apply_pan(gen);
         let gen = self.apply_envelope(gen, control);
 
-        self.apply_cutoff_effect(gen)
+        self.apply_cutoff_effect_stereo(gen)
     }
 
-    fn apply_cutoff_effect(
+    fn apply_cutoff_effect_mono(
+        &self,
+        gen: impl 'static + SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+    ) -> Box<dyn Voice> {
+        if let Some(filter) = &self.filter {
+            let gen = SIMDMonoVoiceCutoff::new(gen, filter);
+            self.convert_to_voice_mono(gen)
+        } else {
+            self.convert_to_voice_mono(gen)
+        }
+    }
+
+    fn apply_cutoff_effect_stereo(
         &self,
         gen: impl 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
     ) -> Box<dyn Voice> {
         if let Some(filter) = &self.filter {
             let gen = SIMDStereoVoiceCutoff::new(gen, filter);
-            self.convert_to_voice(gen)
+            self.convert_to_voice_stereo(gen)
         } else {
-            self.convert_to_voice(gen)
+            self.convert_to_voice_stereo(gen)
         }
     }
 }
@@ -389,10 +436,6 @@ impl SampleSoundfont {
         stream_params: AudioStreamParams,
         options: SoundfontInitOptions,
     ) -> Result<Self, LoadSfzError> {
-        if stream_params.channels == ChannelCount::Mono {
-            panic!("Mono output is currently not supported");
-        }
-
         let regions = soundfonts::sfz::parse_soundfont(sfz_path.into())?;
 
         // Find the unique samples that we need to parse and convert
