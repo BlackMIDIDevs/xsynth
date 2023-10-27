@@ -65,8 +65,7 @@ fn main() {
 
     let config: XSynthRenderConfig = Default::default();
 
-    let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
-    soundfonts.push(Arc::new(
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
             sfz,
             AudioStreamParams::new(
@@ -76,7 +75,7 @@ fn main() {
             config.sf_init_options,
         )
         .unwrap(),
-    ));
+    )];
 
     xsynth_renderer(&midi, out)
         .with_config(config)
