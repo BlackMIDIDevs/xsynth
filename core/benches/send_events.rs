@@ -58,6 +58,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         f.iter(|| {
             let init = ChannelInitOptions {
                 fade_out_killing: false,
+                ..Default::default()
             };
             let mut channel = VoiceChannel::new(init, stream_params, None);
             channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
@@ -75,6 +76,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         f.iter(|| {
             let init = ChannelInitOptions {
                 fade_out_killing: true,
+                ..Default::default()
             };
             let mut channel = VoiceChannel::new(init, stream_params, None);
             channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
@@ -92,6 +94,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         f.iter(|| {
             let init = ChannelInitOptions {
                 fade_out_killing: false,
+                ..Default::default()
             };
             let mut channel = VoiceChannel::new(init, stream_params, None);
             channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
@@ -109,6 +112,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         f.iter(|| {
             let init = ChannelInitOptions {
                 fade_out_killing: true,
+                ..Default::default()
             };
             let mut channel = VoiceChannel::new(init, stream_params, None);
             channel.process_event(ChannelEvent::Config(ChannelConfigEvent::SetSoundfonts(
