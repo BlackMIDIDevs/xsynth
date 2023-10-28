@@ -9,7 +9,7 @@ use std::{
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, PauseStreamError, PlayStreamError, Sample, Stream, SupportedStreamConfig,
+    Device, PauseStreamError, PlayStreamError, SizedSample, Stream, SupportedStreamConfig,
 };
 use crossbeam_channel::{bounded, unbounded};
 
@@ -197,7 +197,7 @@ impl RealtimeSynth {
             (sample_rate as f64 * config.render_window_ms / 1000.0) as usize,
         )));
 
-        fn build_stream<T: Sample>(
+        fn build_stream<T: SizedSample + ConvertSample>(
             device: &Device,
             stream_config: SupportedStreamConfig,
             buffered: Arc<Mutex<BufferedRenderer>>,
@@ -214,10 +214,11 @@ impl RealtimeSynth {
                         output_vec.resize(data.len(), 0.0);
                         buffered.lock().unwrap().read(&mut output_vec);
                         for (i, s) in limiter.limit_iter(output_vec.drain(0..)).enumerate() {
-                            data[i] = Sample::from(&s);
+                            data[i] = ConvertSample::from_f32(s);
                         }
                     },
                     err_fn,
+                    None,
                 )
                 .unwrap()
         }
@@ -226,6 +227,7 @@ impl RealtimeSynth {
             cpal::SampleFormat::F32 => build_stream::<f32>(device, stream_config, buffered.clone()),
             cpal::SampleFormat::I16 => build_stream::<i16>(device, stream_config, buffered.clone()),
             cpal::SampleFormat::U16 => build_stream::<u16>(device, stream_config, buffered.clone()),
+            _ => panic!("unsupported sample format"), // I hate when crates use #[non_exhaustive]
         };
 
         stream.play().unwrap();
@@ -286,5 +288,27 @@ impl Drop for RealtimeSynth {
         for handle in self.join_handles.drain(..) {
             handle.join().unwrap();
         }
+    }
+}
+
+trait ConvertSample: SizedSample {
+    fn from_f32(s: f32) -> Self;
+}
+
+impl ConvertSample for f32 {
+    fn from_f32(s: f32) -> Self {
+        s
+    }
+}
+
+impl ConvertSample for i16 {
+    fn from_f32(s: f32) -> Self {
+        (s * i16::MAX as f32) as i16
+    }
+}
+
+impl ConvertSample for u16 {
+    fn from_f32(s: f32) -> Self {
+        ((s * u16::MAX as f32) as i32 + i16::MIN as i32) as u16
     }
 }

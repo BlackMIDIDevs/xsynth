@@ -78,15 +78,14 @@ fn main() {
 
     let config: XSynthRenderConfig = Default::default();
 
-    let mut soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![];
-    soundfonts.push(Arc::new(
+    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
             sfz_path,
             AudioStreamParams::new(sample_rate, ChannelCount::from(2)),
             config.sf_init_options,
         )
         .unwrap(),
-    ));
+    )];
 
     xsynth_renderer(&midi_path, &out_path)
         .with_sample_rate(sample_rate)

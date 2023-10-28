@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 atomic_refcell = "0.1.7"
 bytemuck = "1.7.2"
-cpal = "0.14.1"
+cpal = "0.15.2"
 crossbeam-channel = "0.5.1"
 lazy_static = "1.4.0"
 rayon = "1.5.3"
@@ -18,8 +18,8 @@ wav = "1.0.0"
 core = { path = "../core", package = "xsynth-core" }
 
 [dev-dependencies]
-midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "907dec1" }
-gen-iter = "0.2.1"
+midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "a54f198" }
+gen-iter = "0.3.0"
 
 [build-dependencies]
-cbindgen = "0.24.3"
+cbindgen = "0.26.0"
