@@ -68,14 +68,9 @@ struct Key {
 }
 
 impl Key {
-    pub fn new(
-        key: u8,
-        shared_voice_counter: Arc<AtomicU64>,
-        options: ChannelInitOptions,
-        channels: ChannelCount,
-    ) -> Self {
+    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>, options: ChannelInitOptions) -> Self {
         Key {
-            data: KeyData::new(key, shared_voice_counter, options, channels),
+            data: KeyData::new(key, shared_voice_counter, options),
             audio_cache: Vec::new(),
             event_cache: Vec::new(),
         }
@@ -183,13 +178,9 @@ impl VoiceChannel {
             control_event_data.bank = 128;
         }
 
-        let channels = stream_params.channels;
-
         VoiceChannel {
             params,
-            key_voices: fill_key_array(|i| {
-                Key::new(i, shared_voice_counter.clone(), options, channels)
-            }),
+            key_voices: fill_key_array(|i| Key::new(i, shared_voice_counter.clone(), options)),
 
             threadpool,
 

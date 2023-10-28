@@ -1,7 +1,4 @@
-use crate::{
-    voice::{ReleaseType, VoiceControlData},
-    ChannelCount,
-};
+use crate::voice::{ReleaseType, VoiceControlData};
 
 use super::{Voice, VoiceGeneratorBase, VoiceSampleGenerator};
 
@@ -53,8 +50,8 @@ where
     T: Send + Sync + VoiceSampleGenerator,
 {
     #[inline(always)]
-    fn render_to(&mut self, channels: ChannelCount, buffer: &mut [f32]) {
-        self.sample_generator.render_to(channels, buffer)
+    fn render_to(&mut self, buffer: &mut [f32]) {
+        self.sample_generator.render_to(buffer)
     }
 }
 

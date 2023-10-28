@@ -6,9 +6,9 @@ use symphonia::core::{audio::AudioBufferRef, meta::MetadataOptions};
 use symphonia::core::{audio::Signal, io::MediaSourceStream};
 use symphonia::core::{codecs::DecoderOptions, errors::Error};
 
-use thiserror::Error;
-
 use self::resample::SincResampler;
+use crate::{AudioStreamParams, ChannelCount};
+use thiserror::Error;
 
 pub mod resample;
 
@@ -39,8 +39,10 @@ type ProcessedSample = (Arc<[Arc<[f32]>]>, u32);
 
 pub fn load_audio_file(
     path: &PathBuf,
-    new_sample_rate: f32,
+    stream_params: AudioStreamParams,
 ) -> Result<ProcessedSample, AudioLoadError> {
+    let new_sample_rate = stream_params.sample_rate as f32;
+
     let extension = path.extension().and_then(|ext| ext.to_str());
 
     let file = Box::new(File::open(path)?);
@@ -115,7 +117,7 @@ pub fn load_audio_file(
         }
     }
 
-    let built = builder.finish(sample_rate as f32, new_sample_rate);
+    let built = builder.finish(sample_rate as f32, new_sample_rate, stream_params.channels);
 
     Ok((built, sample_rate))
 }
@@ -161,8 +163,26 @@ impl BuilderVecs {
         }
     }
 
-    fn finish(self, sample_rate: f32, new_sample_rate: f32) -> Arc<[Arc<[f32]>]> {
+    fn finish(
+        self,
+        sample_rate: f32,
+        new_sample_rate: f32,
+        channels: ChannelCount,
+    ) -> Arc<[Arc<[f32]>]> {
         let mut vecs = self.vecs;
+
+        if channels == ChannelCount::Mono && vecs.len() >= 2 {
+            let right = vecs.pop().unwrap_or_default();
+            let left = vecs.pop().unwrap_or_default();
+
+            let combined: Vec<f32> = left
+                .iter()
+                .zip(right.iter())
+                .map(|(&l, &r)| (l + r) * 0.5)
+                .collect();
+            vecs.push(combined);
+        }
+
         for chan in vecs.iter_mut() {
             chan.shrink_to_fit();
         }
