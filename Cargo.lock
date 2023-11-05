@@ -515,12 +515,6 @@ dependencies = [
 
 [[package]]
 name = "gen-iter"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab36ccf1ed3d9c719f4c8725b34482c530f6d569c084ea762490b5e19f77bf"
-
-[[package]]
-name = "gen-iter"
 version = "0.4.0"
 source = "git+https://github.com/arduano/gen-iter.git?rev=64e28bc#64e28bc74b406030ff9bb3a3726a770a8fb4f78b"
 
@@ -825,7 +819,7 @@ version = "0.1.0"
 source = "git+https://github.com/arduano/midi-toolkit-rs?rev=a54f198#a54f19890e47c90a246001b9f8b2519f3604eb58"
 dependencies = [
  "crossbeam-channel",
- "gen-iter 0.4.0",
+ "gen-iter",
  "midi-toolkit-rs-derive",
  "num-traits",
  "rayon",
@@ -1945,7 +1939,7 @@ dependencies = [
  "cbindgen",
  "cpal",
  "crossbeam-channel",
- "gen-iter 0.3.0",
+ "gen-iter",
  "lazy_static",
  "midi-toolkit-rs",
  "rayon",
