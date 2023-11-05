@@ -55,8 +55,6 @@ where
 {
     fn render_to(&mut self, buffer: &mut [f32]) {
         simd_invoke!(S, {
-            // We need an even number of samples. This lets us guarantee unsafe access below.
-            assert!(buffer.len() % 2 == 0);
             for chunk in buffer.chunks_exact_mut(2) {
                 if self.remainder_pos == S::Vf32::WIDTH {
                     self.remainder = self.generator.next_sample();

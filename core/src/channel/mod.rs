@@ -4,7 +4,7 @@ use crate::{
     effects::MultiChannelBiQuad,
     helpers::{db_to_amp, prepapre_cache_vec, sum_simd, FREQS},
     voice::VoiceControlData,
-    AudioStreamParams,
+    AudioStreamParams, ChannelCount,
 };
 
 use soundfonts::FilterType;
@@ -203,19 +203,31 @@ impl VoiceChannel {
     fn apply_channel_effects(&mut self, out: &mut [f32]) {
         let control = &mut self.control_event_data;
 
-        // Volume
-        for sample in out.chunks_mut(2) {
-            let vol = control.volume.get_next() * control.expression.get_next();
-            let vol = vol.powi(2);
-            sample[0] *= vol;
-            sample[1] *= vol;
-        }
+        match self.stream_params.channels {
+            ChannelCount::Mono => {
+                // Volume
+                for sample in out.iter_mut() {
+                    let vol = control.volume.get_next() * control.expression.get_next();
+                    let vol = vol.powi(2);
+                    *sample *= vol;
+                }
+            }
+            ChannelCount::Stereo => {
+                // Volume
+                for sample in out.chunks_mut(2) {
+                    let vol = control.volume.get_next() * control.expression.get_next();
+                    let vol = vol.powi(2);
+                    sample[0] *= vol;
+                    sample[1] *= vol;
+                }
 
-        // Panning
-        for sample in out.chunks_mut(2) {
-            let pan = control.pan.get_next();
-            sample[0] *= ((pan * std::f32::consts::PI / 2.0).cos()).min(1.0);
-            sample[1] *= ((pan * std::f32::consts::PI / 2.0).sin()).min(1.0);
+                // Pan
+                for sample in out.chunks_mut(2) {
+                    let pan = control.pan.get_next();
+                    sample[0] *= ((pan * std::f32::consts::PI / 2.0).cos()).min(1.0);
+                    sample[1] *= ((pan * std::f32::consts::PI / 2.0).sin()).min(1.0);
+                }
+            }
         }
 
         // Cutoff

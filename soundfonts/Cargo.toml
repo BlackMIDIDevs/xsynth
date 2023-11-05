@@ -8,14 +8,14 @@ edition = "2021"
 [dependencies]
 encoding_rs = "0.8.32"
 encoding_rs_io = "0.1.7"
-lazy-regex = "2.3.0"
+lazy-regex = "3.0.2"
 regex-bnf = "0.1.2"
 simdeez = "2.0.0-dev3"
 thiserror = "1.0.38"
 soundfont = { path = "../../OxiSynth/soundfont-rs" }
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 
 [[bench]]
 name = "parse"

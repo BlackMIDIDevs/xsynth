@@ -1,15 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
     io,
-    marker::PhantomData,
-    ops::Mul,
     path::PathBuf,
     sync::Arc,
 };
 
 use biquad::Q_BUTTERWORTH_F32;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use simdeez::Simd;
 use soundfonts::sfz::{parse::SfzParseError, RegionParams};
 use thiserror::Error;
 
@@ -17,26 +14,19 @@ use self::audio::{load_audio_file, AudioLoadError};
 
 use super::{
     voice::VoiceControlData,
-    voice::{
-        BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
-        SIMDLinearSampleGrabber, SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler,
-        SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, SampleReaderLoop,
-        SampleReaderLoopSustain, SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
-    },
+    voice::{EnvelopeParameters, Voice},
 };
 use crate::{
-    effects::BiQuadFilter,
     helpers::{db_to_amp, FREQS},
-    voice::{
-        BufferSampler, EnvelopeDescriptor, SIMDSample, SIMDSampleGrabber, SIMDSampleMono,
-        SIMDSampleStereo, SIMDStereoVoiceCutoff, SIMDVoiceGenerator,
-    },
+    voice::EnvelopeDescriptor,
     AudioStreamParams, ChannelCount,
 };
 
 use soundfonts::{FilterType, LoopMode};
 
 pub mod audio;
+mod voice_spawners;
+use voice_spawners::*;
 
 pub trait VoiceSpawner: Sync + Send {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice>;
@@ -102,211 +92,6 @@ fn get_speed_mult_from_keys(key: u8, base_key: u8) -> f32 {
 impl SampleCache {
     pub fn new(path: PathBuf) -> Self {
         Self { path }
-    }
-}
-
-struct SampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
-    speed_mult: f32,
-    filter: Option<BiQuadFilter>,
-    loop_params: LoopParams,
-    amp: f32,
-    pan: f32,
-    volume_envelope_params: Arc<EnvelopeParameters>,
-    samples: Arc<[Arc<[f32]>]>,
-    interpolator: Interpolator,
-    vel: u8,
-    stream_params: AudioStreamParams,
-    _s: PhantomData<S>,
-}
-
-impl<S: Simd + Send + Sync> SampledVoiceSpawner<S> {
-    pub fn new(
-        params: &SampleVoiceSpawnerParams,
-        vel: u8,
-        stream_params: AudioStreamParams,
-    ) -> Self {
-        let amp = (vel as f32 / 127.0).powi(2) * params.volume;
-
-        let filter = params.cutoff.map(|cutoff| {
-            BiQuadFilter::new(
-                params.filter_type,
-                cutoff,
-                stream_params.sample_rate as f32,
-                Some(params.resonance),
-            )
-        });
-
-        Self {
-            speed_mult: params.speed_mult,
-            filter,
-            loop_params: params.loop_params.clone(),
-            amp,
-            pan: params.pan,
-            volume_envelope_params: params.envelope.clone(),
-            samples: params.sample.clone(),
-            interpolator: params.interpolator,
-            vel,
-            stream_params,
-            _s: PhantomData,
-        }
-    }
-
-    fn begin_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        // Currently there's only the f32 buffer samples, more could be added in the future.
-        #[allow(clippy::redundant_closure)]
-        self.make_sample_reader(control, |s| BufferSamplers::new_f32(s))
-    }
-
-    fn make_sample_reader<BS: 'static + BufferSampler>(
-        &self,
-        control: &VoiceControlData,
-        make_bs: impl Fn(Arc<[f32]>) -> BS,
-    ) -> Box<dyn Voice> {
-        match self.loop_params.mode {
-            LoopMode::LoopContinuous => self.make_sample_grabber(control, move |s| {
-                SampleReaderLoop::new(make_bs(s), self.loop_params.clone())
-            }),
-            LoopMode::LoopSustain => self.make_sample_grabber(control, move |s| {
-                SampleReaderLoopSustain::new(make_bs(s), self.loop_params.clone())
-            }),
-            LoopMode::NoLoop | LoopMode::OneShot => self.make_sample_grabber(control, move |s| {
-                SampleReaderNoLoop::new(make_bs(s), self.loop_params.clone())
-            }),
-        }
-    }
-
-    fn make_sample_grabber<SR: 'static + SampleReader>(
-        &self,
-        control: &VoiceControlData,
-        make_bs: impl Fn(Arc<[f32]>) -> SR,
-    ) -> Box<dyn Voice> {
-        match self.interpolator {
-            Interpolator::Nearest => {
-                self.generate_sampler(control, |s| SIMDNearestSampleGrabber::new(make_bs(s)))
-            }
-            Interpolator::Linear => {
-                self.generate_sampler(control, |s| SIMDLinearSampleGrabber::new(make_bs(s)))
-            }
-        }
-    }
-
-    fn generate_sampler<SG: 'static + SIMDSampleGrabber<S>>(
-        &self,
-        control: &VoiceControlData,
-        make_sampler: impl Fn(Arc<[f32]>) -> SG,
-    ) -> Box<dyn Voice> {
-        let left = make_sampler(self.samples[0].clone());
-        let right = make_sampler(self.samples[1].clone());
-
-        let pitch_fac = self.create_pitch_fac(control);
-
-        let sampler = SIMDStereoVoiceSampler::new(left, right, pitch_fac);
-        self.apply_voice_params(sampler, control)
-    }
-
-    fn apply_velocity<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
-    where
-        Sample: SIMDSample<S>,
-        SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
-        Gen: SIMDVoiceGenerator<S, Sample>,
-    {
-        let amp = SIMDConstant::<S>::new(self.amp);
-        let amp = VoiceCombineSIMD::mult(amp, gen);
-        amp
-    }
-
-    fn apply_pan<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
-    where
-        Sample: SIMDSample<S>,
-        SIMDSampleStereo<S>: Mul<Sample, Output = Sample>,
-        Gen: SIMDVoiceGenerator<S, Sample>,
-    {
-        let pan = self.pan * std::f32::consts::PI / 2.0;
-        let leftg = (pan.cos() * 1.42).min(1.0);
-        let rightg = (pan.sin() * 1.42).min(1.0);
-
-        let gains = SIMDConstantStereo::<S>::new(leftg, rightg);
-
-        let panned = VoiceCombineSIMD::mult(gains, gen);
-        panned
-    }
-
-    fn create_pitch_fac(
-        &self,
-        control: &VoiceControlData,
-    ) -> impl SIMDVoiceGenerator<S, SIMDSampleMono<S>> {
-        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult);
-        let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
-        let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
-        pitch_fac
-    }
-
-    fn apply_envelope<Gen, Sample>(
-        &self,
-        gen: Gen,
-        control: &VoiceControlData,
-    ) -> impl SIMDVoiceGenerator<S, Sample>
-    where
-        Sample: SIMDSample<S>,
-        SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
-        Gen: SIMDVoiceGenerator<S, Sample>,
-    {
-        let modified_params = SIMDVoiceEnvelope::<S>::get_modified_envelope(
-            *self.volume_envelope_params.clone(),
-            control.envelope,
-            self.stream_params.sample_rate as f32,
-        );
-
-        let allow_release = self.loop_params.mode != LoopMode::OneShot;
-
-        let volume_envelope = SIMDVoiceEnvelope::new(
-            *self.volume_envelope_params.clone(),
-            modified_params,
-            allow_release,
-            self.stream_params.sample_rate as f32,
-        );
-
-        let amp = VoiceCombineSIMD::mult(volume_envelope, gen);
-        amp
-    }
-
-    fn convert_to_voice<Gen>(&self, gen: Gen) -> Box<dyn Voice>
-    where
-        Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
-    {
-        let flattened = SIMDStereoVoice::new(gen);
-        let base = VoiceBase::new(self.vel, flattened);
-
-        Box::new(base)
-    }
-
-    fn apply_voice_params<Gen>(&self, gen: Gen, control: &VoiceControlData) -> Box<dyn Voice>
-    where
-        Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
-    {
-        let gen = self.apply_velocity(gen);
-        let gen = self.apply_pan(gen);
-        let gen = self.apply_envelope(gen, control);
-
-        self.apply_cutoff_effect(gen)
-    }
-
-    fn apply_cutoff_effect(
-        &self,
-        gen: impl 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
-    ) -> Box<dyn Voice> {
-        if let Some(filter) = &self.filter {
-            let gen = SIMDStereoVoiceCutoff::new(gen, filter);
-            self.convert_to_voice(gen)
-        } else {
-            self.convert_to_voice(gen)
-        }
-    }
-}
-
-impl<S: 'static + Sync + Send + Simd> VoiceSpawner for SampledVoiceSpawner<S> {
-    fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice> {
-        self.begin_voice(control)
     }
 }
 
@@ -389,10 +174,6 @@ impl SampleSoundfont {
         stream_params: AudioStreamParams,
         options: SoundfontInitOptions,
     ) -> Result<Self, LoadSfzError> {
-        if stream_params.channels == ChannelCount::Mono {
-            panic!("Mono output is currently not supported");
-        }
-
         let regions = soundfonts::sfz::parse_soundfont(sfz_path.into())?;
 
         // Find the unique samples that we need to parse and convert
@@ -405,7 +186,7 @@ impl SampleSoundfont {
         let samples: Result<HashMap<_, _>, _> = unique_sample_params
             .into_par_iter()
             .map(|params| -> Result<(_, _), LoadSfzError> {
-                let sample = load_audio_file(&params.path, stream_params.sample_rate as f32)?;
+                let sample = load_audio_file(&params.path, stream_params)?;
                 Ok((params, sample))
             })
             .collect();
@@ -499,6 +280,12 @@ impl SampleSoundfont {
                         ),
                     };
 
+                    let mut region_samples = samples[&params].0.clone();
+                    if stream_params.channels == ChannelCount::Stereo && region_samples.len() == 1 {
+                        region_samples =
+                            Arc::new([region_samples[0].clone(), region_samples[0].clone()]);
+                    }
+
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                         pan,
                         volume,
@@ -509,7 +296,7 @@ impl SampleSoundfont {
                         filter_type: region.filter_type,
                         interpolator: options.interpolator,
                         loop_params,
-                        sample: samples[&params].0.clone(),
+                        sample: region_samples,
                     });
 
                     spawner_params_list[index].push(spawner_params.clone());
@@ -564,11 +351,14 @@ impl SoundfontBase for SampleSoundfont {
                 let index = key_vel_to_index(key, vel);
                 let mut vec = Vec::<Box<dyn VoiceSpawner>>::new();
                 for spawner in &sf.spawner_params_list[index] {
-                    vec.push(Box::new(SampledVoiceSpawner::<S>::new(
-                        spawner,
-                        vel,
-                        *stream_params,
-                    )));
+                    match stream_params.channels {
+                        ChannelCount::Stereo => vec.push(Box::new(
+                            StereoSampledVoiceSpawner::<S>::new(spawner, vel, *stream_params),
+                        )),
+                        ChannelCount::Mono => vec.push(Box::new(
+                            MonoSampledVoiceSpawner::<S>::new(spawner, vel, *stream_params),
+                        )),
+                    }
                 }
                 vec
             }

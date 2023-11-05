@@ -6,11 +6,9 @@ use symphonia::core::{audio::AudioBufferRef, meta::MetadataOptions};
 use symphonia::core::{audio::Signal, io::MediaSourceStream};
 use symphonia::core::{codecs::DecoderOptions, errors::Error};
 
-use thiserror::Error;
-
-use crate::ChannelCount;
-
 use self::resample::SincResampler;
+use crate::{AudioStreamParams, ChannelCount};
+use thiserror::Error;
 
 pub mod resample;
 
@@ -41,8 +39,10 @@ type ProcessedSample = (Arc<[Arc<[f32]>]>, u32);
 
 pub fn load_audio_file(
     path: &PathBuf,
-    new_sample_rate: f32,
+    stream_params: AudioStreamParams,
 ) -> Result<ProcessedSample, AudioLoadError> {
+    let new_sample_rate = stream_params.sample_rate as f32;
+
     let extension = path.extension().and_then(|ext| ext.to_str());
 
     let file = Box::new(File::open(path)?);
@@ -76,9 +76,6 @@ pub fn load_audio_file(
 
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
     let channel_count = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
-
-    let channel_count_value = ChannelCount::from_count(channel_count as u16)
-        .ok_or_else(|| AudioLoadError::InvalidChannelCount(path.clone()))?;
 
     // Create a decoder for the track.
     let mut decoder = symphonia::default::get_codecs()
@@ -120,17 +117,9 @@ pub fn load_audio_file(
         }
     }
 
-    let built = builder.finish(sample_rate as f32, new_sample_rate);
+    let built = builder.finish(sample_rate as f32, new_sample_rate, stream_params.channels);
 
-    Ok((
-        match channel_count_value {
-            ChannelCount::Mono => vec![built[0].clone(), built[0].clone()]
-                .into_iter()
-                .collect(),
-            ChannelCount::Stereo => built,
-        },
-        sample_rate,
-    ))
+    Ok((built, sample_rate))
 }
 
 struct BuilderVecs {
@@ -174,8 +163,26 @@ impl BuilderVecs {
         }
     }
 
-    fn finish(self, sample_rate: f32, new_sample_rate: f32) -> Arc<[Arc<[f32]>]> {
+    fn finish(
+        self,
+        sample_rate: f32,
+        new_sample_rate: f32,
+        channels: ChannelCount,
+    ) -> Arc<[Arc<[f32]>]> {
         let mut vecs = self.vecs;
+
+        if channels == ChannelCount::Mono && vecs.len() >= 2 {
+            let right = vecs.pop().unwrap_or_default();
+            let left = vecs.pop().unwrap_or_default();
+
+            let combined: Vec<f32> = left
+                .iter()
+                .zip(right.iter())
+                .map(|(&l, &r)| (l + r) * 0.5)
+                .collect();
+            vecs.push(combined);
+        }
+
         for chan in vecs.iter_mut() {
             chan.shrink_to_fit();
         }

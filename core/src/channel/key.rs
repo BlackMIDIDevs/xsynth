@@ -70,6 +70,7 @@ impl KeyData {
         if !self.has_voices() {
             return;
         }
+
         for voice in &mut self.voices.iter_voices_mut() {
             voice.render_to(out);
         }

@@ -267,6 +267,95 @@ impl<S: Simd, Reader: SampleReader> SIMDSampleGrabber<S> for SIMDSampleGrabbers<
 
 // Sampler generator
 
+pub struct SIMDMonoVoiceSampler<S, Pitch, Grabber>
+where
+    S: Simd,
+    Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+    Grabber: SIMDSampleGrabber<S>,
+{
+    grabber: Grabber,
+
+    pitch_gen: Pitch,
+
+    time: f64,
+
+    _s: PhantomData<S>,
+}
+
+impl<S, Pitch, Grabber> SIMDMonoVoiceSampler<S, Pitch, Grabber>
+where
+    S: Simd,
+    Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+    Grabber: SIMDSampleGrabber<S>,
+{
+    pub fn new(grabber: Grabber, pitch_gen: Pitch) -> Self {
+        SIMDMonoVoiceSampler {
+            grabber,
+            pitch_gen,
+            time: 0.0,
+            _s: PhantomData,
+        }
+    }
+
+    fn increment_time(&mut self, by: f64) -> f64 {
+        let time = self.time;
+        self.time += by;
+        time
+    }
+}
+
+impl<S, Pitch, Grabber> VoiceGeneratorBase for SIMDMonoVoiceSampler<S, Pitch, Grabber>
+where
+    S: Simd,
+    Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+    Grabber: SIMDSampleGrabber<S>,
+{
+    #[inline(always)]
+    fn ended(&self) -> bool {
+        self.grabber.is_past_end(self.time)
+    }
+
+    #[inline(always)]
+    fn signal_release(&mut self, rel_type: ReleaseType) {
+        self.pitch_gen.signal_release(rel_type);
+        self.grabber.signal_release();
+    }
+
+    #[inline(always)]
+    fn process_controls(&mut self, control: &VoiceControlData) {
+        self.pitch_gen.process_controls(control);
+    }
+}
+
+impl<S, Pitch, Grabber> SIMDVoiceGenerator<S, SIMDSampleMono<S>>
+    for SIMDMonoVoiceSampler<S, Pitch, Grabber>
+where
+    S: Simd,
+    Pitch: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
+    Grabber: SIMDSampleGrabber<S>,
+{
+    #[inline(always)]
+    fn next_sample(&mut self) -> SIMDSampleMono<S> {
+        simd_invoke!(S, {
+            let speed = self.pitch_gen.next_sample().0;
+            let mut indexes = S::Vi32::zeroes();
+            let mut fractionals = S::Vf32::zeroes();
+
+            unsafe {
+                for i in 0..S::Vf32::WIDTH {
+                    let time = self.increment_time(speed.get_unchecked(i) as f64);
+                    *indexes.get_unchecked_mut(i) = time as i32;
+                    *fractionals.get_unchecked_mut(i) = (time % 1.0) as f32;
+                }
+            }
+
+            let sample = self.grabber.get(indexes, fractionals);
+
+            SIMDSampleMono(sample)
+        })
+    }
+}
+
 pub struct SIMDStereoVoiceSampler<S, Pitch, Grabber>
 where
     S: Simd,
