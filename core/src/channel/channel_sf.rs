@@ -49,7 +49,6 @@ impl ChannelSoundfont {
             return;
         }
 
-        dbg!(bank, preset);
         for k in 0..128u8 {
             for v in 0..128u8 {
                 // The fallback piano finder in case no other instrument is found
