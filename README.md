@@ -23,4 +23,4 @@ It takes in a MIDI file path and other XSynth parameters, and outputs a wav file
 
 ## License
 
-XSynth is licensed under the Mozilla Public License Version 2.0.
+XSynth is licensed under the GNU Lesser General Public License 3.0.
