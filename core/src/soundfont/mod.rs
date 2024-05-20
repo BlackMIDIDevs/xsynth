@@ -302,7 +302,11 @@ impl SampleSoundfont {
                     let sample_rate = samples[&params].1;
 
                     let loop_params = LoopParams {
-                        mode: region.loop_mode,
+                        mode: if region.loop_start == region.loop_end {
+                            LoopMode::NoLoop
+                        } else {
+                            region.loop_mode
+                        },
                         offset: convert_sample_index(
                             region.offset,
                             sample_rate,
@@ -411,7 +415,11 @@ impl SampleSoundfont {
                         let sample_rate = region.sample_rate;
 
                         let loop_params = LoopParams {
-                            mode: region.loop_mode,
+                            mode: if region.loop_start == region.loop_end {
+                                LoopMode::NoLoop
+                            } else {
+                                region.loop_mode
+                            },
                             offset: convert_sample_index(
                                 region.offset,
                                 sample_rate,

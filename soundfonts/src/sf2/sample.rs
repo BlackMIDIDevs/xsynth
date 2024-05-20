@@ -66,10 +66,10 @@ impl Sf2Sample {
             let sample: Vec<f32> = samples[start as usize..end as usize].into();
 
             let new = Sf2Sample {
-                data: if h.sample_rate == sample_rate {
-                    Arc::new([sample.into()])
-                } else {
+                data: if h.sample_rate != sample_rate || !sample.is_empty() {
                     resample_vecs(vec![sample], h.sample_rate as f32, sample_rate as f32)
+                } else {
+                    Arc::new([sample.into()])
                 },
                 loop_start: h.loop_start - start,
                 loop_end: h.loop_end - start,
