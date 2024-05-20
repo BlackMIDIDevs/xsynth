@@ -10,8 +10,8 @@ use super::voice_spawner::VoiceSpawnerMatrix;
 pub struct ChannelSoundfont {
     soundfonts: Vec<Arc<dyn SoundfontBase>>,
     matrix: VoiceSpawnerMatrix,
-    curr_bank: Option<u8>,
-    curr_preset: Option<u8>,
+    curr_bank: u8,
+    curr_preset: u8,
 }
 
 impl Deref for ChannelSoundfont {
@@ -28,24 +28,22 @@ impl ChannelSoundfont {
         ChannelSoundfont {
             soundfonts: Vec::new(),
             matrix: VoiceSpawnerMatrix::new(),
-            curr_bank: None,
-            curr_preset: None,
+            curr_bank: 0,
+            curr_preset: 0,
         }
     }
 
     pub fn set_soundfonts(&mut self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
         self.soundfonts = soundfonts;
-        self.curr_bank = None;
-        self.curr_preset = None;
-        self.rebuild_matrix(0, 0);
+        self.rebuild_matrix(self.curr_bank, self.curr_preset, true);
     }
 
     pub fn change_program(&mut self, bank: u8, preset: u8) {
-        self.rebuild_matrix(bank, preset);
+        self.rebuild_matrix(bank, preset, false);
     }
 
-    fn rebuild_matrix(&mut self, bank: u8, preset: u8) {
-        if self.curr_bank == Some(bank) && self.curr_preset == Some(preset) {
+    fn rebuild_matrix(&mut self, bank: u8, preset: u8, force_rebuild: bool) {
+        if self.curr_bank == bank && self.curr_preset == preset && !force_rebuild {
             return;
         }
 
@@ -88,8 +86,8 @@ impl ChannelSoundfont {
             }
         }
 
-        self.curr_bank = Some(bank);
-        self.curr_preset = Some(preset);
+        self.curr_bank = bank;
+        self.curr_preset = preset;
     }
 
     pub fn spawn_voices_attack<'a>(

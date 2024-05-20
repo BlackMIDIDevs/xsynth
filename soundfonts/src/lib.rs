@@ -1,3 +1,4 @@
+pub mod resample;
 pub mod sf2;
 pub mod sfz;
 
