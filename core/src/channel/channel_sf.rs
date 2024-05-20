@@ -47,19 +47,54 @@ impl ChannelSoundfont {
             return;
         }
 
+        // If a preset/instr. is missing from all banks it will be muted,
+        // if a preset/instr. has regions in bank 0, all missing banks will be replaced by 0,
+        // if a preset/instr. has regions in any bank other than 0, all missing banks will be muted.
+        // For drum patches the same applies with bank and preset switched.
+
         for k in 0..128u8 {
             for v in 0..128u8 {
+                let find_replacement_attack = || {
+                    if bank == 128 {
+                        self.soundfonts
+                            .iter()
+                            .map(|sf| sf.get_attack_voice_spawners_at(bank, 0, k, v))
+                            .find(|vec| !vec.is_empty())
+                    } else {
+                        self.soundfonts
+                            .iter()
+                            .map(|sf| sf.get_attack_voice_spawners_at(0, preset, k, v))
+                            .find(|vec| !vec.is_empty())
+                    }
+                };
+
                 let attack_spawners = self
                     .soundfonts
                     .iter()
                     .map(|sf| sf.get_attack_voice_spawners_at(bank, preset, k, v))
+                    .chain(iter::once_with(find_replacement_attack).flatten())
                     .find(|vec| !vec.is_empty())
                     .unwrap_or_default();
+
+                let find_replacement_release = || {
+                    if bank == 128 {
+                        self.soundfonts
+                            .iter()
+                            .map(|sf| sf.get_release_voice_spawners_at(bank, 0, k, v))
+                            .find(|vec| !vec.is_empty())
+                    } else {
+                        self.soundfonts
+                            .iter()
+                            .map(|sf| sf.get_release_voice_spawners_at(0, preset, k, v))
+                            .find(|vec| !vec.is_empty())
+                    }
+                };
 
                 let release_spawners = self
                     .soundfonts
                     .iter()
                     .map(|sf| sf.get_release_voice_spawners_at(bank, preset, k, v))
+                    .chain(iter::once_with(find_replacement_release).flatten())
                     .find(|vec| !vec.is_empty())
                     .unwrap_or_default();
 
