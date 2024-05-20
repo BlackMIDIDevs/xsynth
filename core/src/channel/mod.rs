@@ -550,6 +550,7 @@ impl VoiceChannel {
         self.control_event_data =
             ControlEventData::new_defaults(self.stream_params.sample_rate, self.options.drums_only);
         self.voice_control_data = VoiceControlData::new_defaults();
+        self.process_event(ChannelEvent::Audio(ChannelAudioEvent::ProgramChange(0)));
         self.propagate_voice_controls();
 
         self.control_event_data.cutoff = None;

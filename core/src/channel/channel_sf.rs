@@ -49,35 +49,17 @@ impl ChannelSoundfont {
 
         for k in 0..128u8 {
             for v in 0..128u8 {
-                // The fallback piano finder in case no other instrument is found
-                let find_piano_attack = || {
-                    self.soundfonts
-                        .iter()
-                        .map(|sf| sf.get_attack_voice_spawners_at(0, 0, k, v))
-                        .find(|vec| !vec.is_empty())
-                };
-
                 let attack_spawners = self
                     .soundfonts
                     .iter()
                     .map(|sf| sf.get_attack_voice_spawners_at(bank, preset, k, v))
-                    .chain(iter::once_with(find_piano_attack).flatten())
                     .find(|vec| !vec.is_empty())
                     .unwrap_or_default();
-
-                // The fallback piano finder in case no other instrument is found
-                let find_piano_release = || {
-                    self.soundfonts
-                        .iter()
-                        .map(|sf| sf.get_release_voice_spawners_at(0, 0, k, v))
-                        .find(|vec| !vec.is_empty())
-                };
 
                 let release_spawners = self
                     .soundfonts
                     .iter()
                     .map(|sf| sf.get_release_voice_spawners_at(bank, preset, k, v))
-                    .chain(iter::once_with(find_piano_release).flatten())
                     .find(|vec| !vec.is_empty())
                     .unwrap_or_default();
 
