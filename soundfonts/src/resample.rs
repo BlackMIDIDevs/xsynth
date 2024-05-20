@@ -1,4 +1,6 @@
-use rubato::{FftFixedIn, Resampler};
+use rubato::{
+    Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+};
 use std::sync::Arc;
 
 pub fn resample_vecs(
@@ -8,10 +10,23 @@ pub fn resample_vecs(
 ) -> Arc<[Arc<[f32]>]> {
     vecs.into_iter()
         .map(|samples| {
+            let params = SincInterpolationParameters {
+                sinc_len: 256,
+                f_cutoff: 0.95,
+                interpolation: SincInterpolationType::Linear,
+                oversampling_factor: 256,
+                window: WindowFunction::BlackmanHarris2,
+            };
+
             let len = samples.len();
-            let mut resampler =
-                FftFixedIn::<f32>::new(sample_rate as usize, new_sample_rate as usize, len, 32, 1)
-                    .unwrap();
+            let mut resampler = SincFixedIn::<f32>::new(
+                new_sample_rate as f64 / sample_rate as f64,
+                2.0,
+                params,
+                len,
+                1,
+            )
+            .unwrap();
             resampler.process(&[samples], None).unwrap()[0]
                 .clone()
                 .into()
