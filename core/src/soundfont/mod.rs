@@ -194,7 +194,7 @@ impl SampleSoundfont {
     ) -> Result<Self, LoadSfError> {
         let path: PathBuf = path.into();
         if let Some(ext) = path.extension() {
-            match ext.to_str().unwrap_or("") {
+            match ext.to_str().unwrap_or("").to_lowercase().as_str() {
                 "sfz" => {
                     Self::new_sfz(path, stream_params, options).map_err(LoadSfError::LoadSfzError)
                 }
