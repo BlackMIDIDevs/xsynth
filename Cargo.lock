@@ -816,23 +816,11 @@ dependencies = [
 [[package]]
 name = "midi-toolkit-rs"
 version = "0.1.0"
+source = "git+https://github.com/arduano/midi-toolkit-rs?rev=26747a3#26747a32fb0350c6fa625275b35d4301dc25572b"
 dependencies = [
  "crossbeam-channel",
  "gen-iter",
- "midi-toolkit-rs-derive 0.1.0",
- "num-traits",
- "rayon",
- "thiserror",
-]
-
-[[package]]
-name = "midi-toolkit-rs"
-version = "0.1.0"
-source = "git+https://github.com/arduano/midi-toolkit-rs?rev=a54f198#a54f19890e47c90a246001b9f8b2519f3604eb58"
-dependencies = [
- "crossbeam-channel",
- "gen-iter",
- "midi-toolkit-rs-derive 0.1.0 (git+https://github.com/arduano/midi-toolkit-rs?rev=a54f198)",
+ "midi-toolkit-rs-derive",
  "num-traits",
  "rayon",
  "thiserror",
@@ -841,19 +829,7 @@ dependencies = [
 [[package]]
 name = "midi-toolkit-rs-derive"
 version = "0.1.0"
-dependencies = [
- "convert_case",
- "num-traits",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "midi-toolkit-rs-derive"
-version = "0.1.0"
-source = "git+https://github.com/arduano/midi-toolkit-rs?rev=a54f198#a54f19890e47c90a246001b9f8b2519f3604eb58"
+source = "git+https://github.com/arduano/midi-toolkit-rs?rev=26747a3#26747a32fb0350c6fa625275b35d4301dc25572b"
 dependencies = [
  "convert_case",
  "num-traits",
@@ -2030,7 +2006,7 @@ dependencies = [
  "criterion 0.4.0",
  "crossbeam-channel",
  "lazy_static",
- "midi-toolkit-rs 0.1.0 (git+https://github.com/arduano/midi-toolkit-rs?rev=a54f198)",
+ "midi-toolkit-rs",
  "proc-macro2",
  "rand",
  "rayon",
@@ -2053,7 +2029,7 @@ dependencies = [
  "crossbeam-channel",
  "gen-iter",
  "lazy_static",
- "midi-toolkit-rs 0.1.0",
+ "midi-toolkit-rs",
  "rayon",
  "spin_sleep",
  "to_vec",
@@ -2068,7 +2044,7 @@ dependencies = [
  "atomic_float",
  "crossbeam-channel",
  "hound",
- "midi-toolkit-rs 0.1.0 (git+https://github.com/arduano/midi-toolkit-rs?rev=a54f198)",
+ "midi-toolkit-rs",
  "rayon",
  "spin_sleep",
  "thiserror",

@@ -1,7 +1,7 @@
 use super::{instrument::Sf2Instrument, sample::Sf2Sample, Sf2Preset, Sf2Region, Sf2Zone};
-use crate::{sfz::AmpegEnvelopeParams, LoopMode};
+use crate::{convert_sample_index, sfz::AmpegEnvelopeParams, LoopMode};
 use soundfont::{data::hydra::generator::GeneratorType, Preset};
-use std::ops::RangeInclusive;
+use std::{ops::RangeInclusive, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub struct Sf2ParsedPreset {
@@ -23,15 +23,6 @@ impl Sf2ParsedPreset {
 
                 for gen in &zone.gen_list {
                     match gen.ty {
-                        GeneratorType::StartAddrsOffset => {
-                            region.offset = gen.amount.as_i16().copied()
-                        }
-                        GeneratorType::StartloopAddrsOffset => {
-                            region.loop_start_offset = gen.amount.as_i16().copied()
-                        }
-                        GeneratorType::EndloopAddrsOffset => {
-                            region.loop_end_offset = gen.amount.as_i16().copied()
-                        }
                         GeneratorType::InitialFilterFc => {
                             region.cutoff = gen.amount.as_i16().copied()
                         }
@@ -81,16 +72,6 @@ impl Sf2ParsedPreset {
                         }
                         GeneratorType::FineTune => region.fine_tune = gen.amount.as_i16().copied(),
                         GeneratorType::Instrument => region.index = gen.amount.as_u16().copied(),
-                        GeneratorType::SampleModes => {
-                            region.loop_mode = gen.amount.as_i16().map(|v| match v {
-                                1 => LoopMode::LoopContinuous,
-                                3 => LoopMode::LoopSustain,
-                                _ => LoopMode::NoLoop,
-                            })
-                        }
-                        GeneratorType::OverridingRootKey => {
-                            region.root_override = gen.amount.as_i16().copied()
-                        }
                         _ => {}
                     }
                 }
@@ -115,6 +96,7 @@ impl Sf2ParsedPreset {
         sample_data: Vec<Sf2Sample>,
         instruments: Vec<Sf2Instrument>,
         presets: Vec<Sf2ParsedPreset>,
+        sample_rate: u32,
     ) -> Vec<Sf2Preset> {
         let mut out: Vec<Sf2Preset> = Vec::new();
 
@@ -125,6 +107,8 @@ impl Sf2ParsedPreset {
                 regions: Vec::new(),
             };
 
+            let mut regions = Vec::new();
+
             for zone in preset.zones {
                 if let Some(instrument_idx) = zone.index {
                     let instrument = &instruments[instrument_idx as usize];
@@ -134,7 +118,7 @@ impl Sf2ParsedPreset {
                             let sample = &sample_data[sample_idx as usize];
 
                             let new_region = Sf2Region {
-                                sample: sample.data.clone(),
+                                sample: Arc::new([]),
                                 sample_rate: sample.sample_rate,
                                 velrange: combine_ranges(
                                     zone.velrange.clone().unwrap_or(0..=127),
@@ -156,13 +140,23 @@ impl Sf2ParsedPreset {
                                 loop_mode: zone
                                     .loop_mode
                                     .unwrap_or(subzone.loop_mode.unwrap_or(LoopMode::NoLoop)),
-                                loop_start: (sample.loop_start as i32
-                                    + subzone.loop_start_offset.unwrap_or(0) as i32)
-                                    as u32,
-                                loop_end: (sample.loop_end as i32
-                                    + subzone.loop_end_offset.unwrap_or(0) as i32)
-                                    as u32,
-                                offset: subzone.offset.unwrap_or(0) as u32,
+                                loop_start: {
+                                    let v = (sample.loop_start as i32
+                                        + subzone.loop_start_offset.unwrap_or(0) as i32)
+                                        as u32;
+                                    convert_sample_index(v, sample.sample_rate, sample_rate)
+                                },
+                                loop_end: {
+                                    let v = (sample.loop_end as i32
+                                        + subzone.loop_end_offset.unwrap_or(0) as i32)
+                                        as u32;
+                                    convert_sample_index(v, sample.sample_rate, sample_rate)
+                                },
+                                offset: convert_sample_index(
+                                    subzone.offset.unwrap_or(0) as u32,
+                                    sample.sample_rate,
+                                    sample_rate,
+                                ),
                                 cutoff: subzone.cutoff.map(|v| {
                                     2f32.powf(v as f32 / 1200.0)
                                         * 8.176
@@ -194,12 +188,69 @@ impl Sf2ParsedPreset {
                                 },
                             };
 
-                            new_preset.regions.push(new_region);
+                            regions.push((new_region, sample.clone()));
                         }
                     }
                 }
             }
 
+            // Second pass -> Stereo sample linking
+            // This is kinda hacky, there has to be a better way to do this
+            // I hate this code
+            let mut ignored_idx = Vec::new();
+            for (i, region) in regions.clone().into_iter().enumerate() {
+                if ignored_idx.contains(&i) {
+                    continue;
+                }
+                if region.1.link_type.abs() == 1 {
+                    if region.0.pan.abs() == 500 {
+                        match regions
+                            .clone()
+                            .into_iter()
+                            .position(|v: (Sf2Region, Sf2Sample)| {
+                                let v1 = v.0.clone();
+                                let v2 = region.0.clone();
+                                v.1.link_type == -region.1.link_type
+                                    && v1.pan == -v2.pan
+                                    && v1.root_key == v2.root_key
+                                    && v1.keyrange == v2.keyrange
+                                    && v1.velrange == v2.velrange
+                            }) {
+                            Some(reg) => {
+                                let sample_match = regions[reg].1.clone();
+                                let mut new_region = region.0.clone();
+                                match region.1.link_type {
+                                    -1 => {
+                                        new_region.sample = Arc::new([
+                                            region.1.data.clone(),
+                                            sample_match.data.clone(),
+                                        ])
+                                    }
+                                    1 => {
+                                        new_region.sample = Arc::new([
+                                            sample_match.data.clone(),
+                                            region.1.data.clone(),
+                                        ])
+                                    }
+                                    _ => {}
+                                }
+                                new_region.pan = 0;
+                                new_preset.regions.push(new_region);
+                                ignored_idx.push(reg);
+                            }
+                            None => {
+                                let mut new_region = region.0.clone();
+                                new_region.sample = Arc::new([region.1.data.clone()]);
+                                new_preset.regions.push(new_region);
+                            }
+                        }
+                    }
+                } else {
+                    let mut new_region = region.0.clone();
+                    new_region.sample = Arc::new([region.1.data.clone()]);
+                    new_preset.regions.push(new_region);
+                }
+            }
             out.push(new_preset);
         }
 

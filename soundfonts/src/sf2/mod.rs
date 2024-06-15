@@ -40,6 +40,7 @@ struct Sf2Zone {
     pub root_override: Option<i16>,
 }
 
+#[derive(Clone)]
 pub struct Sf2Region {
     pub sample: Arc<[Arc<[f32]>]>,
     pub sample_rate: u32,
@@ -95,5 +96,6 @@ pub fn load_soundfont(
         sample_data,
         instruments,
         presets,
+        sample_rate,
     ))
 }

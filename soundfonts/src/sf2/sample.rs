@@ -1,11 +1,15 @@
 use super::Sf2ParseError;
-use crate::resample::resample_vecs;
-use soundfont::data::{hydra::sample::SampleHeader, sample_data::SampleData};
+use crate::resample::resample_vec;
+use soundfont::data::{
+    hydra::sample::{SampleHeader, SampleLink},
+    sample_data::SampleData,
+};
 use std::{fs::File, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub struct Sf2Sample {
-    pub data: Arc<[Arc<[f32]>]>,
+    pub data: Arc<[f32]>,
+    pub link_type: i8,
     pub loop_start: u32,
     pub loop_end: u32,
     pub sample_rate: u32,
@@ -67,9 +71,14 @@ impl Sf2Sample {
 
             let new = Sf2Sample {
                 data: if h.sample_rate != sample_rate || !sample.is_empty() {
-                    resample_vecs(vec![sample], h.sample_rate as f32, sample_rate as f32)
+                    resample_vec(sample, h.sample_rate as f32, sample_rate as f32)
                 } else {
-                    Arc::new([sample.into()])
+                    sample.into()
+                },
+                link_type: match h.sample_type {
+                    SampleLink::LeftSample => -1,
+                    SampleLink::RightSample => 1,
+                    _ => 0,
                 },
                 loop_start: h.loop_start - start,
                 loop_end: h.loop_end - start,

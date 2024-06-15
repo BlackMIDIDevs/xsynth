@@ -26,7 +26,7 @@ use crate::{
     AudioStreamParams, ChannelCount,
 };
 
-use soundfonts::{FilterType, LoopMode};
+use soundfonts::{convert_sample_index, FilterType, LoopMode};
 
 pub mod audio;
 mod voice_spawners;
@@ -180,10 +180,6 @@ pub enum LoadSfError {
 
     #[error("Unsupported format")]
     Unsupported,
-}
-
-fn convert_sample_index(idx: u32, old_sample_rate: u32, new_sample_rate: u32) -> u32 {
-    (new_sample_rate as f32 * idx as f32 / old_sample_rate as f32).round() as u32
 }
 
 impl SampleSoundfont {
@@ -412,29 +408,15 @@ impl SampleSoundfont {
 
                         let pan = ((region.pan as f32 / 500.0) + 1.0) / 2.0;
 
-                        let sample_rate = region.sample_rate;
-
                         let loop_params = LoopParams {
                             mode: if region.loop_start == region.loop_end {
                                 LoopMode::NoLoop
                             } else {
                                 region.loop_mode
                             },
-                            offset: convert_sample_index(
-                                region.offset,
-                                sample_rate,
-                                stream_params.sample_rate,
-                            ),
-                            start: convert_sample_index(
-                                region.loop_start,
-                                sample_rate,
-                                stream_params.sample_rate,
-                            ),
-                            end: convert_sample_index(
-                                region.loop_end,
-                                sample_rate,
-                                stream_params.sample_rate,
-                            ),
+                            offset: region.offset,
+                            start: region.loop_start,
+                            end: region.loop_end,
                         };
 
                         let mut region_samples = region.sample.clone();
@@ -444,7 +426,6 @@ impl SampleSoundfont {
                             region_samples =
                                 Arc::new([region_samples[0].clone(), region_samples[0].clone()]);
                         }
-                        // FIXME: Stereo linked samples
 
                         let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                             pan,
