@@ -6,6 +6,7 @@ use thiserror::Error;
 mod instrument;
 mod preset;
 mod sample;
+mod zone;
 
 #[derive(Error, Debug, Clone)]
 pub enum Sf2ParseError {
@@ -14,30 +15,6 @@ pub enum Sf2ParseError {
 
     #[error("Failed to parse file")]
     FailedToParseFile,
-}
-
-#[derive(Default, Clone, Debug)]
-struct Sf2Zone {
-    pub index: Option<u16>,
-    pub offset: Option<i16>,
-    pub loop_start_offset: Option<i16>,
-    pub loop_end_offset: Option<i16>,
-    pub loop_mode: Option<LoopMode>,
-    pub cutoff: Option<i16>,
-    pub resonance: Option<i16>,
-    pub pan: Option<i16>,
-    pub env_delay: Option<f32>,
-    pub env_attack: Option<f32>,
-    pub env_hold: Option<f32>,
-    pub env_decay: Option<f32>,
-    pub env_sustain: Option<f32>,
-    pub env_release: Option<f32>,
-    pub velrange: Option<RangeInclusive<u8>>,
-    pub keyrange: Option<RangeInclusive<u8>>,
-    pub attenuation: Option<i16>,
-    pub fine_tune: Option<i16>,
-    pub coarse_tune: Option<i16>,
-    pub root_override: Option<i16>,
 }
 
 #[derive(Clone)]

@@ -1,6 +1,6 @@
-use super::{instrument::Sf2Instrument, sample::Sf2Sample, Sf2Preset, Sf2Region, Sf2Zone};
+use super::{instrument::Sf2Instrument, sample::Sf2Sample, zone::Sf2Zone, Sf2Preset, Sf2Region};
 use crate::{convert_sample_index, sfz::AmpegEnvelopeParams, LoopMode};
-use soundfont::{data::hydra::generator::GeneratorType, Preset};
+use soundfont::Preset;
 use std::{ops::RangeInclusive, sync::Arc};
 
 #[derive(Clone, Debug)]
@@ -15,73 +15,8 @@ impl Sf2ParsedPreset {
         let mut presets_parsed: Vec<Sf2ParsedPreset> = Vec::new();
 
         for preset in presets {
-            let mut zones: Vec<Sf2Zone> = Vec::new();
-            let mut global_region = Sf2Zone::default();
+            let zones = Sf2Zone::parse(preset.zones);
 
-            for (i, zone) in preset.zones.iter().enumerate() {
-                let mut region = global_region.clone();
-
-                for gen in &zone.gen_list {
-                    match gen.ty {
-                        GeneratorType::InitialFilterFc => {
-                            region.cutoff = gen.amount.as_i16().copied()
-                        }
-                        GeneratorType::InitialFilterQ => {
-                            region.resonance = gen.amount.as_i16().copied()
-                        }
-                        GeneratorType::Pan => region.pan = gen.amount.as_i16().copied(),
-                        GeneratorType::DelayVolEnv => {
-                            region.env_delay =
-                                gen.amount.as_i16().map(|v| 2f32.powf(*v as f32 / 1200.0))
-                        }
-                        GeneratorType::AttackVolEnv => {
-                            region.env_attack =
-                                gen.amount.as_i16().map(|v| 2f32.powf(*v as f32 / 1200.0))
-                        }
-                        GeneratorType::HoldVolEnv => {
-                            region.env_hold =
-                                gen.amount.as_i16().map(|v| 2f32.powf(*v as f32 / 1200.0))
-                        }
-                        GeneratorType::DecayVolEnv => {
-                            region.env_decay =
-                                gen.amount.as_i16().map(|v| 2f32.powf(*v as f32 / 1200.0))
-                        }
-                        GeneratorType::SustainVolEnv => {
-                            region.env_sustain = gen
-                                .amount
-                                .as_i16()
-                                .map(|v| 10f32.powf(-1.0 * *v as f32 / 200.0) * 100.0)
-                        }
-                        GeneratorType::ReleaseVolEnv => {
-                            region.env_release =
-                                gen.amount.as_i16().map(|v| 2f32.powf(*v as f32 / 1200.0))
-                        }
-                        GeneratorType::KeyRange => {
-                            let range = gen.amount.as_range().copied();
-                            region.keyrange = range.map(|v| v.low..=v.high)
-                        }
-                        GeneratorType::VelRange => {
-                            let range = gen.amount.as_range().copied();
-                            region.velrange = range.map(|v| v.low..=v.high)
-                        }
-                        GeneratorType::InitialAttenuation => {
-                            region.attenuation = gen.amount.as_i16().copied()
-                        }
-                        GeneratorType::CoarseTune => {
-                            region.coarse_tune = gen.amount.as_i16().copied()
-                        }
-                        GeneratorType::FineTune => region.fine_tune = gen.amount.as_i16().copied(),
-                        GeneratorType::Instrument => region.index = gen.amount.as_u16().copied(),
-                        _ => {}
-                    }
-                }
-
-                if i == 0 && region.index.is_none() {
-                    global_region = region;
-                } else {
-                    zones.push(region);
-                }
-            }
             presets_parsed.push(Sf2ParsedPreset {
                 preset: preset.header.preset,
                 bank: preset.header.bank,
