@@ -1,6 +1,7 @@
 use std::{iter, ops::Deref, sync::Arc};
 
 use crate::{
+    helpers::are_arc_vecs_equal,
     soundfont::SoundfontBase,
     voice::{Voice, VoiceControlData},
 };
@@ -34,19 +35,19 @@ impl ChannelSoundfont {
     }
 
     pub fn set_soundfonts(&mut self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
-        self.soundfonts = soundfonts;
-        self.rebuild_matrix(self.curr_bank, self.curr_preset, true);
+        if !are_arc_vecs_equal(&self.soundfonts, &soundfonts) {
+            self.soundfonts = soundfonts;
+            self.rebuild_matrix(self.curr_bank, self.curr_preset);
+        }
     }
 
     pub fn change_program(&mut self, bank: u8, preset: u8) {
-        self.rebuild_matrix(bank, preset, false);
+        if self.curr_bank != bank || self.curr_preset != preset {
+            self.rebuild_matrix(bank, preset);
+        }
     }
 
-    fn rebuild_matrix(&mut self, bank: u8, preset: u8, force_rebuild: bool) {
-        if self.curr_bank == bank && self.curr_preset == preset && !force_rebuild {
-            return;
-        }
-
+    fn rebuild_matrix(&mut self, bank: u8, preset: u8) {
         // If a preset/instr. is missing from all banks it will be muted,
         // if a preset/instr. has regions in bank 0, all missing banks will be replaced by 0,
         // if a preset/instr. has regions in any bank other than 0, all missing banks will be muted.

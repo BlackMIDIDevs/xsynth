@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 mod frequencies;
 pub use frequencies::*;
 
@@ -17,4 +19,20 @@ pub fn prepapre_cache_vec<T: Copy>(vec: &mut Vec<T>, len: usize, default: T) {
 
 pub fn db_to_amp(db: f32) -> f32 {
     10f32.powf(db / 20.0)
+}
+
+pub fn are_arc_vecs_equal<T: ?Sized>(old: &[Arc<T>], new: &[Arc<T>]) -> bool {
+    // First, check if the lengths are the same
+    if old.len() != new.len() {
+        return false;
+    }
+
+    // Then, check each pair of elements using Arc::ptr_eq
+    for (old_item, new_item) in old.iter().zip(new.iter()) {
+        if !Arc::ptr_eq(old_item, new_item) {
+            return false;
+        }
+    }
+
+    true
 }
