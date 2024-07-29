@@ -37,21 +37,26 @@ impl ChannelSoundfont {
     pub fn set_soundfonts(&mut self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
         if !are_arc_vecs_equal(&self.soundfonts, &soundfonts) {
             self.soundfonts = soundfonts;
-            self.rebuild_matrix(self.curr_bank, self.curr_preset);
+            self.rebuild_matrix();
         }
     }
 
     pub fn change_program(&mut self, bank: u8, preset: u8) {
         if self.curr_bank != bank || self.curr_preset != preset {
-            self.rebuild_matrix(bank, preset);
+            self.curr_bank = bank;
+            self.curr_preset = preset;
+            self.rebuild_matrix();
         }
     }
 
-    fn rebuild_matrix(&mut self, bank: u8, preset: u8) {
+    fn rebuild_matrix(&mut self) {
         // If a preset/instr. is missing from all banks it will be muted,
         // if a preset/instr. has regions in bank 0, all missing banks will be replaced by 0,
         // if a preset/instr. has regions in any bank other than 0, all missing banks will be muted.
         // For drum patches the same applies with bank and preset switched.
+
+        let bank = self.curr_bank;
+        let preset = self.curr_preset;
 
         for k in 0..128u8 {
             for v in 0..128u8 {
@@ -103,9 +108,6 @@ impl ChannelSoundfont {
                 self.matrix.set_spawners_release(k, v, release_spawners);
             }
         }
-
-        self.curr_bank = bank;
-        self.curr_preset = preset;
     }
 
     pub fn spawn_voices_attack<'a>(
