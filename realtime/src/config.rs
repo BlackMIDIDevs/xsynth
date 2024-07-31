@@ -1,5 +1,5 @@
-use xsynth_core::channel::ChannelInitOptions;
 use std::ops::RangeInclusive;
+use xsynth_core::channel::ChannelInitOptions;
 
 /// Options for initializing a new RealtimeSynth.
 pub struct XSynthRealtimeConfig {

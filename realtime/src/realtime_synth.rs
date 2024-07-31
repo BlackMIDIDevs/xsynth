@@ -14,10 +14,11 @@ use cpal::{
 use crossbeam_channel::{bounded, unbounded};
 
 use xsynth_core::{
+    buffered_renderer::{BufferedRenderer, BufferedRendererStatsReader},
     channel::VoiceChannel,
     effects::VolumeLimiter,
     helpers::{prepapre_cache_vec, sum_simd},
-    AudioPipe, AudioStreamParams, BufferedRenderer, BufferedRendererStatsReader, FunctionAudioPipe,
+    AudioPipe, AudioStreamParams, FunctionAudioPipe,
 };
 
 use crate::{
