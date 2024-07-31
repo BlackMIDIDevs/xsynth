@@ -1,4 +1,4 @@
-use core::channel::ChannelInitOptions;
+use xsynth_core::channel::ChannelInitOptions;
 use std::ops::RangeInclusive;
 
 /// Options for initializing a new RealtimeSynth.
