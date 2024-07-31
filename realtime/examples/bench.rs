@@ -1,5 +1,5 @@
-use core::channel::ChannelAudioEvent;
 use std::time::{Duration, Instant};
+use xsynth_core::channel::ChannelAudioEvent;
 
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 

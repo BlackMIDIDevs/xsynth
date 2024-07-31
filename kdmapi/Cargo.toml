@@ -1,13 +1,20 @@
 [package]
 name = "kdmapi"
-version = "0.1.0"
-edition = "2021"
+description = "A cdylib wrapper around real-time to act as a drop-in replacement for OmniMIDI."
+
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [lib]
 name = "OmniMIDI"
 crate-type = ["cdylib"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 xsynth-core = { path = "../core" }

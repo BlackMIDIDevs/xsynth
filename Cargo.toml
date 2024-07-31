@@ -2,6 +2,17 @@
 resolver = "2"
 members = ["core", "realtime", "kdmapi", "soundfonts", "render"]
 
+[workspace.package]
+authors = ["Arduano"]
+version = "0.1.0"
+license = "LGPL-3.0"
+edition = "2021"
+homepage = "https://github.com/arduano/xsynth"
+repository = "https://github.com/arduano/xsynth"
+readme = "../../README.md"
+keywords = ["midi", "synthesizer", "soundfont"]
+categories = ["multimedia::audio"]
+
 [profile.release]
 codegen-units = 1
 lto = true

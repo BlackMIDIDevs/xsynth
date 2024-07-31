@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use core::{
+use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };

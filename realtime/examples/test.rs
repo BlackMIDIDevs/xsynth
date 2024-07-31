@@ -1,8 +1,8 @@
-use core::{
+use std::{sync::Arc, time::Duration};
+use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };
-use std::{sync::Arc, time::Duration};
 
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
