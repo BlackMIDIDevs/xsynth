@@ -1,7 +1,7 @@
 use crate::channel::ValueLerp;
 use biquad::*;
 use simdeez::prelude::*;
-use soundfonts::FilterType;
+pub use soundfonts::FilterType;
 
 #[derive(Clone)]
 pub(crate) struct BiQuadFilter {
@@ -72,7 +72,7 @@ impl BiQuadFilter {
 /// A multi-channel bi-quad audio filter.
 ///
 /// Supports single pole low pass filter and two pole low pass, high pass
-/// and band pass filters. For more information please see the FilterType
+/// and band pass filters. For more information please see the `FilterType`
 /// documentation.
 ///
 /// Uses the `biquad` crate for signal processing.

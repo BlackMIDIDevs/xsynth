@@ -10,6 +10,6 @@ fn build_frequencies() -> [f32; 128] {
 }
 
 lazy_static! {
-    /// Static array of all frequencies for keys 0-127
+    /// Static array of all frequencies for keys 0-127.
     pub static ref FREQS: [f32; 128] = build_frequencies();
 }

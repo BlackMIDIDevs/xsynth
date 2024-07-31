@@ -231,7 +231,7 @@ impl RealtimeEventSender {
 
     /// Sends a SynthEvent to the realtime synthesizer.
     ///
-    /// See the SynthEvent documentation for more information.
+    /// See the `SynthEvent` documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         match event {
             SynthEvent::Channel(channel, event) => {
@@ -252,7 +252,7 @@ impl RealtimeEventSender {
 
     /// Sends a ChannelConfigEvent to the realtime synthesizer.
     ///
-    /// See the ChannelConfigEvent documentation for more information.
+    /// See the `ChannelConfigEvent` documentation for more information.
     pub fn send_config(&mut self, event: ChannelConfigEvent) {
         self.send_event(SynthEvent::ChannelConfig(event))
     }

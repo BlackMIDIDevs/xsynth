@@ -1,9 +1,10 @@
 use std::ops::RangeInclusive;
-use xsynth_core::channel::ChannelInitOptions;
+pub use xsynth_core::channel::ChannelInitOptions;
 
 /// Options for initializing a new RealtimeSynth.
 pub struct XSynthRealtimeConfig {
     /// Channel initialization options (same for all channels).
+    /// See the `ChannelInitOptions` documentation for more information.
     pub channel_init_options: ChannelInitOptions,
 
     /// The length of the buffer reader in ms.
@@ -11,7 +12,7 @@ pub struct XSynthRealtimeConfig {
     /// Default: `10.0`
     pub render_window_ms: f64,
 
-    /// nt of VoiceChannel objects to be created.
+    /// Amount of VoiceChannel objects to be created.
     /// (Number of MIDI channels)
     ///
     /// Default: `16`
@@ -24,7 +25,9 @@ pub struct XSynthRealtimeConfig {
     /// Default: `[9]`
     pub drums_channels: Vec<u32>,
 
-    /// Whether or not to use a threadpool to render voices.
+    /// Whether or not to use a threadpool to render individual voices.
+    /// Regardless, each MIDI channel uses its own thread. This setting
+    /// adds more fine-grained threading per key rather than per channel.
     ///
     /// Default: `false`
     pub use_threadpool: bool,

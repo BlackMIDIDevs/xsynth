@@ -105,6 +105,8 @@ impl RealtimeSynth {
 
     /// Initializes as new realtime synthesizer using a given config and
     /// the default audio output.
+    ///
+    /// See the `XSynthRealtimeConfig` documentation for the available options.
     pub fn open_with_default_output(config: XSynthRealtimeConfig) -> Self {
         let host = cpal::default_host();
 
@@ -121,7 +123,8 @@ impl RealtimeSynth {
     /// Initializes a new realtime synthesizer using a given config and a
     /// specified audio output device.
     ///
-    /// See the `cpal` crate for the `device` and `stream_config` parameters.
+    /// See the `XSynthRealtimeConfig` documentation for the available options.
+    /// See the `cpal` crate documentation for the `device` and `stream_config` parameters.
     pub fn open(
         config: XSynthRealtimeConfig,
         device: &Device,
@@ -266,7 +269,7 @@ impl RealtimeSynth {
 
     /// Sends a SynthEvent to the realtime synthesizer.
     ///
-    /// See the SynthEvent documentation for more information.
+    /// See the `SynthEvent` documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         let data = self.data.as_mut().unwrap();
         data.event_senders.send_event(event);
@@ -274,7 +277,7 @@ impl RealtimeSynth {
 
     /// Returns the event sender of the realtime synthesizer.
     ///
-    /// See the RealtimeEventSender documentation for more information
+    /// See the `RealtimeEventSender` documentation for more information
     /// on how to use.
     pub fn get_senders(&self) -> RealtimeEventSender {
         let data = self.data.as_ref().unwrap();
@@ -283,7 +286,7 @@ impl RealtimeSynth {
 
     /// Returns the statistics reader of the realtime synthesizer.
     ///
-    /// See the RealtimeSynthStatsReader documentation for more information
+    /// See the `RealtimeSynthStatsReader` documentation for more information
     /// on how to use.
     pub fn get_stats(&self) -> RealtimeSynthStatsReader {
         let data = self.data.as_ref().unwrap();
@@ -292,18 +295,18 @@ impl RealtimeSynth {
         RealtimeSynthStatsReader::new(self.stats.clone(), buffered_stats)
     }
 
-    /// Returns the parameters of the audio output device
+    /// Returns the stream parameters of the audio output device.
     pub fn stream_params(&self) -> AudioStreamParams {
         self.stream_params
     }
 
-    /// Pauses the playback of the audio output device
+    /// Pauses the playback of the audio output device.
     pub fn pause(&mut self) -> Result<(), PauseStreamError> {
         let data = self.data.as_mut().unwrap();
         data.stream.pause()
     }
 
-    /// Resumes the playback of the audio output device
+    /// Resumes the playback of the audio output device.
     pub fn resume(&mut self) -> Result<(), PlayStreamError> {
         let data = self.data.as_mut().unwrap();
         data.stream.play()

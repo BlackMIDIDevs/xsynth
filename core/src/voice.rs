@@ -30,7 +30,7 @@ pub(crate) use control::*;
 mod cutoff;
 pub(crate) use cutoff::*;
 
-/// Options to modify the envelope of a voice
+/// Options to modify the envelope of a voice.
 #[derive(Copy, Clone)]
 pub struct EnvelopeControlData {
     /// Controls the attack. Can take values from 0 to 128
@@ -42,7 +42,7 @@ pub struct EnvelopeControlData {
     pub release: Option<u8>,
 }
 
-/// How a voice should be released
+/// How a voice should be released.
 #[derive(Copy, Clone, PartialEq)]
 pub enum ReleaseType {
     /// Standard release. Uses the voice's envelope.

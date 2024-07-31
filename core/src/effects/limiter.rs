@@ -38,6 +38,8 @@ impl SingleChannelLimiter {
 }
 
 /// A multi-channel audio limiter.
+///
+/// Can be useful to prevent clipping on loud audio.
 pub struct VolumeLimiter {
     channels: Vec<SingleChannelLimiter>,
     channel_count: usize,
@@ -63,7 +65,7 @@ impl VolumeLimiter {
         }
     }
 
-    /// Limits the audio of the given sample buffer.
+    /// Applies the limiting algorithm to the given sample buffer to prevent clipping.
     pub fn limit(&mut self, sample: &mut [f32]) {
         for (i, s) in sample.iter_mut().enumerate() {
             *s = self.channels[i % self.channel_count].limit(*s);

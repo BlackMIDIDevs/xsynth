@@ -97,7 +97,7 @@ pub struct BufferedRenderer {
 }
 
 impl BufferedRenderer {
-    /// Creates a new instance of BufferedRenderer
+    /// Creates a new instance of BufferedRenderer.
     ///
     /// - `render`: An object implementing the AudioPipe struct for BufferedRenderer to
     ///         read samples from
@@ -244,6 +244,8 @@ impl BufferedRenderer {
         self.stats.render_size.store(size, Ordering::SeqCst);
     }
 
+    /// Returns a statistics reader.
+    /// See the `BufferedRendererStatsReader` documentation for more information.
     pub fn get_buffer_stats(&self) -> BufferedRendererStatsReader {
         BufferedRendererStatsReader {
             stats: self.stats.clone(),

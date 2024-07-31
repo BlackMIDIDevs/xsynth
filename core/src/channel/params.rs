@@ -69,7 +69,7 @@ impl VoiceChannelStatsReader {
         Self { stats }
     }
 
-    /// The active voice count of the VoiceChannel
+    /// The active voice count of the VoiceChannel.
     pub fn voice_count(&self) -> u64 {
         self.stats
             .voice_counter

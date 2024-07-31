@@ -124,7 +124,8 @@ impl ControlEventData {
 #[derive(Debug, Clone, Copy)]
 pub struct ChannelInitOptions {
     /// If set to true, the voices killed due to the voice limit will fade out.
-    /// If set to false, they will be killed immediately, usually causing clicking.
+    /// If set to false, they will be killed immediately, usually causing clicking
+    /// but improving performance.
     ///
     /// Default: `false`
     pub fade_out_killing: bool,
@@ -310,6 +311,7 @@ impl VoiceChannel {
     }
 
     /// Sends a ControlEvent to the channel.
+    /// See the `ControlEvent` documentation for more information.
     pub fn process_control_event(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Raw(controller, value) => match controller {
@@ -509,6 +511,7 @@ impl VoiceChannel {
     }
 
     /// Sends a ChannelEvent to the channel.
+    /// See the `ChannelEvent` documentation for more information.
     pub fn process_event(&mut self, event: ChannelEvent) {
         self.push_events_iter(std::iter::once(event));
     }
@@ -562,6 +565,7 @@ impl VoiceChannel {
     }
 
     /// Returns a reader for the VoiceChannel statistics.
+    /// See the `VoiceChannelStatsReader` documentation for more information.
     pub fn get_channel_stats(&self) -> VoiceChannelStatsReader {
         let stats = self.params.stats.clone();
         VoiceChannelStatsReader::new(stats)
