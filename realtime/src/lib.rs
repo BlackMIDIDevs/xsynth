@@ -1,4 +1,6 @@
-pub mod config;
+mod config;
+pub use config::*;
+
 mod util;
 
 pub use core::channel_group::SynthEvent;

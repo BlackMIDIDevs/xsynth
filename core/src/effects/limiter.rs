@@ -37,6 +37,7 @@ impl SingleChannelLimiter {
     }
 }
 
+/// A multi-channel audio limiter.
 pub struct VolumeLimiter {
     channels: Vec<SingleChannelLimiter>,
     channel_count: usize,
@@ -50,6 +51,7 @@ pub struct VolumeLimiterIter<'a, 'b, T: 'b + Iterator<Item = f32>> {
 }
 
 impl VolumeLimiter {
+    /// Initializes a new audio limiter with a specified audio channel count.
     pub fn new(channel_count: u16) -> VolumeLimiter {
         let mut limiters = Vec::new();
         for _ in 0..channel_count {
@@ -61,6 +63,7 @@ impl VolumeLimiter {
         }
     }
 
+    /// Limits the audio of the given sample buffer.
     pub fn limit(&mut self, sample: &mut [f32]) {
         for (i, s) in sample.iter_mut().enumerate() {
             *s = self.channels[i % self.channel_count].limit(*s);

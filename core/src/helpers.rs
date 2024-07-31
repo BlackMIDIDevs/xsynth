@@ -17,10 +17,12 @@ pub fn prepapre_cache_vec<T: Copy>(vec: &mut Vec<T>, len: usize, default: T) {
     vec.fill(default);
 }
 
+/// Converts a dB value to 0-1 amplitude
 pub fn db_to_amp(db: f32) -> f32 {
     10f32.powf(db / 20.0)
 }
 
+/// Checks if two `Arc<T>` vecs are equal
 pub fn are_arc_vecs_equal<T: ?Sized>(old: &[Arc<T>], new: &[Arc<T>]) -> bool {
     // First, check if the lengths are the same
     if old.len() != new.len() {

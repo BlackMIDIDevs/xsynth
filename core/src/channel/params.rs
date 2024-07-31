@@ -4,11 +4,13 @@ use crate::AudioStreamParams;
 
 use super::{channel_sf::ChannelSoundfont, ChannelConfigEvent};
 
+/// Holds the statistics for an instance of VoiceChannel.
 #[derive(Debug, Clone)]
 pub struct VoiceChannelStats {
     pub(super) voice_counter: Arc<AtomicU64>,
 }
 
+/// Reads the statistics of an instance of VoiceChannel in a usable way.
 pub struct VoiceChannelStatsReader {
     stats: VoiceChannelStats,
 }
@@ -63,10 +65,11 @@ impl VoiceChannelParams {
 }
 
 impl VoiceChannelStatsReader {
-    pub fn new(stats: VoiceChannelStats) -> Self {
+    pub(super) fn new(stats: VoiceChannelStats) -> Self {
         Self { stats }
     }
 
+    /// The active voice count of the VoiceChannel
     pub fn voice_count(&self) -> u64 {
         self.stats
             .voice_counter

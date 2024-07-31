@@ -10,6 +10,7 @@ use crate::{AudioStreamParams, ChannelCount};
 use soundfonts::resample::resample_vecs;
 use thiserror::Error;
 
+/// Errors that can be generated when loading an audio file.
 #[derive(Debug, Error)]
 pub enum AudioLoadError {
     #[error("IO Error")]
@@ -27,7 +28,7 @@ pub enum AudioLoadError {
 
 type ProcessedSample = (Arc<[Arc<[f32]>]>, u32);
 
-pub fn load_audio_file(
+pub(super) fn load_audio_file(
     path: &PathBuf,
     stream_params: AudioStreamParams,
 ) -> Result<ProcessedSample, AudioLoadError> {

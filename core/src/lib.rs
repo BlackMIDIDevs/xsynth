@@ -1,8 +1,7 @@
 #![allow(clippy::let_and_return)]
 #![allow(non_local_definitions)]
 
-mod buffered_renderer;
-pub use buffered_renderer::*;
+pub mod buffered_renderer;
 
 pub mod channel;
 

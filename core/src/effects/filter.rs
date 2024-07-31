@@ -4,7 +4,7 @@ use simdeez::prelude::*;
 use soundfonts::FilterType;
 
 #[derive(Clone)]
-pub struct BiQuadFilter {
+pub(crate) struct BiQuadFilter {
     filter: DirectForm1<f32>,
 }
 
@@ -69,6 +69,13 @@ impl BiQuadFilter {
     }
 }
 
+/// A multi-channel bi-quad audio filter.
+///
+/// Supports single pole low pass filter and two pole low pass, high pass
+/// and band pass filters. For more information please see the FilterType
+/// documentation.
+///
+/// Uses the `biquad` crate for signal processing.
 pub struct MultiChannelBiQuad {
     channels: Vec<BiQuadFilter>,
     fil_type: FilterType,
@@ -78,6 +85,14 @@ pub struct MultiChannelBiQuad {
 }
 
 impl MultiChannelBiQuad {
+    /// Creates a new audio filter with the given parameters.
+    ///
+    /// - `channels`: Number of audio channels
+    /// - `fil_type`: Type of the audio filter. See FilterType docs
+    /// - `freq`: Cutoff frequency
+    /// - `sample_rate`: Sample rate of the audio to be processed
+    /// - `q`: The Q parameter of the cutoff filter. Use None for the default
+    ///         Butterworth value.
     pub fn new(
         channels: usize,
         fil_type: FilterType,
@@ -96,6 +111,7 @@ impl MultiChannelBiQuad {
         }
     }
 
+    /// Changes the type of the audio filter.
     pub fn set_filter_type(&mut self, fil_type: FilterType, freq: f32, q: Option<f32>) {
         self.value.set_end(freq);
         self.fil_type = fil_type;
@@ -109,6 +125,7 @@ impl MultiChannelBiQuad {
         }
     }
 
+    /// Filters the audio of the given sample buffer.
     pub fn process(&mut self, sample: &mut [f32]) {
         let channel_count = self.channels.len();
         for (i, s) in sample.iter_mut().enumerate() {

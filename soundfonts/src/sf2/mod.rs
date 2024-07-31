@@ -8,6 +8,7 @@ mod preset;
 mod sample;
 mod zone;
 
+/// Errors that can be generated when loading an SF2 file.
 #[derive(Error, Debug, Clone)]
 pub enum Sf2ParseError {
     #[error("Failed to read file: {0}")]
@@ -17,6 +18,7 @@ pub enum Sf2ParseError {
     FailedToParseFile,
 }
 
+/// Structure that holds the generator and modulator parameters of an SF2 region.
 #[derive(Clone)]
 pub struct Sf2Region {
     pub sample: Arc<[Arc<[f32]>]>,
@@ -37,12 +39,14 @@ pub struct Sf2Region {
     pub coarse_tune: i16,
 }
 
+/// Structure that holds the parameters of an SF2 preset.
 pub struct Sf2Preset {
     pub bank: u16,
     pub preset: u16,
     pub regions: Vec<Sf2Region>,
 }
 
+/// Parses an SF2 file and returns its presets in a vector.
 pub fn load_soundfont(
     sf2_path: impl Into<PathBuf>,
     sample_rate: u32,

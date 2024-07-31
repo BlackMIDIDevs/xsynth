@@ -4,15 +4,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use self::parse::{
-    parse_tokens_resolved, SfzAmpegEnvelope, SfzGroupType, SfzOpcode, SfzParseError, SfzToken,
-};
+use self::parse::{parse_tokens_resolved, SfzAmpegEnvelope, SfzGroupType, SfzOpcode, SfzToken};
 
 use crate::{FilterType, LoopMode};
 
-pub mod grammar;
-pub mod parse;
+mod grammar;
+mod parse;
+pub use parse::{SfzParseError, SfzValidationError};
 
+/// Structure that holds the opcode parameters of the SFZ's AmpEG envelope.
 #[derive(Debug, Clone)]
 pub struct AmpegEnvelopeParams {
     pub ampeg_start: f32,
@@ -53,7 +53,7 @@ impl AmpegEnvelopeParams {
 }
 
 #[derive(Debug, Clone)]
-pub struct RegionParamsBuilder {
+pub(crate) struct RegionParamsBuilder {
     lovel: u8,
     hivel: u8,
     lokey: i8,
@@ -173,6 +173,7 @@ impl RegionParamsBuilder {
     }
 }
 
+/// Structure that holds the opcode parameters of the SFZ file.
 #[derive(Debug, Clone)]
 pub struct RegionParams {
     pub velrange: RangeInclusive<u8>,
@@ -263,6 +264,7 @@ fn parse_sf_root(tokens: impl Iterator<Item = SfzToken>, base_path: PathBuf) -> 
     regions
 }
 
+/// Parses an SFZ file and returns its regions in a vector.
 pub fn parse_soundfont(sfz_path: impl Into<PathBuf>) -> Result<Vec<RegionParams>, SfzParseError> {
     let sfz_path = sfz_path.into();
     let sfz_path: PathBuf = sfz_path

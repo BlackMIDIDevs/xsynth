@@ -215,6 +215,7 @@ pub struct EnvelopeDescriptor {
 }
 
 impl EnvelopeDescriptor {
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_envelope_params(
         &self,
         samplerate: u32,
@@ -310,7 +311,7 @@ impl EnvelopeParameters {
         })
     }
 
-    pub fn get_stage_duration<T: Simd>(&self, stage: EnvelopeStage) -> u32 {
+    pub fn get_stage_duration(&self, stage: EnvelopeStage) -> u32 {
         let stage_info = &self.parts[stage.as_usize()];
         match stage_info {
             EnvelopePart::Lerp {
@@ -322,7 +323,7 @@ impl EnvelopeParameters {
         }
     }
 
-    pub fn modify_stage_data<T: Simd>(&mut self, part: usize, data: EnvelopePart) {
+    pub fn modify_stage_data(&mut self, part: usize, data: EnvelopePart) {
         self.parts[part] = data;
     }
 }
@@ -441,9 +442,8 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         }
 
         if let Some(attack) = envelope.attack {
-            let duration =
-                params.get_stage_duration::<T>(EnvelopeStage::Attack) as f32 / sample_rate;
-            params.modify_stage_data::<T>(
+            let duration = params.get_stage_duration(EnvelopeStage::Attack) as f32 / sample_rate;
+            params.modify_stage_data(
                 1,
                 EnvelopePart::lerp(
                     1.0,
@@ -452,9 +452,8 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             );
         }
         if let Some(release) = envelope.release {
-            let duration =
-                params.get_stage_duration::<T>(EnvelopeStage::Release) as f32 / sample_rate;
-            params.modify_stage_data::<T>(
+            let duration = params.get_stage_duration(EnvelopeStage::Release) as f32 / sample_rate;
+            params.modify_stage_data(
                 5,
                 EnvelopePart::lerp_to_zero_curve(
                     (calculate_curve(release, duration).max(0.02) * sample_rate) as u32,
@@ -483,7 +482,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
     #[inline(always)]
     fn signal_release(&mut self, rel_type: ReleaseType) {
         if rel_type == ReleaseType::Kill {
-            self.params.modify_stage_data::<T>(
+            self.params.modify_stage_data(
                 5,
                 EnvelopePart::lerp(0.0, (0.001 * self.sample_rate) as u32),
             );

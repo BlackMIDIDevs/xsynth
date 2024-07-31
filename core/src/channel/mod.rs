@@ -9,10 +9,7 @@ use crate::{
 
 use soundfonts::FilterType;
 
-use self::{
-    key::KeyData,
-    params::{VoiceChannelParams, VoiceChannelStatsReader},
-};
+use self::{key::KeyData, params::VoiceChannelParams};
 
 use super::AudioPipe;
 
@@ -29,7 +26,9 @@ mod voice_spawner;
 mod event;
 pub use event::*;
 
-pub struct ValueLerp {
+pub use params::VoiceChannelStatsReader;
+
+pub(crate) struct ValueLerp {
     lerp_length: f32,
     step: f32,
     current: f32,
@@ -121,9 +120,18 @@ impl ControlEventData {
     }
 }
 
+/// Options for initializing a new VoiceChannel.
 #[derive(Debug, Clone, Copy)]
 pub struct ChannelInitOptions {
+    /// If set to true, the voices killed due to the voice limit will fade out.
+    /// If set to false, they will be killed immediately, usually causing clicking.
+    ///
+    /// Default: `false`
     pub fade_out_killing: bool,
+
+    /// If set to true, the channel will only use drum patches.
+    ///
+    /// Default: `false`
     pub drums_only: bool,
 }
 
@@ -137,6 +145,9 @@ impl Default for ChannelInitOptions {
     }
 }
 
+/// Represents a single MIDI channel within XSynth.
+///
+/// Keeps track and manages MIDI events and the active voices of a channel.
 pub struct VoiceChannel {
     key_voices: Vec<Key>,
 
@@ -152,11 +163,17 @@ pub struct VoiceChannel {
     /// Processed control data, ready to feed to voices
     voice_control_data: VoiceControlData,
 
-    // Effects
+    /// Effects
     cutoff: MultiChannelBiQuad,
 }
 
 impl VoiceChannel {
+    /// Initializes a new voice channel.
+    ///
+    /// - `options`: Channel configuration
+    /// - `stream_params`: Parameters of the output audio
+    /// - `threadpool`: The thread-pool that will be used to render the voices concurrently.
+    ///         If None is used, the voices of the channel will be rendered successively.
     pub fn new(
         options: ChannelInitOptions,
         stream_params: AudioStreamParams,
@@ -292,6 +309,7 @@ impl VoiceChannel {
         }
     }
 
+    /// Sends a ControlEvent to the channel.
     pub fn process_control_event(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Raw(controller, value) => match controller {
@@ -490,10 +508,12 @@ impl VoiceChannel {
         self.propagate_voice_controls();
     }
 
+    /// Sends a ChannelEvent to the channel.
     pub fn process_event(&mut self, event: ChannelEvent) {
         self.push_events_iter(std::iter::once(event));
     }
 
+    /// Sends multiple ChannelEvent items to the channel as an iterator.
     pub fn push_events_iter<T: Iterator<Item = ChannelEvent>>(&mut self, iter: T) {
         for e in iter {
             match e {
@@ -541,6 +561,7 @@ impl VoiceChannel {
         }
     }
 
+    /// Returns a reader for the VoiceChannel statistics.
     pub fn get_channel_stats(&self) -> VoiceChannelStatsReader {
         let stats = self.params.stats.clone();
         VoiceChannelStatsReader::new(stats)

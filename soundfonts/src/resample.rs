@@ -3,6 +3,7 @@ use rubato::{
 };
 use std::sync::Arc;
 
+/// Resample multiple audio sample vectors
 pub fn resample_vecs(
     vecs: Vec<Vec<f32>>,
     sample_rate: f32,
@@ -13,6 +14,7 @@ pub fn resample_vecs(
         .collect()
 }
 
+/// Resample a single audio sample vector
 pub fn resample_vec(vec: Vec<f32>, sample_rate: f32, new_sample_rate: f32) -> Arc<[f32]> {
     let params = SincInterpolationParameters {
         sinc_len: 32,
