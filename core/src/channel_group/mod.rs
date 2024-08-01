@@ -45,7 +45,7 @@ pub struct ChannelGroupConfig {
     /// See the `AudioStreamParams` documentation for more information.
     pub audio_params: AudioStreamParams,
 
-    /// Whether or not to use a threadpool to render individual voices.
+    /// Whether or not to use a threadpool to render individual keys' voices.
     /// Regardless, each MIDI channel uses its own thread. This setting
     /// adds more fine-grained threading per key rather than per channel.
     pub use_threadpool: bool,

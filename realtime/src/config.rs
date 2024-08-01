@@ -25,7 +25,7 @@ pub struct XSynthRealtimeConfig {
     /// Default: `[9]`
     pub drums_channels: Vec<u32>,
 
-    /// Whether or not to use a threadpool to render individual voices.
+    /// Whether or not to use a threadpool to render individual keys' voices.
     /// Regardless, each MIDI channel uses its own thread. This setting
     /// adds more fine-grained threading per key rather than per channel.
     ///
