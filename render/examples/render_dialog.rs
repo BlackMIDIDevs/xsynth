@@ -1,6 +1,6 @@
 use xsynth_render::{xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
 
-use core::{
+use xsynth_core::{
     soundfont::{SampleSoundfont, SoundfontBase},
     AudioStreamParams, ChannelCount,
 };

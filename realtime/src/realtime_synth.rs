@@ -14,16 +14,18 @@ use cpal::{
 use crossbeam_channel::{bounded, unbounded};
 
 use xsynth_core::{
+    buffered_renderer::{BufferedRenderer, BufferedRendererStatsReader},
     channel::VoiceChannel,
     effects::VolumeLimiter,
     helpers::{prepapre_cache_vec, sum_simd},
-    AudioPipe, AudioStreamParams, BufferedRenderer, BufferedRendererStatsReader, FunctionAudioPipe,
+    AudioPipe, AudioStreamParams, FunctionAudioPipe,
 };
 
 use crate::{
     config::XSynthRealtimeConfig, util::ReadWriteAtomicU64, RealtimeEventSender, SynthEvent,
 };
 
+/// Holds the statistics for an instance of RealtimeSynth.
 #[derive(Debug, Clone)]
 struct RealtimeSynthStats {
     voice_count: Arc<AtomicU64>,
@@ -37,6 +39,7 @@ impl RealtimeSynthStats {
     }
 }
 
+/// Reads the statistics of an instance of RealtimeSynth in a usable way.
 pub struct RealtimeSynthStatsReader {
     buffered_stats: BufferedRendererStatsReader,
     stats: RealtimeSynthStats,
@@ -53,10 +56,14 @@ impl RealtimeSynthStatsReader {
         }
     }
 
+    /// Returns the active voice count of all the MIDI channels.
     pub fn voice_count(&self) -> u64 {
         self.stats.voice_count.load(Ordering::Relaxed)
     }
 
+    /// Returns the statistics of the buffered renderer used.
+    ///
+    /// See the BufferedRendererStatsReader documentation for more information.
     pub fn buffer(&self) -> &BufferedRendererStatsReader {
         &self.buffered_stats
     }
@@ -70,6 +77,7 @@ struct RealtimeSynthThreadSharedData {
     event_senders: RealtimeEventSender,
 }
 
+/// A realtime MIDI synthesizer using an audio device for output.
 pub struct RealtimeSynth {
     data: Option<RealtimeSynthThreadSharedData>,
     join_handles: Vec<thread::JoinHandle<()>>,
@@ -80,6 +88,8 @@ pub struct RealtimeSynth {
 }
 
 impl RealtimeSynth {
+    /// Initializes a new realtime synthesizer using the default config and
+    /// the default audio output.
     pub fn open_with_all_defaults() -> Self {
         let host = cpal::default_host();
 
@@ -93,6 +103,10 @@ impl RealtimeSynth {
         RealtimeSynth::open(Default::default(), &device, stream_config)
     }
 
+    /// Initializes as new realtime synthesizer using a given config and
+    /// the default audio output.
+    ///
+    /// See the `XSynthRealtimeConfig` documentation for the available options.
     pub fn open_with_default_output(config: XSynthRealtimeConfig) -> Self {
         let host = cpal::default_host();
 
@@ -106,6 +120,11 @@ impl RealtimeSynth {
         RealtimeSynth::open(config, &device, stream_config)
     }
 
+    /// Initializes a new realtime synthesizer using a given config and a
+    /// specified audio output device.
+    ///
+    /// See the `XSynthRealtimeConfig` documentation for the available options.
+    /// See the `cpal` crate documentation for the `device` and `stream_config` parameters.
     pub fn open(
         config: XSynthRealtimeConfig,
         device: &Device,
@@ -248,16 +267,27 @@ impl RealtimeSynth {
         }
     }
 
+    /// Sends a SynthEvent to the realtime synthesizer.
+    ///
+    /// See the `SynthEvent` documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         let data = self.data.as_mut().unwrap();
         data.event_senders.send_event(event);
     }
 
+    /// Returns the event sender of the realtime synthesizer.
+    ///
+    /// See the `RealtimeEventSender` documentation for more information
+    /// on how to use.
     pub fn get_senders(&self) -> RealtimeEventSender {
         let data = self.data.as_ref().unwrap();
         data.event_senders.clone()
     }
 
+    /// Returns the statistics reader of the realtime synthesizer.
+    ///
+    /// See the `RealtimeSynthStatsReader` documentation for more information
+    /// on how to use.
     pub fn get_stats(&self) -> RealtimeSynthStatsReader {
         let data = self.data.as_ref().unwrap();
         let buffered_stats = data.buffered_renderer.lock().unwrap().get_buffer_stats();
@@ -265,15 +295,18 @@ impl RealtimeSynth {
         RealtimeSynthStatsReader::new(self.stats.clone(), buffered_stats)
     }
 
+    /// Returns the stream parameters of the audio output device.
     pub fn stream_params(&self) -> AudioStreamParams {
         self.stream_params
     }
 
+    /// Pauses the playback of the audio output device.
     pub fn pause(&mut self) -> Result<(), PauseStreamError> {
         let data = self.data.as_mut().unwrap();
         data.stream.pause()
     }
 
+    /// Resumes the playback of the audio output device.
     pub fn resume(&mut self) -> Result<(), PlayStreamError> {
         let data = self.data.as_mut().unwrap();
         data.stream.play()

@@ -1,10 +1,10 @@
-pub mod config;
+mod config;
 pub use config::*;
 
 mod rendered;
 pub use rendered::*;
 
-pub mod builder;
+mod builder;
 pub use builder::*;
 
 mod writer;

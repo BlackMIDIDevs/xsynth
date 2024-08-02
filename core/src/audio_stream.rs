@@ -1,3 +1,4 @@
+/// Number of audio channels.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ChannelCount {
     Mono,
@@ -28,6 +29,7 @@ impl From<u16> for ChannelCount {
     }
 }
 
+/// Parameters of the output audio.
 #[derive(Debug, Clone, Copy)]
 pub struct AudioStreamParams {
     pub sample_rate: u32,

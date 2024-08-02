@@ -12,6 +12,9 @@ use rayon::prelude::*;
 
 const MAX_EVENT_CACHE_SIZE: u32 = 1024 * 1024;
 
+/// Represents a MIDI synthesizer within XSynth.
+///
+/// Manages multiple VoiceChannel objects at once.
 pub struct ChannelGroup {
     thread_pool: rayon::ThreadPool,
     cached_event_count: u32,
@@ -21,15 +24,36 @@ pub struct ChannelGroup {
     audio_params: AudioStreamParams,
 }
 
+/// Options for initializing a new ChannelGroup.
 pub struct ChannelGroupConfig {
+    /// Channel initialization options (same for all channels).
+    /// See the `ChannelInitOptions` documentation for more information.
     pub channel_init_options: ChannelInitOptions,
+
+    /// Amount of VoiceChannel objects to be created
+    /// (Number of MIDI channels)
+    /// The MIDI 1 spec uses 16 channels.
     pub channel_count: u32,
+
+    /// A vector which specifies which of the created channels (indexes) will be used for drums.
+    ///
+    /// For example in a conventional 16 MIDI channel setup where channel 10 is used for
+    /// drums, the vector would be set as vec!\[9\] (counting from 0).
     pub drums_channels: Vec<u32>,
+
+    /// Parameters of the output audio.
+    /// See the `AudioStreamParams` documentation for more information.
     pub audio_params: AudioStreamParams,
+
+    /// Whether or not to use a threadpool to render individual keys' voices.
+    /// Regardless, each MIDI channel uses its own thread. This setting
+    /// adds more fine-grained threading per key rather than per channel.
     pub use_threadpool: bool,
 }
 
 impl ChannelGroup {
+    /// Creates a new ChannelGroup with the given configuration.
+    /// See the `ChannelGroupConfig` documentation for the available options.
     pub fn new(config: ChannelGroupConfig) -> Self {
         let mut channels = Vec::new();
         let mut channel_events_cache = Vec::new();
@@ -44,9 +68,7 @@ impl ChannelGroup {
 
         for i in 0..config.channel_count {
             let mut init = config.channel_init_options;
-            if config.drums_channels.clone().into_iter().any(|c| c == i) {
-                init.drums_only = true;
-            }
+            init.drums_only = config.drums_channels.clone().into_iter().any(|c| c == i);
 
             channels.push(VoiceChannel::new(init, config.audio_params, pool.clone()));
             channel_events_cache.push(Vec::new());
@@ -66,6 +88,8 @@ impl ChannelGroup {
         }
     }
 
+    /// Sends a SynthEvent to the ChannelGroup.
+    /// See the `SynthEvent` documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         match event {
             SynthEvent::Channel(channel, event) => {
@@ -136,6 +160,7 @@ impl ChannelGroup {
         });
     }
 
+    /// Returns the active voice count of the synthesizer.
     pub fn voice_count(&self) -> u64 {
         self.channels
             .iter()

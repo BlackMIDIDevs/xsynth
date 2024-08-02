@@ -1,4 +1,4 @@
 mod limiter;
 pub use limiter::*;
-pub mod filter;
+mod filter;
 pub use filter::*;

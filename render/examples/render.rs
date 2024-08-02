@@ -1,8 +1,4 @@
 use atomic_float::AtomicF64;
-use core::{
-    soundfont::{SampleSoundfont, SoundfontBase},
-    AudioStreamParams, ChannelCount,
-};
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -11,7 +7,11 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use xsynth_render::{builder::xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
+use xsynth_core::{
+    soundfont::{SampleSoundfont, SoundfontBase},
+    AudioStreamParams, ChannelCount,
+};
+use xsynth_render::{xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();

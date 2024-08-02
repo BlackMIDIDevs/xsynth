@@ -23,12 +23,18 @@ use midi_toolkit::{
     },
 };
 
+/// Statistics of an XSynthRender object.
 pub struct XSynthRenderStats {
+    /// The progress of the render in seconds.
+    /// For example, if two seconds of the MIDI are rendered the value will be `2.0`.
     pub progress: f64,
+
+    /// The active voice count of the synthesizer.
     pub voice_count: u64,
     // pub render_time: f64,
 }
 
+/// Errors that can be generated when rendering a MIDI.
 #[derive(Debug, Error)]
 pub enum XSynthRenderError {
     #[error("SF loading failed")]
@@ -44,6 +50,9 @@ impl From<MIDILoadError> for XSynthRenderError {
     }
 }
 
+/// Helper struct to create an XSynthRender object and render a MIDI file.
+///
+/// Initialize using the `xsynth_renderer` function.
 pub struct XSynthRenderBuilder<'a, StatsCallback: FnMut(XSynthRenderStats)> {
     config: XSynthRenderConfig,
     midi_path: &'a str,
@@ -53,6 +62,7 @@ pub struct XSynthRenderBuilder<'a, StatsCallback: FnMut(XSynthRenderStats)> {
     stats_callback: StatsCallback,
 }
 
+/// Initializes an XSynthRenderBuilder object.
 pub fn xsynth_renderer<'a>(
     midi_path: &'a str,
     out_path: &'a str,
@@ -68,7 +78,6 @@ pub fn xsynth_renderer<'a>(
 }
 
 impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, ProgressCallback> {
-    // Config functions
     pub fn with_config(mut self, config: XSynthRenderConfig) -> Self {
         self.config = config;
         self
@@ -116,6 +125,7 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
         self
     }
 
+    /// Sets a callback function to be used to update the render statistics.
     pub fn with_progress_callback<F: FnMut(XSynthRenderStats)>(
         self,
         stats_callback: F,

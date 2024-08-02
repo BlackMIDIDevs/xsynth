@@ -5,9 +5,10 @@
 
 ### Core
 Handles the core audio rendering functionality.
-The main components are channels and voices:
-- Channels represent a single MIDI channel (normally MIDIs use 16 channels together)
-- A voice represents a single SoundFont sound
+The main components are:
+- `VoiceChannel`: Channels represent a single MIDI channel
+- `ChannelGroup`: A channel group represents a manager of channels (MIDI synthesizer)
+- `Voice`: A voice represents a single SoundFont sound
 
 ### Realtime
 The real-time rendering module within XSynth. Currently it outputs audio using `cpal`.
@@ -18,8 +19,12 @@ A cdylib wrapper around real-time to act as a drop-in replacement for OmniMIDI.
 
 ### Rendered
 A module for rendering audio to a file.
-It takes in a MIDI file path and other XSynth parameters, and outputs a wav file.
+It takes in a MIDI file path and other XSynth parameters, and outputs an audio file.
 
+### Soundfonts
+A module to parse different types of soundfonts to be used in XSynth.
+Currently supports SFZ and SF2 soundfonts. For detailed information about
+what is supported, please visit the `SampleSoundfont` documentation in `core`.
 
 ## License
 

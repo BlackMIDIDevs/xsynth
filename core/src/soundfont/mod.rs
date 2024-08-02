@@ -8,29 +8,28 @@ use std::{
 
 use biquad::Q_BUTTERWORTH_F32;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use soundfonts::{
-    sf2::Sf2ParseError,
-    sfz::{parse::SfzParseError, AmpegEnvelopeParams, RegionParams},
-};
+use soundfonts::{convert_sample_index, FilterType, LoopMode};
 use thiserror::Error;
 
-use self::audio::{load_audio_file, AudioLoadError};
+use self::audio::load_audio_file;
+pub use self::audio::AudioLoadError;
 
 use super::{
     voice::VoiceControlData,
     voice::{EnvelopeParameters, Voice},
 };
-use crate::{
-    helpers::{db_to_amp, FREQS},
-    voice::EnvelopeDescriptor,
-    AudioStreamParams, ChannelCount,
-};
+use crate::{helpers::db_to_amp, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
 
-use soundfonts::{convert_sample_index, FilterType, LoopMode};
+pub use soundfonts::{sf2::Sf2ParseError, sfz::SfzParseError};
 
-pub mod audio;
+mod audio;
+mod config;
+mod utils;
 mod voice_spawners;
+use utils::*;
 use voice_spawners::*;
+
+pub use config::{Interpolator, SoundfontInitOptions};
 
 pub trait VoiceSpawner: Sync + Send {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice>;
@@ -55,14 +54,8 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
     ) -> Vec<Box<dyn VoiceSpawner>>;
 }
 
-#[derive(Clone, PartialEq, Eq, Copy, Debug)]
-pub enum Interpolator {
-    Nearest,
-    Linear,
-}
-
 #[derive(Clone)]
-pub struct LoopParams {
+pub(super) struct LoopParams {
     pub mode: LoopMode,
     pub offset: u32,
     pub start: u32,
@@ -82,82 +75,75 @@ struct SampleVoiceSpawnerParams {
     interpolator: Interpolator,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct SampleCache {
-    path: PathBuf,
-}
-
-fn get_speed_mult_from_keys(key: u8, base_key: u8) -> f32 {
-    let base_freq = FREQS[base_key as usize];
-    let freq = FREQS[key as usize];
-    freq / base_freq
-}
-
-impl SampleCache {
-    pub fn new(path: PathBuf) -> Self {
-        Self { path }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct SoundfontInitOptions {
-    pub bank: Option<u8>,
-    pub preset: Option<u8>,
-    pub linear_release: bool,
-    pub use_effects: bool,
-    pub interpolator: Interpolator,
-}
-
-impl Default for SoundfontInitOptions {
-    fn default() -> Self {
-        Self {
-            bank: None,
-            preset: None,
-            linear_release: false,
-            use_effects: true,
-            interpolator: Interpolator::Nearest,
-        }
-    }
-}
-
-fn key_vel_to_index(key: u8, vel: u8) -> usize {
-    (key as usize) * 128 + (vel as usize)
-}
-
-fn cents_factor(cents: f32) -> f32 {
-    2.0f32.powf(cents / 1200.0)
-}
-
-pub struct SoundfontInstrument {
+pub(super) struct SoundfontInstrument {
     bank: u8,
     preset: u8,
     spawner_params_list: Vec<Vec<Arc<SampleVoiceSpawnerParams>>>,
 }
 
+/// Represents a sample soundfont to be used within XSynth.
+///
+/// Supports SFZ and SF2 soundfonts.
+///
+/// ## SFZ specification support (opcodes)
+/// - `lovel` & `hivel`
+/// - `lokey` & `hikey`
+/// - `pitch_keycenter`
+/// - `volume`
+/// - `pan`
+/// - `sample`
+/// - `default_path`
+/// - `loop_mode`
+/// - `loop_start`
+/// - `loop_end`
+/// - `offset`
+/// - `cutoff`
+/// - `resonance`
+/// - `fil_veltrack`
+/// - `fil_keycenter`
+/// - `fil_keytrack`
+/// - `filter_type`
+/// - `tune`
+/// - `ampeg_start`
+/// - `ampeg_delay`
+/// - `ampeg_attack`
+/// - `ampeg_hold`
+/// - `ampeg_decay`
+/// - `ampeg_sustain`
+/// - `ampeg_release`
+///
+/// ## SF2 specification support
+/// ### Generators
+/// - `startAddrsOffset`
+/// - `startloopAddrsOffset`
+/// - `endloopAddrsOffset`
+/// - `initialFilterFc`
+/// - `initialFilterQ`
+/// - `pan`
+/// - `delayVolEnv`
+/// - `attackVolEnv`
+/// - `holdVolEnv`
+/// - `decayVolEnv`
+/// - `sustainVolEnv`
+/// - `releaseVolEnv`
+/// - `instrument`
+/// - `keyRange`
+/// - `velRange`
+/// - `initialAttenuation`
+/// - `coarseTune`
+/// - `fineTune`
+/// - `sampleID`
+/// - `sampleModes`
+/// - `overridingRootKey`
+///
+/// ### Modulators
+/// None
 pub struct SampleSoundfont {
     instruments: Vec<SoundfontInstrument>,
     stream_params: AudioStreamParams,
 }
 
-fn sample_cache_from_region_params(region_params: &RegionParams) -> SampleCache {
-    SampleCache::new(region_params.sample_path.clone())
-}
-
-fn envelope_descriptor_from_region_params(
-    region_params: &AmpegEnvelopeParams,
-) -> EnvelopeDescriptor {
-    let env = region_params;
-    EnvelopeDescriptor {
-        start_percent: env.ampeg_start / 100.0,
-        delay: env.ampeg_delay,
-        attack: env.ampeg_attack,
-        hold: env.ampeg_hold,
-        decay: env.ampeg_decay,
-        sustain_percent: env.ampeg_sustain / 100.0,
-        release: env.ampeg_release,
-    }
-}
-
+/// Errors that can be generated when loading an SFZ soundfont.
 #[derive(Debug, Error)]
 pub enum LoadSfzError {
     #[error("IO Error")]
@@ -170,6 +156,8 @@ pub enum LoadSfzError {
     SfzParseError(#[from] SfzParseError),
 }
 
+/// Errors that can be generated when loading a soundfont
+/// of an unspecified format.
 #[derive(Debug, Error)]
 pub enum LoadSfError {
     #[error("Error loading the SFZ: {0}")]
@@ -183,6 +171,15 @@ pub enum LoadSfError {
 }
 
 impl SampleSoundfont {
+    /// Loads a new sample soundfont of an unspecified type.
+    /// The type of the soundfont will be determined from the file extension.
+    ///
+    /// Parameters:
+    /// - `path`: The path of the soundfont to be loaded.
+    /// - `stream_params`: Parameters of the output audio. See the `AudioStreamParams`
+    ///         documentation for the available options.
+    /// - `options`: The soundfont configuration. See the `SoundfontInitOptions`
+    ///         documentation for the available options.
     pub fn new(
         path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
@@ -204,6 +201,14 @@ impl SampleSoundfont {
         }
     }
 
+    /// Loads a new SFZ soundfont
+    ///
+    /// Parameters:
+    /// - `path`: The path of the SFZ soundfont to be loaded.
+    /// - `stream_params`: Parameters of the output audio. See the `AudioStreamParams`
+    ///         documentation for the available options.
+    /// - `options`: The soundfont configuration. See the `SoundfontInitOptions`
+    ///         documentation for the available options.
     pub fn new_sfz(
         sfz_path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
@@ -354,6 +359,14 @@ impl SampleSoundfont {
         })
     }
 
+    /// Loads a new SF2 soundfont
+    ///
+    /// Parameters:
+    /// - `path`: The path of the SF2 soundfont to be loaded.
+    /// - `stream_params`: Parameters of the output audio. See the `AudioStreamParams`
+    ///         documentation for the available options.
+    /// - `options`: The soundfont configuration. See the `SoundfontInitOptions`
+    ///         documentation for the available options.
     pub fn new_sf2(
         sf2_path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,

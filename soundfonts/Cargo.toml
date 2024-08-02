@@ -1,9 +1,16 @@
 [package]
 name = "xsynth-soundfonts"
-version = "0.1.0"
-edition = "2021"
+description = "A module to parse different types of soundfonts to be used in XSynth."
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 encoding_rs = "0.8.32"
@@ -14,11 +21,3 @@ simdeez = "2.0.0-dev3"
 thiserror = "1.0.38"
 soundfont = "0.0.3"
 rubato = "0.15.0"
-
-
-[dev-dependencies]
-criterion = "0.5.1"
-
-[[bench]]
-name = "parse"
-harness = false

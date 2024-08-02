@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use core::{
+use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };

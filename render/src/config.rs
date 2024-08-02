@@ -1,20 +1,61 @@
-use xsynth_core::{channel::ChannelInitOptions, soundfont::SoundfontInitOptions};
+pub use xsynth_core::{channel::ChannelInitOptions, soundfont::SoundfontInitOptions};
 
+/// Supported audio formats of XSynthRender.
 #[derive(PartialEq, Clone, Copy)]
 pub enum XSynthRenderAudioFormat {
     Wav,
 }
 
+/// Options for initializing a new XSynthRender object.
 #[derive(Clone)]
 pub struct XSynthRenderConfig {
+    /// Channel initialization options (same for all channels).
+    /// See the `ChannelInitOptions` documentation for more information.
     pub channel_init_options: ChannelInitOptions,
+
+    /// Soundfont initialization options (same for all soundfonts).
+    /// See the `SoundfontInitOptions` documentation for more information.
     pub sf_init_options: SoundfontInitOptions,
+
+    /// Amount of VoiceChannel objects to be created
+    /// (Number of MIDI channels)
+    ///
+    /// Default: 16
     pub channel_count: u32,
+
+    /// A vector which specifies which of the created channels (indexes) will be used for drums.
+    /// For example in a conventional 16 MIDI channel setup where channel 10 is used for
+    /// drums, the vector would be set as \[9\] (counting from 0).
+    ///
+    /// Default: `[9]`
     pub drums_channels: Vec<u32>,
+
+    /// Whether or not to use a threadpool to render individual keys' voices.
+    /// Regardless, each MIDI channel uses its own thread. This setting
+    /// adds more fine-grained threading per key rather than per channel.
+    ///
+    /// Default: `true`
     pub use_threadpool: bool,
+
+    /// If set to true, the rendered audio will be limited to 0dB using
+    /// the `VolumeLimiter` effect from `core` to prevent clipping.
+    ///
+    /// Default: `true`
     pub use_limiter: bool,
+
+    /// Audio output sample rate.
+    ///
+    /// Default: `48000`
     pub sample_rate: u32,
+
+    /// Audio output audio channels.
+    ///
+    /// Default: `2`
     pub audio_channels: u16,
+
+    /// Audio output format.
+    ///
+    /// Default: `Wav`
     pub audio_format: XSynthRenderAudioFormat,
 }
 

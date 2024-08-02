@@ -209,13 +209,14 @@ impl Clone for EventSender {
     }
 }
 
+/// A helper object to send events to the realtime synthesizer.
 #[derive(Clone)]
 pub struct RealtimeEventSender {
     senders: Vec<EventSender>,
 }
 
 impl RealtimeEventSender {
-    pub fn new(
+    pub(super) fn new(
         senders: Vec<Sender<ChannelEvent>>,
         max_nps: Arc<ReadWriteAtomicU64>,
         ignore_range: RangeInclusive<u8>,
@@ -228,6 +229,9 @@ impl RealtimeEventSender {
         }
     }
 
+    /// Sends a SynthEvent to the realtime synthesizer.
+    ///
+    /// See the `SynthEvent` documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         match event {
             SynthEvent::Channel(channel, event) => {
@@ -246,10 +250,14 @@ impl RealtimeEventSender {
         }
     }
 
+    /// Sends a ChannelConfigEvent to the realtime synthesizer.
+    ///
+    /// See the `ChannelConfigEvent` documentation for more information.
     pub fn send_config(&mut self, event: ChannelConfigEvent) {
         self.send_event(SynthEvent::ChannelConfig(event))
     }
 
+    /// Sends a MIDI event as raw bytes.
     pub fn send_event_u32(&mut self, event: u32) {
         let head = event & 0xFF;
         let channel = head & 0xF;
@@ -308,6 +316,7 @@ impl RealtimeEventSender {
         }
     }
 
+    /// Resets all note and control change data of the realtime synthesizer.
     pub fn reset_synth(&mut self) {
         self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::AllNotesKilled));
 

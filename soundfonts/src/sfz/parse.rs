@@ -78,6 +78,7 @@ pub enum SfzTokenWithMeta {
     Define(String, String),
 }
 
+/// Parameters of an error generated while validating an SFZ file.
 #[derive(Error, Debug, Clone)]
 pub struct SfzValidationError {
     pub pos: FileLocation,
@@ -85,7 +86,8 @@ pub struct SfzValidationError {
 }
 
 impl SfzValidationError {
-    pub fn new(pos: FileLocation, message: String) -> Self {
+    #[allow(dead_code)]
+    pub(super) fn new(pos: FileLocation, message: String) -> Self {
         Self { pos, message }
     }
 }
@@ -96,6 +98,7 @@ impl std::fmt::Display for SfzValidationError {
     }
 }
 
+/// Errors that can be generated when parsing an SFZ file.
 #[derive(Error, Debug, Clone)]
 pub enum SfzParseError {
     #[error("Failed to parse SFZ file: {0}")]

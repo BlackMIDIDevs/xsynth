@@ -13,6 +13,7 @@ struct BatchRenderElements {
     missed_samples: f64,
 }
 
+/// Represents an XSynth MIDI synthesizer that renders a MIDI to a file.
 pub struct XSynthRender {
     config: XSynthRenderConfig,
     channel_group: ChannelGroup,
@@ -23,6 +24,8 @@ pub struct XSynthRender {
 }
 
 impl XSynthRender {
+    /// Initializes a new XSynthRender object with the given configuration and
+    /// audio output path.
     pub fn new(config: XSynthRenderConfig, out_path: PathBuf) -> Self {
         let audio_params = AudioStreamParams::new(config.sample_rate, config.audio_channels.into());
         let chgroup_config = ChannelGroupConfig {
@@ -55,14 +58,20 @@ impl XSynthRender {
         }
     }
 
+    /// Returns the parameters of the output audio.
     pub fn get_params(&self) -> AudioStreamParams {
         self.audio_params
     }
 
+    /// Sends a SynthEvent to the XSynthRender object.
+    /// Please see the SynthEvent documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         self.channel_group.send_event(event);
     }
 
+    /// Renders audio samples of the specified time to the audio output file.
+    ///
+    /// The time should be the delta time of the last sent events.
     pub fn render_batch(&mut self, event_time: f64) {
         if event_time > 10.0 {
             // If the time is too large, split it up
@@ -95,6 +104,7 @@ impl XSynthRender {
         }
     }
 
+    /// Finishes the render and finalizes the audio file.
     pub fn finalize(mut self) {
         loop {
             self.render_elements
@@ -118,6 +128,7 @@ impl XSynthRender {
         self.audio_writer.finalize();
     }
 
+    /// Returns the active voice count of the MIDI synthesizer.
     pub fn voice_count(&self) -> u64 {
         self.channel_group.voice_count()
     }

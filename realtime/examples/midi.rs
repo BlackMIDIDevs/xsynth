@@ -4,10 +4,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use core::{
-    channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
-    soundfont::{SampleSoundfont, SoundfontBase},
-};
 use midi_toolkit::{
     events::Event,
     io::MIDIFile,
@@ -16,6 +12,10 @@ use midi_toolkit::{
         event::{cancel_tempo_events, scale_event_time},
         unwrap_items, TimeCaster,
     },
+};
+use xsynth_core::{
+    channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
+    soundfont::{SampleSoundfont, SoundfontBase},
 };
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
 
