@@ -144,6 +144,7 @@ impl ChannelGroup {
         let channels = &mut self.channels;
         let sample_cache_vecs = &mut self.sample_cache_vecs;
 
+        buffer.fill(0.0);
         thread_pool.install(move || {
             channels
                 .par_iter_mut()

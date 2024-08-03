@@ -204,6 +204,8 @@ impl BufferedRenderer {
 
     /// Reads samples from the remainder and the output queue into the destination array.
     pub fn read(&mut self, dest: &mut [f32]) {
+        dest.fill(0.0);
+
         let mut i: usize = 0;
         let len = dest.len().min(self.remainder.len());
         let samples = self
