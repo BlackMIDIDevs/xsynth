@@ -76,22 +76,28 @@ impl Sf2ParsedPreset {
                                     .loop_mode
                                     .unwrap_or(subzone.loop_mode.unwrap_or(LoopMode::NoLoop)),
                                 loop_start: {
-                                    let v = (sample.loop_start as i32
-                                        + subzone.loop_start_offset.unwrap_or(0) as i32)
-                                        as u32;
+                                    let offset = subzone.loop_start_offset.unwrap_or(0) as i32
+                                        + (subzone.loop_start_offset_coarse.unwrap_or(0) as i32
+                                            * 32768);
+                                    let v = (sample.loop_start as i32 + offset) as u32;
                                     convert_sample_index(v, sample.sample_rate, sample_rate)
                                 },
                                 loop_end: {
-                                    let v = (sample.loop_end as i32
-                                        + subzone.loop_end_offset.unwrap_or(0) as i32)
-                                        as u32;
+                                    let offset = subzone.loop_end_offset.unwrap_or(0) as i32
+                                        + (subzone.loop_end_offset_coarse.unwrap_or(0) as i32
+                                            * 32768);
+                                    let v = (sample.loop_end as i32 + offset) as u32;
                                     convert_sample_index(v, sample.sample_rate, sample_rate)
                                 },
-                                offset: convert_sample_index(
-                                    subzone.offset.unwrap_or(0) as u32,
-                                    sample.sample_rate,
-                                    sample_rate,
-                                ),
+                                offset: {
+                                    let zone_offset = subzone.offset.unwrap_or(0) as u32
+                                        + subzone.offset_coarse.unwrap_or(0) as u32 * 32768;
+                                    convert_sample_index(
+                                        zone_offset,
+                                        sample.sample_rate,
+                                        sample_rate,
+                                    )
+                                },
                                 cutoff: subzone.cutoff.map(|v| {
                                     2f32.powf(v as f32 / 1200.0)
                                         * 8.176
@@ -100,11 +106,11 @@ impl Sf2ParsedPreset {
                                 resonance: zone.resonance.unwrap_or(subzone.resonance.unwrap_or(0))
                                     as f32
                                     / 10.0,
-                                fine_tune: zone.fine_tune.unwrap_or(subzone.fine_tune.unwrap_or(0))
+                                fine_tune: zone.fine_tune.unwrap_or(0)
+                                    + subzone.fine_tune.unwrap_or(0)
                                     + sample.pitchadj as i16,
-                                coarse_tune: zone
-                                    .coarse_tune
-                                    .unwrap_or(subzone.coarse_tune.unwrap_or(0)),
+                                coarse_tune: zone.coarse_tune.unwrap_or(0)
+                                    + subzone.coarse_tune.unwrap_or(0),
                                 ampeg_envelope: AmpegEnvelopeParams {
                                     ampeg_start: 0.0,
                                     ampeg_delay: subzone.env_delay.unwrap_or(0.0)
