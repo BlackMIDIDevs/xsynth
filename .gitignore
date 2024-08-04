@@ -4,3 +4,4 @@
 .env
 env.sh
 env.bat
+shell.nix
