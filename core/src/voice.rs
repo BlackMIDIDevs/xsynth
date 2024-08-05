@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(non_camel_case_types)] // For the SIMD library
+
 mod envelopes;
 pub(crate) use envelopes::*;
 
