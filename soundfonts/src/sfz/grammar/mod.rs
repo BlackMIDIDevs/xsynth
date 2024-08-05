@@ -56,24 +56,6 @@ bnf! {
     ParseOpcodeValuePart = text:(parse_opcode_value_simd);
 }
 
-impl<'a> Root<'a> {
-    pub fn parse_full(s: &'a str) -> Result<Self, ParseError> {
-        let parser = StringParser::new(s);
-        let result = Self::parse(parser);
-
-        result.map(|(r, _)| r)
-    }
-}
-
-impl<'a> ErrorTolerantRoot<'a> {
-    pub fn parse_full(s: &'a str) -> Result<Self, ParseError> {
-        let parser = StringParser::new(s);
-        let result = Self::parse(parser);
-
-        result.map(|(r, _)| r)
-    }
-}
-
 impl<'a> OpcodeValue<'a> {
     pub fn as_string(&self) -> Cow<'a, str> {
         if self.rest.is_empty() {
@@ -85,28 +67,6 @@ impl<'a> OpcodeValue<'a> {
             }
             return Cow::Owned(result);
         }
-    }
-}
-
-impl<'a> Token<'a> {
-    pub fn parse_as_iter(s: &'a str) -> impl Iterator<Item = Result<Token<'a>, ParseError>> {
-        let mut parser = StringParser::new(s);
-        std::iter::from_fn(move || {
-            let result = Self::parse(parser);
-
-            if let Err(e) = result {
-                if parser.is_empty() {
-                    return None;
-                } else {
-                    return Some(Err(e));
-                }
-            }
-
-            Some(result.map(|(r, p)| {
-                parser = p;
-                r
-            }))
-        })
     }
 }
 
