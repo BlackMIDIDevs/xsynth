@@ -25,8 +25,7 @@ wav = "1.0.0"
 xsynth-core = { path = "../core" }
 
 [dev-dependencies]
-midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs.git", rev = "26747a3" }
-gen-iter = { git = "https://github.com/arduano/gen-iter.git", rev = "64e28bc" }
+midi-toolkit-rs = "0.1.0"
 
 [build-dependencies]
 cbindgen = "0.26.0"

@@ -28,7 +28,7 @@ simdeez = "2.0.0-dev3"
 proc-macro2 = "1.0.63"
 
 [dev-dependencies]
-midi-toolkit-rs = { git = "https://github.com/arduano/midi-toolkit-rs", rev = "26747a3" }
+midi-toolkit-rs = "0.1.0"
 rand = "0.8.5"
 criterion = "0.4.0"
 

@@ -5,7 +5,7 @@ members = ["core", "realtime", "kdmapi", "soundfonts", "render"]
 [workspace.package]
 authors = ["Arduano", "MBMS"]
 version = "0.1.0"
-license = "LGPL-3.0"
+license = "MIT"
 edition = "2021"
 homepage = "https://github.com/arduano/xsynth"
 repository = "https://github.com/arduano/xsynth"
