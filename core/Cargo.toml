@@ -17,7 +17,7 @@ atomic_refcell = "0.1.7"
 bytemuck = "1.7.2"
 crossbeam-channel = "0.5.1"
 lazy_static = "1.4.0"
-soundfonts = { path = "../soundfonts", package = "xsynth-soundfonts" }
+soundfonts = { path = "../soundfonts", package = "xsynth-soundfonts", version = "0.1.0" }
 rayon = "1.5.1"
 spin_sleep = "1.0.0"
 to_vec = "0.1.0"

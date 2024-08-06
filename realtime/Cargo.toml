@@ -22,7 +22,7 @@ rayon = "1.5.3"
 spin_sleep = "1.0.0"
 to_vec = "0.1.0"
 wav = "1.0.0"
-xsynth-core = { path = "../core" }
+xsynth-core = { path = "../core", version = "0.1.0" }
 
 [dev-dependencies]
 midi-toolkit-rs = "0.1.0"
