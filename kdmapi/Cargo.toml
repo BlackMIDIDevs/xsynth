@@ -17,7 +17,7 @@ name = "OmniMIDI"
 crate-type = ["cdylib"]
 
 [dependencies]
-xsynth-core = { path = "../core" }
-realtime = { path = "../realtime", package = "xsynth-realtime" }
+xsynth-core = { path = "../core", version = "0.1.0" }
+realtime = { path = "../realtime", package = "xsynth-realtime", version = "0.1.0" }
 winapi = { version = "0.3.9", features = ["synchapi", "winuser"] }
 cfg-if = "1.0.0"
