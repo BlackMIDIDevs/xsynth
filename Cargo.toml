@@ -9,7 +9,7 @@ license = "MIT"
 edition = "2021"
 homepage = "https://github.com/arduano/xsynth"
 repository = "https://github.com/arduano/xsynth"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["midi", "synthesizer", "soundfont"]
 categories = ["multimedia::audio"]
 
