@@ -451,11 +451,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gen-iter"
-version = "0.4.0"
-source = "git+https://github.com/arduano/gen-iter.git?rev=64e28bc#64e28bc74b406030ff9bb3a3726a770a8fb4f78b"
-
-[[package]]
 name = "getrandom"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -736,10 +731,10 @@ dependencies = [
 [[package]]
 name = "midi-toolkit-rs"
 version = "0.1.0"
-source = "git+https://github.com/arduano/midi-toolkit-rs?rev=26747a3#26747a32fb0350c6fa625275b35d4301dc25572b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91fceeb7b2de9bb1833fa0fe859c7f9adf01abbe90cb5f9821c5585c0b55c77f"
 dependencies = [
  "crossbeam-channel",
- "gen-iter",
  "midi-toolkit-rs-derive",
  "num-traits",
  "rayon",
@@ -749,7 +744,8 @@ dependencies = [
 [[package]]
 name = "midi-toolkit-rs-derive"
 version = "0.1.0"
-source = "git+https://github.com/arduano/midi-toolkit-rs?rev=26747a3#26747a32fb0350c6fa625275b35d4301dc25572b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cf557c0c377b2ec04dd0a69a7b18e7a3c0168e91e24efb81755fac059360ebc"
 dependencies = [
  "convert_case",
  "num-traits",
@@ -1934,7 +1930,6 @@ dependencies = [
  "cbindgen",
  "cpal",
  "crossbeam-channel",
- "gen-iter",
  "lazy_static",
  "midi-toolkit-rs",
  "rayon",
