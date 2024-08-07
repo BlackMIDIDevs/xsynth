@@ -23,6 +23,8 @@ use midi_toolkit::{
     },
 };
 
+pub use xsynth_core::channel_group::ParallelismOptions;
+
 /// Statistics of an XSynthRender object.
 pub struct XSynthRenderStats {
     /// The progress of the render in seconds.
@@ -64,11 +66,12 @@ pub struct XSynthRenderBuilder<'a, StatsCallback: FnMut(XSynthRenderStats)> {
 
 /// Initializes an XSynthRenderBuilder object.
 pub fn xsynth_renderer<'a>(
+    config: XSynthRenderConfig,
     midi_path: &'a str,
     out_path: &'a str,
 ) -> XSynthRenderBuilder<'a, impl FnMut(XSynthRenderStats)> {
     XSynthRenderBuilder {
-        config: XSynthRenderConfig::default(),
+        config,
         midi_path,
         soundfonts: vec![],
         layer_count: Some(4),
@@ -84,12 +87,12 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
     }
 
     pub fn with_channel_count(mut self, channels: u32) -> Self {
-        self.config.channel_count = channels;
+        self.config.group_options.channel_count = channels;
         self
     }
 
-    pub fn use_threadpool(mut self, use_threadpool: bool) -> Self {
-        self.config.use_threadpool = use_threadpool;
+    pub fn with_parallelism(mut self, options: ParallelismOptions) -> Self {
+        self.config.group_options.parallelism = options;
         self
     }
 
@@ -99,12 +102,12 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
     }
 
     pub fn with_sample_rate(mut self, sample_rate: u32) -> Self {
-        self.config.sample_rate = sample_rate;
+        self.config.group_options.audio_params.sample_rate = sample_rate;
         self
     }
 
     pub fn with_audio_channels(mut self, audio_channels: u16) -> Self {
-        self.config.audio_channels = audio_channels;
+        self.config.group_options.audio_params.channels = audio_channels.into();
         self
     }
 

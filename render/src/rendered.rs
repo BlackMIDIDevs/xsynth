@@ -1,5 +1,5 @@
 use xsynth_core::{
-    channel_group::{ChannelGroup, ChannelGroupConfig, SynthEvent},
+    channel_group::{ChannelGroup, SynthEvent},
     effects::VolumeLimiter,
     AudioPipe, AudioStreamParams,
 };
@@ -18,7 +18,6 @@ pub struct XSynthRender {
     config: XSynthRenderConfig,
     channel_group: ChannelGroup,
     audio_writer: AudioFileWriter,
-    audio_params: AudioStreamParams,
     limiter: Option<VolumeLimiter>,
     render_elements: BatchRenderElements,
 }
@@ -27,20 +26,14 @@ impl XSynthRender {
     /// Initializes a new XSynthRender object with the given configuration and
     /// audio output path.
     pub fn new(config: XSynthRenderConfig, out_path: PathBuf) -> Self {
-        let audio_params = AudioStreamParams::new(config.sample_rate, config.audio_channels.into());
-        let chgroup_config = ChannelGroupConfig {
-            channel_init_options: config.channel_init_options,
-            channel_count: config.channel_count,
-            drums_channels: config.drums_channels.clone(),
-            audio_params,
-            use_threadpool: config.use_threadpool,
-        };
-        let channel_group = ChannelGroup::new(chgroup_config);
+        let channel_group = ChannelGroup::new(config.group_options.clone());
 
         let audio_writer = AudioFileWriter::new(config.clone(), out_path);
 
         let limiter = if config.use_limiter {
-            Some(VolumeLimiter::new(config.audio_channels))
+            Some(VolumeLimiter::new(
+                config.group_options.audio_params.channels.count(),
+            ))
         } else {
             None
         };
@@ -49,7 +42,6 @@ impl XSynthRender {
             config,
             channel_group,
             audio_writer,
-            audio_params,
             limiter,
             render_elements: BatchRenderElements {
                 output_vec: vec![0.0],
@@ -60,7 +52,7 @@ impl XSynthRender {
 
     /// Returns the parameters of the output audio.
     pub fn get_params(&self) -> AudioStreamParams {
-        self.audio_params
+        self.config.group_options.audio_params
     }
 
     /// Sends a SynthEvent to the XSynthRender object.
@@ -86,10 +78,11 @@ impl XSynthRender {
                 }
             }
         } else {
-            let samples =
-                self.config.sample_rate as f64 * event_time + self.render_elements.missed_samples;
+            let samples = self.config.group_options.audio_params.sample_rate as f64 * event_time
+                + self.render_elements.missed_samples;
             self.render_elements.missed_samples = samples % 1.0;
-            let samples = samples as usize * self.config.audio_channels as usize;
+            let samples =
+                samples as usize * self.config.group_options.audio_params.channels.count() as usize;
 
             self.render_elements.output_vec.resize(samples, 0.0);
             self.channel_group
@@ -107,9 +100,10 @@ impl XSynthRender {
     /// Finishes the render and finalizes the audio file.
     pub fn finalize(mut self) {
         loop {
-            self.render_elements
-                .output_vec
-                .resize(self.config.sample_rate as usize, 0.0);
+            self.render_elements.output_vec.resize(
+                self.config.group_options.audio_params.sample_rate as usize,
+                0.0,
+            );
             self.channel_group
                 .read_samples(&mut self.render_elements.output_vec);
             let mut is_empty = true;

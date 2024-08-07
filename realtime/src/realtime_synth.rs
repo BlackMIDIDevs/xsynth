@@ -137,11 +137,14 @@ impl RealtimeSynth {
         let sample_rate = stream_config.sample_rate().0;
         let stream_params = AudioStreamParams::new(sample_rate, stream_config.channels().into());
 
-        let pool = if config.use_threadpool {
-            Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()))
-        } else {
-            None
-        };
+        let pool = config.threadpool.map(|threads| {
+            Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .unwrap(),
+            )
+        });
 
         let (output_sender, output_receiver) = bounded::<Vec<f32>>(config.channel_count as usize);
 

@@ -25,12 +25,17 @@ pub struct XSynthRealtimeConfig {
     /// Default: `[9]`
     pub drums_channels: Vec<u32>,
 
-    /// Whether or not to use a threadpool to render individual keys' voices.
+    /// Controls the use a threadpool to render individual keys' voices.
+    /// When a value is set, the specified number of threads will be used
+    /// for that operation, while `None` means no per-key concurrency.
+    /// If the value is set to `Some(0)` then the number of threads will
+    /// be determined automatically by `rayon`.
+    ///
     /// Regardless, each MIDI channel uses its own thread. This setting
     /// adds more fine-grained threading per key rather than per channel.
     ///
-    /// Default: `false`
-    pub use_threadpool: bool,
+    /// Default: `None`
+    pub threadpool: Option<usize>,
 
     /// A range of velocities that will not be played.
     ///
@@ -45,7 +50,7 @@ impl Default for XSynthRealtimeConfig {
             render_window_ms: 10.0,
             channel_count: 16,
             drums_channels: vec![9],
-            use_threadpool: false,
+            threadpool: None,
             ignore_range: 0..=0,
         }
     }
