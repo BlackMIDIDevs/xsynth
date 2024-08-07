@@ -35,15 +35,12 @@ pub struct ChannelGroup {
 #[derive(Clone)]
 pub struct ParallelismOptions {
     /// Render the MIDI channels parallel in a threadpool with the specified
-    /// thread count. Use `None` for no multithreading. If the value is set
-    /// to `Some(0)` then the number of threads will be determined automatically.
-    channel: Option<usize>,
+    /// thread count.
+    pub channel: Option<usize>,
 
     /// Render the individisual keys of each channel parallel in a threadpool
-    /// with the specified thread count. Use `None` for no multithreading. If
-    /// the value is set to `Some(0)` then the number of threads will be
-    /// determined automatically.
-    key: Option<usize>,
+    /// with the specified thread count.
+    pub key: Option<usize>,
 }
 
 /// Options for initializing a new ChannelGroup.
