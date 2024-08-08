@@ -1,12 +1,5 @@
 use crate::{channel::ChannelInitOptions, AudioStreamParams};
 
-/// Use multithreading for all actions inside the synthesizer (more info at `ParallelismOptions`)
-/// with automatically determined thread counts.
-pub const AUTO_MULTITHREADING: ParallelismOptions = ParallelismOptions {
-    channel: ThreadCount::Auto,
-    key: ThreadCount::Auto,
-};
-
 /// Defines the multithreading options for each task that supports it.
 #[derive(Clone)]
 pub enum ThreadCount {
@@ -46,6 +39,27 @@ pub struct ParallelismOptions {
     /// Render the individisual keys of each channel parallel in a threadpool
     /// with the specified thread count.
     pub key: ThreadCount,
+}
+
+impl ParallelismOptions {
+    const AUTO_PER_KEY: Self = ParallelismOptions {
+        channel: ThreadCount::None,
+        key: ThreadCount::Auto,
+    };
+
+    const AUTO_PER_CHANNEL: Self = ParallelismOptions {
+        channel: ThreadCount::Auto,
+        key: ThreadCount::None,
+    };
+}
+
+impl Default for ParallelismOptions {
+    fn default() -> Self {
+        ParallelismOptions {
+            channel: ThreadCount::Auto,
+            key: ThreadCount::Auto,
+        } 
+    }
 }
 
 /// Options for initializing a new ChannelGroup.
