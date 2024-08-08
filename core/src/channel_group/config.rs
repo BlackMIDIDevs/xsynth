@@ -42,12 +42,12 @@ pub struct ParallelismOptions {
 }
 
 impl ParallelismOptions {
-    const AUTO_PER_KEY: Self = ParallelismOptions {
+    pub const AUTO_PER_KEY: Self = ParallelismOptions {
         channel: ThreadCount::None,
         key: ThreadCount::Auto,
     };
 
-    const AUTO_PER_CHANNEL: Self = ParallelismOptions {
+    pub const AUTO_PER_CHANNEL: Self = ParallelismOptions {
         channel: ThreadCount::Auto,
         key: ThreadCount::None,
     };
@@ -58,7 +58,7 @@ impl Default for ParallelismOptions {
         ParallelismOptions {
             channel: ThreadCount::Auto,
             key: ThreadCount::Auto,
-        } 
+        }
     }
 }
 
