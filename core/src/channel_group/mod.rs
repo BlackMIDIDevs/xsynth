@@ -26,6 +26,13 @@ pub struct ChannelGroup {
 
 /// Options regarding which parts of the ChannelGroup should be multithreaded.
 ///
+/// Responsibilities of a channel: processing input events for the channel, dispatching per-key rendering of audio, applying filters to the final channel's audio
+/// Responsibilities of a key: Rendering per-voice audio for all the voices stored in that key for this channel. This is generally the most compute intensive part of the synth.
+/// 
+/// Best practices:
+/// - As there are often 16 channels in MIDI, per-key multithreading can balance out the load more evenly between CPU cores.
+/// - However, per-key multithreading adds some overhead, so if the synth is invoked to render very small sample counts each time (e.g. sub 1 millisecond), not using per-key multithreading becomes more efficient.
+/// 
 /// The following apply for all the values:
 /// - A value of `None` means no multithreading.
 /// - If the value is set to `Some(0)` then the number of threads will be
