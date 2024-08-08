@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use crate::{
-    channel::{ChannelAudioEvent, ChannelEvent, ChannelInitOptions, VoiceChannel},
+    channel::{ChannelAudioEvent, ChannelEvent, VoiceChannel},
     helpers::sum_simd,
     AudioPipe, AudioStreamParams,
 };
 
+mod config;
+pub use config::*;
 mod events;
 pub use events::*;
 use rayon::prelude::*;
@@ -24,59 +26,6 @@ pub struct ChannelGroup {
     audio_params: AudioStreamParams,
 }
 
-/// Options regarding which parts of the ChannelGroup should be multithreaded.
-///
-/// Responsibilities of a channel: processing input events for the channel, dispatching per-key rendering of audio, applying filters to the final channel's audio
-/// Responsibilities of a key: Rendering per-voice audio for all the voices stored in that key for this channel. This is generally the most compute intensive part of the synth.
-/// 
-/// Best practices:
-/// - As there are often 16 channels in MIDI, per-key multithreading can balance out the load more evenly between CPU cores.
-/// - However, per-key multithreading adds some overhead, so if the synth is invoked to render very small sample counts each time (e.g. sub 1 millisecond), not using per-key multithreading becomes more efficient.
-/// 
-/// The following apply for all the values:
-/// - A value of `None` means no multithreading.
-/// - If the value is set to `Some(0)` then the number of threads will be
-///     determined automatically by `rayon`. Please read
-///     [this](https://docs.rs/rayon-core/1.11.0/rayon_core/struct.ThreadPoolBuilder.html#method.num_threads)
-///     for more information.
-#[derive(Clone)]
-pub struct ParallelismOptions {
-    /// Render the MIDI channels parallel in a threadpool with the specified
-    /// thread count.
-    pub channel: Option<usize>,
-
-    /// Render the individisual keys of each channel parallel in a threadpool
-    /// with the specified thread count.
-    pub key: Option<usize>,
-}
-
-/// Options for initializing a new ChannelGroup.
-#[derive(Clone)]
-pub struct ChannelGroupConfig {
-    /// Channel initialization options (same for all channels).
-    /// See the `ChannelInitOptions` documentation for more information.
-    pub channel_init_options: ChannelInitOptions,
-
-    /// Amount of VoiceChannel objects to be created
-    /// (Number of MIDI channels)
-    /// The MIDI 1 spec uses 16 channels.
-    pub channel_count: u32,
-
-    /// A vector which specifies which of the created channels (indexes) will be used for drums.
-    ///
-    /// For example in a conventional 16 MIDI channel setup where channel 10 is used for
-    /// drums, the vector would be set as vec!\[9\] (counting from 0).
-    pub drums_channels: Vec<u32>,
-
-    /// Parameters of the output audio.
-    /// See the `AudioStreamParams` documentation for more information.
-    pub audio_params: AudioStreamParams,
-
-    /// Options about the `ChannelGroup` instance's parallelism. See the `ParallelismOptions`
-    /// documentation for more information.
-    pub parallelism: ParallelismOptions,
-}
-
 impl ChannelGroup {
     /// Creates a new ChannelGroup with the given configuration.
     /// See the `ChannelGroupConfig` documentation for the available options.
@@ -86,22 +35,28 @@ impl ChannelGroup {
         let mut sample_cache_vecs = Vec::new();
 
         // Thread pool for individual channels to split between keys
-        let channel_pool = config.parallelism.key.map(|threads| {
-            Arc::new(
+        let channel_pool = match config.parallelism.channel {
+            ThreadCount::None => None,
+            ThreadCount::Auto => Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap())),
+            ThreadCount::Manual(threads) => Some(Arc::new(
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(threads)
                     .build()
                     .unwrap(),
-            )
-        });
+            )),
+        };
 
         // Thread pool for splitting channels between threads
-        let group_pool = config.parallelism.channel.map(|threads| {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(threads)
-                .build()
-                .unwrap()
-        });
+        let group_pool = match config.parallelism.key {
+            ThreadCount::None => None,
+            ThreadCount::Auto => Some(rayon::ThreadPoolBuilder::new().build().unwrap()),
+            ThreadCount::Manual(threads) => Some(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .unwrap(),
+            ),
+        };
 
         for i in 0..config.channel_count {
             let mut init = config.channel_init_options;
