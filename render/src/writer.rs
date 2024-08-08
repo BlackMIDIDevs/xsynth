@@ -14,8 +14,8 @@ impl AudioFileWriter {
         match config.audio_format {
             XSynthRenderAudioFormat::Wav => {
                 let spec = WavSpec {
-                    channels: config.audio_channels,
-                    sample_rate: config.sample_rate,
+                    channels: config.group_options.audio_params.channels.count(),
+                    sample_rate: config.group_options.audio_params.sample_rate,
                     bits_per_sample: 32,
                     sample_format: hound::SampleFormat::Float,
                 };
