@@ -1,5 +1,5 @@
 use std::ops::RangeInclusive;
-pub use xsynth_core::channel::ChannelInitOptions;
+pub use xsynth_core::{channel::ChannelInitOptions, channel_group::ThreadCount};
 
 /// Options for initializing a new RealtimeSynth.
 pub struct XSynthRealtimeConfig {
@@ -25,12 +25,12 @@ pub struct XSynthRealtimeConfig {
     /// Default: `[9]`
     pub drums_channels: Vec<u32>,
 
-    /// Whether or not to use a threadpool to render individual keys' voices.
-    /// Regardless, each MIDI channel uses its own thread. This setting
-    /// adds more fine-grained threading per key rather than per channel.
+    /// Controls the multithreading used for rendering per-voice audio for all
+    /// the voices stored in a key for a channel. See the `ThreadCount` documentation
+    /// for the available options.
     ///
-    /// Default: `false`
-    pub use_threadpool: bool,
+    /// Default: `ThreadCount::None`
+    pub multithreading: ThreadCount,
 
     /// A range of velocities that will not be played.
     ///
@@ -45,7 +45,7 @@ impl Default for XSynthRealtimeConfig {
             render_window_ms: 10.0,
             channel_count: 16,
             drums_channels: vec![9],
-            use_threadpool: false,
+            multithreading: ThreadCount::None,
             ignore_range: 0..=0,
         }
     }

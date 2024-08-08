@@ -22,7 +22,7 @@ use xsynth_core::{
 };
 
 use crate::{
-    config::XSynthRealtimeConfig, util::ReadWriteAtomicU64, RealtimeEventSender, SynthEvent,
+    util::ReadWriteAtomicU64, RealtimeEventSender, SynthEvent, ThreadCount, XSynthRealtimeConfig,
 };
 
 /// Holds the statistics for an instance of RealtimeSynth.
@@ -137,10 +137,15 @@ impl RealtimeSynth {
         let sample_rate = stream_config.sample_rate().0;
         let stream_params = AudioStreamParams::new(sample_rate, stream_config.channels().into());
 
-        let pool = if config.use_threadpool {
-            Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()))
-        } else {
-            None
+        let pool = match config.multithreading {
+            ThreadCount::None => None,
+            ThreadCount::Auto => Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap())),
+            ThreadCount::Manual(threads) => Some(Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .unwrap(),
+            )),
         };
 
         let (output_sender, output_receiver) = bounded::<Vec<f32>>(config.channel_count as usize);

@@ -60,7 +60,6 @@ pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsy
 pub extern "C" fn InitializeKDMAPIStream() -> i32 {
     let config = XSynthRealtimeConfig {
         render_window_ms: 5.0,
-        use_threadpool: true,
         ..Default::default()
     };
 
