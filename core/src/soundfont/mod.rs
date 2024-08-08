@@ -8,8 +8,8 @@ use std::{
 
 use biquad::Q_BUTTERWORTH_F32;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use soundfonts::{convert_sample_index, FilterType, LoopMode};
 use thiserror::Error;
+use xsynth_soundfonts::{convert_sample_index, FilterType, LoopMode};
 
 use self::audio::load_audio_file;
 pub use self::audio::AudioLoadError;
@@ -20,7 +20,7 @@ use super::{
 };
 use crate::{helpers::db_to_amp, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
 
-pub use soundfonts::{sf2::Sf2ParseError, sfz::SfzParseError};
+pub use xsynth_soundfonts::{sf2::Sf2ParseError, sfz::SfzParseError};
 
 mod audio;
 mod config;
@@ -214,7 +214,7 @@ impl SampleSoundfont {
         stream_params: AudioStreamParams,
         options: SoundfontInitOptions,
     ) -> Result<Self, LoadSfzError> {
-        let regions = soundfonts::sfz::parse_soundfont(sfz_path.into())?;
+        let regions = xsynth_soundfonts::sfz::parse_soundfont(sfz_path.into())?;
 
         // Find the unique samples that we need to parse and convert
         let unique_sample_params: HashSet<_> = regions
@@ -372,7 +372,8 @@ impl SampleSoundfont {
         stream_params: AudioStreamParams,
         options: SoundfontInitOptions,
     ) -> Result<Self, Sf2ParseError> {
-        let presets = soundfonts::sf2::load_soundfont(sf2_path.into(), stream_params.sample_rate)?;
+        let presets =
+            xsynth_soundfonts::sf2::load_soundfont(sf2_path.into(), stream_params.sample_rate)?;
 
         let mut instruments = Vec::new();
 

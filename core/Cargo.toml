@@ -13,24 +13,24 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-atomic_refcell = "0.1.7"
-bytemuck = "1.7.2"
-crossbeam-channel = "0.5.1"
-lazy_static = "1.4.0"
-soundfonts = { path = "../soundfonts", package = "xsynth-soundfonts", version = "0.1.0" }
-rayon = "1.5.1"
-spin_sleep = "1.0.0"
+atomic_refcell = "0.1.13"
+bytemuck = "1.16.3"
+crossbeam-channel = "0.5.13"
+lazy_static = "1.5.0"
+xsynth-soundfonts = { workspace = true }
+rayon = "1.10.0"
+spin_sleep = "1.2.1"
 to_vec = "0.1.0"
-thiserror = "1.0.31"
-symphonia = "0.5.1"
+thiserror = "1.0.63"
+symphonia = "0.5.4"
 biquad = "0.4.2"
 simdeez = "2.0.0-dev3"
-proc-macro2 = "1.0.63"
+proc-macro2 = "1.0.86"
 
 [dev-dependencies]
 midi-toolkit-rs = "0.1.0"
 rand = "0.8.5"
-criterion = "0.4.0"
+criterion = "0.5.1"
 
 [[bench]]
 name = "render"
