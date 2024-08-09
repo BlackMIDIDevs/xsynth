@@ -13,11 +13,11 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-encoding_rs = "0.8.32"
+encoding_rs = "0.8.34"
 encoding_rs_io = "0.1.7"
-lazy-regex = "3.0.2"
+lazy-regex = "3.2.0"
 regex-bnf = "0.1.2"
 simdeez = "2.0.0-dev3"
-thiserror = "1.0.38"
+thiserror = "1.0.63"
 soundfont = "0.0.3"
 rubato = "0.15.0"

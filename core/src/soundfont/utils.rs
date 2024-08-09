@@ -1,6 +1,6 @@
 use crate::{helpers::FREQS, voice::EnvelopeDescriptor};
-use soundfonts::sfz::{AmpegEnvelopeParams, RegionParams};
 use std::path::PathBuf;
+use xsynth_soundfonts::sfz::{AmpegEnvelopeParams, RegionParams};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) struct SampleCache {

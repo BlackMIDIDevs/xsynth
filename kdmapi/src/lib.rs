@@ -13,7 +13,7 @@ use xsynth_core::{
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 
-use realtime::{RealtimeEventSender, RealtimeSynth, XSynthRealtimeConfig};
+use xsynth_realtime::{RealtimeEventSender, RealtimeSynth, XSynthRealtimeConfig};
 
 #[cfg(windows)]
 use winapi::{
