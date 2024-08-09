@@ -16,7 +16,8 @@ const MAX_EVENT_CACHE_SIZE: u32 = 1024 * 1024;
 
 /// Represents a MIDI synthesizer within XSynth.
 ///
-/// Manages multiple VoiceChannel objects at once.
+/// Manages multiple VoiceChannel objects at once. For info about MIDI CC
+/// support, please see the documentation of the `VoiceChannel` struct.
 pub struct ChannelGroup {
     thread_pool: Option<rayon::ThreadPool>,
     cached_event_count: u32,
