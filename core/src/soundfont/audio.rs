@@ -7,8 +7,8 @@ use symphonia::core::{audio::Signal, io::MediaSourceStream};
 use symphonia::core::{codecs::DecoderOptions, errors::Error};
 
 use crate::{AudioStreamParams, ChannelCount};
-use soundfonts::resample::resample_vecs;
 use thiserror::Error;
+use xsynth_soundfonts::resample::resample_vecs;
 
 /// Errors that can be generated when loading an audio file.
 #[derive(Debug, Error)]

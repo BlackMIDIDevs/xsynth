@@ -7,7 +7,7 @@ use crate::{
     AudioStreamParams, ChannelCount,
 };
 
-use soundfonts::FilterType;
+use xsynth_soundfonts::FilterType;
 
 use self::{key::KeyData, params::VoiceChannelParams};
 

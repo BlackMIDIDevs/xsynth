@@ -20,7 +20,7 @@ use crate::{
     },
 };
 
-use soundfonts::LoopMode;
+use xsynth_soundfonts::LoopMode;
 
 use crate::soundfont::{Interpolator, LoopParams, SampleVoiceSpawnerParams, VoiceSpawner};
 

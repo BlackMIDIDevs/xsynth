@@ -20,3 +20,8 @@ lto = true
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+
+[workspace.dependencies]
+xsynth-core = { version = "0.1.0", path = "core" }
+xsynth-realtime = { version = "0.1.0", path = "realtime" }
+xsynth-soundfonts = { version = "0.1.0", path = "soundfonts" }

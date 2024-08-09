@@ -1,8 +1,12 @@
-use xsynth_render::{xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
+use xsynth_render::{
+    xsynth_renderer, ChannelGroupConfig, ParallelismOptions, XSynthRenderAudioFormat,
+    XSynthRenderConfig, XSynthRenderStats,
+};
 
 use xsynth_core::{
+    channel_group::ThreadCount,
     soundfont::{SampleSoundfont, SoundfontBase},
-    AudioStreamParams, ChannelCount,
+    AudioStreamParams,
 };
 
 use midi_toolkit::{io::MIDIFile, sequence::event::get_channels_array_statistics};
@@ -76,20 +80,35 @@ fn main() {
         }
     });
 
-    let config: XSynthRenderConfig = Default::default();
+    let config = XSynthRenderConfig {
+        group_options: ChannelGroupConfig {
+            channel_init_options: Default::default(),
+            channel_count: 16,
+            drums_channels: vec![9],
+            audio_params: AudioStreamParams::new(sample_rate, 2.into()),
+            parallelism: if use_threadpool {
+                Default::default()
+            } else {
+                ParallelismOptions {
+                    channel: ThreadCount::None,
+                    key: ThreadCount::None,
+                }
+            },
+        },
+        use_limiter: true,
+        audio_format: XSynthRenderAudioFormat::Wav,
+    };
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
         SampleSoundfont::new(
             sf_path,
-            AudioStreamParams::new(sample_rate, ChannelCount::from(2)),
-            config.sf_init_options,
+            config.group_options.audio_params,
+            Default::default(),
         )
         .unwrap(),
     )];
 
-    xsynth_renderer(&midi_path, &out_path)
-        .with_sample_rate(sample_rate)
-        .use_threadpool(use_threadpool)
+    xsynth_renderer(config, &midi_path, &out_path)
         .use_limiter(use_limiter)
         .add_soundfonts(soundfonts)
         .with_layer_count(layers)
