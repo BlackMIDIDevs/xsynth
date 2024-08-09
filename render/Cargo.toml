@@ -13,11 +13,11 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-xsynth-core = { path = "../core", version = "0.1.0" }
-crossbeam-channel = "0.5.1"
-hound = "3.5.0"
-rayon = "1.5.3"
+xsynth-core = { workspace = true }
+crossbeam-channel = "0.5.13"
+hound = "3.5.1"
+rayon = "1.10.0"
 midi-toolkit-rs = "0.1.0"
-spin_sleep = "1.0.0"
-atomic_float = "0.1.0"
-thiserror = "1.0.31"
+spin_sleep = "1.2.1"
+atomic_float = "1.0.0"
+thiserror = "1.0.63"

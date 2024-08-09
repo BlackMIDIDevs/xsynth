@@ -9,9 +9,12 @@ use std::{
 };
 use xsynth_core::{
     soundfont::{SampleSoundfont, SoundfontBase},
-    AudioStreamParams, ChannelCount,
+    AudioStreamParams,
 };
-use xsynth_render::{xsynth_renderer, XSynthRenderConfig, XSynthRenderStats};
+use xsynth_render::{
+    xsynth_renderer, ChannelGroupConfig, XSynthRenderAudioFormat, XSynthRenderConfig,
+    XSynthRenderStats,
+};
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
@@ -63,22 +66,23 @@ fn main() {
         );
     });
 
-    let config: XSynthRenderConfig = Default::default();
+    let config = XSynthRenderConfig {
+        group_options: ChannelGroupConfig {
+            channel_init_options: Default::default(),
+            channel_count: 16,
+            drums_channels: vec![9],
+            audio_params: AudioStreamParams::new(48000, 2.into()),
+            parallelism: Default::default(),
+        },
+        use_limiter: true,
+        audio_format: XSynthRenderAudioFormat::Wav,
+    };
 
     let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-        SampleSoundfont::new(
-            sfz,
-            AudioStreamParams::new(
-                config.sample_rate,
-                ChannelCount::from(config.audio_channels),
-            ),
-            config.sf_init_options,
-        )
-        .unwrap(),
+        SampleSoundfont::new(sfz, config.group_options.audio_params, Default::default()).unwrap(),
     )];
 
-    xsynth_renderer(&midi, out)
-        .with_config(config)
+    xsynth_renderer(config, &midi, out)
         .add_soundfonts(soundfonts)
         .with_layer_count(Some(128))
         .with_progress_callback(callback)

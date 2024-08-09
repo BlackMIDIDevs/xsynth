@@ -13,16 +13,16 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-atomic_refcell = "0.1.7"
-bytemuck = "1.7.2"
-cpal = "0.15.2"
-crossbeam-channel = "0.5.1"
-lazy_static = "1.4.0"
-rayon = "1.5.3"
-spin_sleep = "1.0.0"
+atomic_refcell = "0.1.13"
+bytemuck = "1.16.3"
+cpal = "0.15.3"
+crossbeam-channel = "0.5.13"
+lazy_static = "1.5.0"
+rayon = "1.10.0"
+spin_sleep = "1.2.1"
 to_vec = "0.1.0"
-wav = "1.0.0"
-xsynth-core = { path = "../core", version = "0.1.0" }
+wav = "1.0.1"
+xsynth-core = { workspace = true }
 
 [dev-dependencies]
 midi-toolkit-rs = "0.1.0"
