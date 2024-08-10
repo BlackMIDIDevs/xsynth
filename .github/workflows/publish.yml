@@ -11,11 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - name: Install Cargo
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
-      - uses: katyo/publish-crates@v2
+      - name: Install ALSA
+        run: sudo apt-get install -y libasound2-dev
+      - name: Publish
+        uses: katyo/publish-crates@v2
         with:
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           ignore-unpublished-changes: true
