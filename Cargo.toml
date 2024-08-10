@@ -4,7 +4,7 @@ members = ["core", "realtime", "kdmapi", "soundfonts", "render"]
 
 [workspace.package]
 authors = ["Arduano", "MBMS"]
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 edition = "2021"
 homepage = "https://github.com/arduano/xsynth"
@@ -22,6 +22,6 @@ inherits = "release"
 debug = true
 
 [workspace.dependencies]
-xsynth-core = { version = "0.1.0", path = "core" }
-xsynth-realtime = { version = "0.1.0", path = "realtime" }
-xsynth-soundfonts = { version = "0.1.0", path = "soundfonts" }
+xsynth-core = { version = "0.2.0", path = "core" }
+xsynth-realtime = { version = "0.2.0", path = "realtime" }
+xsynth-soundfonts = { version = "0.2.0", path = "soundfonts" }
