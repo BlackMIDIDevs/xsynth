@@ -149,6 +149,22 @@ impl Default for ChannelInitOptions {
 /// Represents a single MIDI channel within XSynth.
 ///
 /// Keeps track and manages MIDI events and the active voices of a channel.
+///
+/// MIDI CC Support Chart:
+/// - `CC0`: Bank Select
+/// - `CC6`, `CC38`, `CC100`, `CC101`: RPN & NRPN
+/// - `CC7`: Volume
+/// - `CC8`: Balance
+/// - `CC10`: Pan
+/// - `CC11`: Expression
+/// - `CC64`: Damper pedal
+/// - `CC71`: Cutoff resonance
+/// - `CC72`: Release time multiplier
+/// - `CC73`: Attack time multiplier
+/// - `CC74`: Cutoff frequency
+/// - `CC120`: All sounds off
+/// - `CC121`: Reset all controllers
+/// - `CC123`: All notes off
 pub struct VoiceChannel {
     key_voices: Vec<Key>,
 
@@ -391,7 +407,7 @@ impl VoiceChannel {
                     let vol: f32 = value as f32 / 128.0;
                     self.control_event_data.volume.set_end(vol);
                 }
-                0x0A => {
+                0x0A | 0x08 => {
                     // Pan
                     let pan: f32 = value as f32 / 128.0;
                     self.control_event_data.pan.set_end(pan);
