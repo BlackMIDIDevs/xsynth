@@ -639,16 +639,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kdmapi"
-version = "0.2.0"
-dependencies = [
- "cfg-if",
- "winapi",
- "xsynth-core",
- "xsynth-realtime",
-]
-
-[[package]]
 name = "lazy-regex"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
