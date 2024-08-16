@@ -288,6 +288,10 @@ impl VoiceChannel {
             key.data.render_to(&mut key.audio_cache);
         }
 
+        self.params
+            .channel_sf
+            .change_program(self.control_event_data.bank, self.control_event_data.preset);
+
         out.fill(0.0);
         match self.threadpool.as_ref() {
             Some(pool) => {
@@ -336,10 +340,6 @@ impl VoiceChannel {
                     // Bank select
                     if !self.options.drums_only {
                         self.control_event_data.bank = value;
-                        self.params.channel_sf.change_program(
-                            self.control_event_data.bank,
-                            self.control_event_data.preset,
-                        );
                     }
                 }
                 0x64 => {
@@ -570,10 +570,6 @@ impl VoiceChannel {
                     }
                     ChannelAudioEvent::ProgramChange(preset) => {
                         self.control_event_data.preset = preset;
-                        self.params.channel_sf.change_program(
-                            self.control_event_data.bank,
-                            self.control_event_data.preset,
-                        );
                     }
                 },
                 ChannelEvent::Config(config) => self.params.process_config_event(config),
