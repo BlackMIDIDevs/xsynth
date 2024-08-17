@@ -1,7 +1,8 @@
 use crate::{channel::ChannelInitOptions, AudioStreamParams};
 
 /// Defines the multithreading options for each task that supports it.
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ThreadCount {
     /// No multithreading. Run everything on the same thread.
     None,
@@ -30,7 +31,8 @@ pub enum ThreadCount {
 /// - However, per-key multithreading adds some overhead, so if the synth is invoked to
 ///     render very small sample counts each time (e.g. sub 1 millisecond), not using per-key
 ///     multithreading becomes more efficient.
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ParallelismOptions {
     /// Render the MIDI channels parallel in a threadpool with the specified
     /// thread count.
@@ -60,7 +62,8 @@ impl Default for ParallelismOptions {
 }
 
 /// Options for initializing a new ChannelGroup.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ChannelGroupConfig {
     /// Channel initialization options (same for all channels).
     /// See the `ChannelInitOptions` documentation for more information.

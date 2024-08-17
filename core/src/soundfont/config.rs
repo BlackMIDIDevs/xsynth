@@ -1,5 +1,6 @@
 /// Type of the audio sample interpolation algorithm.
-#[derive(Clone, PartialEq, Eq, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Interpolator {
     /// Nearest neighbor interpolation
     ///
@@ -13,7 +14,8 @@ pub enum Interpolator {
 }
 
 /// Options for initializing/loading a new sample soundfont.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct SoundfontInitOptions {
     /// The bank number (0-128) to extract and use from the soundfont.
     /// `None` means to use all available banks (bank 0 for SFZ).

@@ -95,7 +95,7 @@ impl ChannelGroup {
             }
             SynthEvent::AllChannels(event) => {
                 for channel in self.channel_events_cache.iter_mut() {
-                    channel.push(event.clone());
+                    channel.push(event);
                 }
                 self.cached_event_count += self.channel_events_cache.len() as u32;
                 if self.cached_event_count > MAX_EVENT_CACHE_SIZE {

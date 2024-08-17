@@ -3,7 +3,8 @@ use std::sync::Arc;
 use crate::soundfont::SoundfontBase;
 
 /// MIDI events for a single key in a channel.
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum KeyNoteEvent {
     /// Starts a new note voice with a velocity
     On(u8),
@@ -19,7 +20,8 @@ pub enum KeyNoteEvent {
 }
 
 /// Events to modify parameters of a channel.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ChannelConfigEvent {
     /// Sets the soundfonts for the channel
     SetSoundfonts(Vec<Arc<dyn SoundfontBase>>),
@@ -29,7 +31,8 @@ pub enum ChannelConfigEvent {
 }
 
 /// MIDI events for a channel.
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ChannelAudioEvent {
     /// Starts a new note voice
     NoteOn { key: u8, vel: u8 },
@@ -54,7 +57,8 @@ pub enum ChannelAudioEvent {
 }
 
 /// Wrapper enum for various events for a channel.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ChannelEvent {
     /// Audio event
     Audio(ChannelAudioEvent),
@@ -64,7 +68,8 @@ pub enum ChannelEvent {
 }
 
 /// MIDI control events for a channel.
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ControlEvent {
     /// A raw control change event
     Raw(u8, u8),

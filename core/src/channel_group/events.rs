@@ -1,6 +1,8 @@
 use crate::channel::{ChannelAudioEvent, ChannelConfigEvent};
 
 /// Wrapper enum for various events to be sent to a MIDI synthesizer.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum SynthEvent {
     /// An audio event to be sent to the specified channel.
     /// See `ChannelAudioEvent` documentation for more information.

@@ -3,13 +3,15 @@ pub use xsynth_core::{
 };
 
 /// Supported audio formats of XSynthRender.
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum XSynthRenderAudioFormat {
     Wav,
 }
 
 /// Options for initializing a new XSynthRender object.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct XSynthRenderConfig {
     /// Synthesizer initialization options.
     /// See the `ChannelGroupConfig` documentation for more information.
