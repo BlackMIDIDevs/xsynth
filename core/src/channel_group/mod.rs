@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     channel::{ChannelAudioEvent, ChannelEvent, VoiceChannel},
-    helpers::sum_simd,
+    helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams,
 };
 
@@ -36,7 +36,7 @@ impl ChannelGroup {
         let mut sample_cache_vecs = Vec::new();
 
         // Thread pool for individual channels to split between keys
-        let channel_pool = match config.parallelism.channel {
+        let channel_pool = match config.parallelism.key {
             ThreadCount::None => None,
             ThreadCount::Auto => Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap())),
             ThreadCount::Manual(threads) => Some(Arc::new(
@@ -48,7 +48,7 @@ impl ChannelGroup {
         };
 
         // Thread pool for splitting channels between threads
-        let group_pool = match config.parallelism.key {
+        let group_pool = match config.parallelism.channel {
             ThreadCount::None => None,
             ThreadCount::Auto => Some(rayon::ThreadPoolBuilder::new().build().unwrap()),
             ThreadCount::Manual(threads) => Some(
@@ -149,6 +149,7 @@ impl ChannelGroup {
 
         match self.thread_pool.as_ref() {
             Some(pool) => {
+                let len = buffer.len();
                 let channels = &mut self.channels;
                 let sample_cache_vecs = &mut self.sample_cache_vecs;
                 pool.install(move || {
@@ -156,13 +157,12 @@ impl ChannelGroup {
                         .par_iter_mut()
                         .zip(sample_cache_vecs.par_iter_mut())
                         .for_each(|(channel, samples)| {
-                            samples.resize(buffer.len(), 0.0);
+                            prepapre_cache_vec(samples, len, 0.0);
                             channel.read_samples(samples.as_mut_slice());
                         });
 
                     for vec in sample_cache_vecs.iter_mut() {
                         sum_simd(vec, buffer);
-                        vec.clear();
                     }
                 });
             }
@@ -174,13 +174,12 @@ impl ChannelGroup {
                     .iter_mut()
                     .zip(self.sample_cache_vecs.iter_mut())
                 {
-                    samples.resize(len, 0.0);
+                    prepapre_cache_vec(samples, len, 0.0);
                     channel.read_samples(samples.as_mut_slice());
                 }
 
                 for vec in self.sample_cache_vecs.iter_mut() {
                     sum_simd(vec, buffer);
-                    vec.clear();
                 }
             }
         }

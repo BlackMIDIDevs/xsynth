@@ -272,22 +272,6 @@ impl VoiceChannel {
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
-        fn render_for_key(
-            key: &mut Key,
-            len: usize,
-            control: &VoiceControlData,
-            params: &VoiceChannelParams,
-        ) {
-            for e in key.event_cache.drain(..) {
-                key.data
-                    .send_event(e, control, &params.channel_sf, params.layers);
-            }
-
-            prepapre_cache_vec(&mut key.audio_cache, len, 0.0);
-
-            key.data.render_to(&mut key.audio_cache);
-        }
-
         self.params
             .channel_sf
             .change_program(self.control_event_data.bank, self.control_event_data.preset);
@@ -301,7 +285,13 @@ impl VoiceChannel {
                 let control_data = &self.voice_control_data;
                 pool.install(|| {
                     key_voices.par_iter_mut().for_each(move |key| {
-                        render_for_key(key, len, control_data, params);
+                        for e in key.event_cache.drain(..) {
+                            key.data
+                                .send_event(e, control_data, &params.channel_sf, params.layers);
+                        }
+
+                        prepapre_cache_vec(&mut key.audio_cache, len, 0.0);
+                        key.data.render_to(&mut key.audio_cache);
                     });
                 });
 
@@ -310,14 +300,17 @@ impl VoiceChannel {
                 }
             }
             None => {
-                let len = out.len();
-
                 for key in self.key_voices.iter_mut() {
-                    render_for_key(key, len, &self.voice_control_data, &self.params);
-                }
+                    for e in key.event_cache.drain(..) {
+                        key.data.send_event(
+                            e,
+                            &self.voice_control_data,
+                            &self.params.channel_sf,
+                            self.params.layers,
+                        );
+                    }
 
-                for key in self.key_voices.iter() {
-                    sum_simd(&key.audio_cache, out);
+                    key.data.render_to(out);
                 }
             }
         }
