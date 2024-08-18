@@ -239,7 +239,7 @@ impl RealtimeEventSender {
             }
             SynthEvent::AllChannels(event) => {
                 for sender in self.senders.iter_mut() {
-                    sender.send_audio(event.clone());
+                    sender.send_audio(event);
                 }
             }
             SynthEvent::ChannelConfig(event) => {

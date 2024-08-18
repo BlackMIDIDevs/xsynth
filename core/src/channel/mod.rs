@@ -121,7 +121,8 @@ impl ControlEventData {
 }
 
 /// Options for initializing a new VoiceChannel.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ChannelInitOptions {
     /// If set to true, the voices killed due to the voice limit will fade out.
     /// If set to false, they will be killed immediately, usually causing clicking

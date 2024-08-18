@@ -2,6 +2,8 @@ use std::ops::RangeInclusive;
 pub use xsynth_core::{channel::ChannelInitOptions, channel_group::ThreadCount};
 
 /// Options for initializing a new RealtimeSynth.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct XSynthRealtimeConfig {
     /// Channel initialization options (same for all channels).
     /// See the `ChannelInitOptions` documentation for more information.
