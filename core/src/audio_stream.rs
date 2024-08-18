@@ -1,5 +1,6 @@
 /// Number of audio channels.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ChannelCount {
     Mono,
     Stereo,
@@ -30,7 +31,8 @@ impl From<u16> for ChannelCount {
 }
 
 /// Parameters of the output audio.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct AudioStreamParams {
     pub sample_rate: u32,
     pub channels: ChannelCount,
