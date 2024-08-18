@@ -13,6 +13,56 @@ pub enum Interpolator {
     Linear,
 }
 
+/// Type of curve to be used in certain envelope stages.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum EnvelopeCurveType {
+    /// Apply a linear curve to the envelope stage.
+    /// This option is supported by the attack, decay and release stages.
+    Linear,
+
+    /// Apply a concave curve to the envelope stage.
+    /// This option is supported by the decay and release stages.
+    Concave,
+
+    /// Apply a concave curve to the envelope stage.
+    /// This option is supported by the attack stage.
+    Convex,
+}
+
+/// Options for the curves of a specific envelope.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct EnvelopeOptions {
+    /// Controls the type of curve of the attack envelope stage. See the
+    /// documentation of the `EnvelopeCurveType` enum for available options.
+    ///
+    /// Default: `Convex`
+    pub attack_curve: EnvelopeCurveType,
+
+    /// Controls the type of curve of the decay envelope stage. See the
+    /// documentation of the `EnvelopeCurveType` enum for available options.
+    ///
+    /// Default: `Linear`
+    pub decay_curve: EnvelopeCurveType,
+
+    /// Controls the type of curve of the release envelope stage. See the
+    /// documentation of the `EnvelopeCurveType` enum for available options.
+    ///
+    /// Default: `Linear`
+    pub release_curve: EnvelopeCurveType,
+}
+
+impl Default for EnvelopeOptions {
+    fn default() -> Self {
+        Self {
+            attack_curve: EnvelopeCurveType::Convex,
+            decay_curve: EnvelopeCurveType::Linear,
+            release_curve: EnvelopeCurveType::Linear,
+        }
+    }
+}
+
 /// Options for initializing/loading a new sample soundfont.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -29,11 +79,9 @@ pub struct SoundfontInitOptions {
     /// Default: `None`
     pub preset: Option<u8>,
 
-    /// If set to true, the voices generated using this soundfont will
-    /// release using a linear function instead of convex.
-    ///
-    /// Default: `false`
-    pub linear_release: bool,
+    /// Configures the volume envelope curves in the dB scale. See the
+    /// documentation for `EnvelopeOptions` for more information.
+    pub vol_envelope_options: EnvelopeOptions,
 
     /// If set to true, the voices generated using this soundfont will
     /// be able to use signal processing effects. Currently this option
@@ -54,7 +102,7 @@ impl Default for SoundfontInitOptions {
         Self {
             bank: None,
             preset: None,
-            linear_release: false,
+            vol_envelope_options: Default::default(),
             use_effects: true,
             interpolator: Interpolator::Nearest,
         }
