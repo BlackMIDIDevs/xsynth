@@ -69,16 +69,10 @@ pub struct ChannelGroupConfig {
     /// See the `ChannelInitOptions` documentation for more information.
     pub channel_init_options: ChannelInitOptions,
 
-    /// Amount of VoiceChannel objects to be created
-    /// (Number of MIDI channels)
-    /// The MIDI 1 spec uses 16 channels.
+    /// Amount of VoiceChannel objects to be created (Number of MIDI channels).
+    /// The MIDI 1 spec uses 16 channels. If the channel count is 16 or
+    /// greater, then MIDI channel 10 will be set as the percussion channel.
     pub channel_count: u32,
-
-    /// A vector which specifies which of the created channels (indexes) will be used for drums.
-    ///
-    /// For example in a conventional 16 MIDI channel setup where channel 10 is used for
-    /// drums, the vector would be set as vec!\[9\] (counting from 0).
-    pub drums_channels: Vec<u32>,
 
     /// Parameters of the output audio.
     /// See the `AudioStreamParams` documentation for more information.

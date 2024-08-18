@@ -8,11 +8,16 @@ use crate::{
 
 use super::voice_spawner::VoiceSpawnerMatrix;
 
+#[derive(Default, PartialEq, Eq, Clone, Copy, Debug)]
+pub struct ProgramDescriptor {
+    pub bank: u8,
+    pub preset: u8,
+}
+
 pub struct ChannelSoundfont {
     soundfonts: Vec<Arc<dyn SoundfontBase>>,
     matrix: VoiceSpawnerMatrix,
-    curr_bank: u8,
-    curr_preset: u8,
+    curr_program: ProgramDescriptor,
 }
 
 impl Deref for ChannelSoundfont {
@@ -29,8 +34,7 @@ impl ChannelSoundfont {
         ChannelSoundfont {
             soundfonts: Vec::new(),
             matrix: VoiceSpawnerMatrix::new(),
-            curr_bank: 0,
-            curr_preset: 0,
+            curr_program: Default::default(),
         }
     }
 
@@ -41,10 +45,9 @@ impl ChannelSoundfont {
         }
     }
 
-    pub fn change_program(&mut self, bank: u8, preset: u8) {
-        if self.curr_bank != bank || self.curr_preset != preset {
-            self.curr_bank = bank;
-            self.curr_preset = preset;
+    pub fn change_program(&mut self, program: ProgramDescriptor) {
+        if self.curr_program != program {
+            self.curr_program = program;
             self.rebuild_matrix();
         }
     }
@@ -55,8 +58,8 @@ impl ChannelSoundfont {
         // if a preset/instr. has regions in any bank other than 0, all missing banks will be muted.
         // For drum patches the same applies with bank and preset switched.
 
-        let bank = self.curr_bank;
-        let preset = self.curr_preset;
+        let bank = self.curr_program.bank;
+        let preset = self.curr_program.preset;
 
         for k in 0..128u8 {
             for v in 0..128u8 {

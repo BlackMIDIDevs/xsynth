@@ -234,27 +234,23 @@ impl RealtimeEventSender {
     /// See the `SynthEvent` documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         match event {
-            SynthEvent::Channel(channel, event) => {
-                self.senders[channel as usize].send_audio(event);
-            }
-            SynthEvent::AllChannels(event) => {
-                for sender in self.senders.iter_mut() {
-                    sender.send_audio(event);
+            SynthEvent::Channel(channel, event) => match event {
+                ChannelEvent::Audio(e) => self.senders[channel as usize].send_audio(e),
+                ChannelEvent::Config(e) => self.senders[channel as usize].send_config(e),
+            },
+            SynthEvent::AllChannels(event) => match event {
+                ChannelEvent::Audio(e) => {
+                    for sender in self.senders.iter_mut() {
+                        sender.send_audio(e);
+                    }
                 }
-            }
-            SynthEvent::ChannelConfig(event) => {
-                for sender in self.senders.iter_mut() {
-                    sender.send_config(event.clone());
+                ChannelEvent::Config(e) => {
+                    for sender in self.senders.iter_mut() {
+                        sender.send_config(e.clone());
+                    }
                 }
-            }
+            },
         }
-    }
-
-    /// Sends a ChannelConfigEvent to the realtime synthesizer.
-    ///
-    /// See the `ChannelConfigEvent` documentation for more information.
-    pub fn send_config(&mut self, event: ChannelConfigEvent) {
-        self.send_event(SynthEvent::ChannelConfig(event))
     }
 
     /// Sends a MIDI event as raw bytes.
@@ -279,28 +275,31 @@ impl RealtimeEventSender {
             0x8 => {
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelAudioEvent::NoteOff { key: val1!() },
+                    ChannelEvent::Audio(ChannelAudioEvent::NoteOff { key: val1!() }),
                 ));
             }
             0x9 => {
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelAudioEvent::NoteOn {
+                    ChannelEvent::Audio(ChannelAudioEvent::NoteOn {
                         key: val1!(),
                         vel: val2!(),
-                    },
+                    }),
                 ));
             }
             0xB => {
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelAudioEvent::Control(ControlEvent::Raw(val1!(), val2!())),
+                    ChannelEvent::Audio(ChannelAudioEvent::Control(ControlEvent::Raw(
+                        val1!(),
+                        val2!(),
+                    ))),
                 ));
             }
             0xC => {
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelAudioEvent::ProgramChange(val1!()),
+                    ChannelEvent::Audio(ChannelAudioEvent::ProgramChange(val1!())),
                 ));
             }
             0xE => {
@@ -308,7 +307,9 @@ impl RealtimeEventSender {
                 let value = value as f32 / 8192.0;
                 self.send_event(SynthEvent::Channel(
                     channel,
-                    ChannelAudioEvent::Control(ControlEvent::PitchBendValue(value)),
+                    ChannelEvent::Audio(ChannelAudioEvent::Control(ControlEvent::PitchBendValue(
+                        value,
+                    ))),
                 ));
             }
 
@@ -318,7 +319,9 @@ impl RealtimeEventSender {
 
     /// Resets all note and control change data of the realtime synthesizer.
     pub fn reset_synth(&mut self) {
-        self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::AllNotesKilled));
+        self.send_event(SynthEvent::AllChannels(ChannelEvent::Audio(
+            ChannelAudioEvent::AllNotesKilled,
+        )));
 
         for sender in &mut self.senders {
             for i in 0..128 {
@@ -326,6 +329,8 @@ impl RealtimeEventSender {
             }
         }
 
-        self.send_event(SynthEvent::AllChannels(ChannelAudioEvent::ResetControl));
+        self.send_event(SynthEvent::AllChannels(ChannelEvent::Audio(
+            ChannelAudioEvent::ResetControl,
+        )));
     }
 }

@@ -2,7 +2,10 @@ use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::AudioStreamParams;
 
-use super::{channel_sf::ChannelSoundfont, ChannelConfigEvent};
+use super::{
+    channel_sf::{ChannelSoundfont, ProgramDescriptor},
+    ChannelConfigEvent,
+};
 
 /// Holds the statistics for an instance of VoiceChannel.
 #[derive(Debug, Clone)]
@@ -24,6 +27,7 @@ pub struct VoiceChannelParams {
     pub stats: VoiceChannelStats,
     pub layers: Option<usize>,
     pub channel_sf: ChannelSoundfont,
+    pub program: ProgramDescriptor,
     pub constant: VoiceChannelConst,
 }
 
@@ -48,6 +52,7 @@ impl VoiceChannelParams {
             stats: VoiceChannelStats::new(),
             layers: Some(4),
             channel_sf,
+            program: Default::default(),
             constant: VoiceChannelConst { stream_params },
         }
     }
@@ -60,7 +65,29 @@ impl VoiceChannelParams {
             ChannelConfigEvent::SetLayerCount(count) => {
                 self.layers = count;
             }
+            ChannelConfigEvent::SetPercussionMode(set) => {
+                if set {
+                    self.program.bank = 128;
+                } else {
+                    self.program.bank = 0;
+                }
+                self.channel_sf.change_program(self.program);
+            }
         }
+    }
+
+    pub fn set_bank(&mut self, bank: u8) {
+        if self.program.bank != 128 {
+            self.program.bank = bank.min(127);
+        }
+    }
+
+    pub fn set_preset(&mut self, preset: u8) {
+        self.program.preset = preset.min(127);
+    }
+
+    pub fn load_program(&mut self) {
+        self.channel_sf.change_program(self.program);
     }
 }
 

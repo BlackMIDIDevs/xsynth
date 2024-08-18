@@ -14,7 +14,7 @@ use midi_toolkit::{
     },
 };
 use xsynth_core::{
-    channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
+    channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, ControlEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 use xsynth_realtime::{RealtimeSynth, SynthEvent};
@@ -49,7 +49,9 @@ fn main() {
     )];
     println!("Loaded");
 
-    sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
+    sender.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
+        ChannelConfigEvent::SetSoundfonts(soundfonts),
+    )));
 
     let stats = synth.get_stats();
     thread::spawn(move || loop {
@@ -97,36 +99,39 @@ fn main() {
                 Event::NoteOn(e) => {
                     sender.send_event(SynthEvent::Channel(
                         e.channel as u32,
-                        ChannelAudioEvent::NoteOn {
+                        ChannelEvent::Audio(ChannelAudioEvent::NoteOn {
                             key: e.key,
                             vel: e.velocity,
-                        },
+                        }),
                     ));
                 }
                 Event::NoteOff(e) => {
                     sender.send_event(SynthEvent::Channel(
                         e.channel as u32,
-                        ChannelAudioEvent::NoteOff { key: e.key },
+                        ChannelEvent::Audio(ChannelAudioEvent::NoteOff { key: e.key }),
                     ));
                 }
                 Event::ControlChange(e) => {
                     sender.send_event(SynthEvent::Channel(
                         e.channel as u32,
-                        ChannelAudioEvent::Control(ControlEvent::Raw(e.controller, e.value)),
+                        ChannelEvent::Audio(ChannelAudioEvent::Control(ControlEvent::Raw(
+                            e.controller,
+                            e.value,
+                        ))),
                     ));
                 }
                 Event::PitchWheelChange(e) => {
                     sender.send_event(SynthEvent::Channel(
                         e.channel as u32,
-                        ChannelAudioEvent::Control(ControlEvent::PitchBendValue(
-                            e.pitch as f32 / 8192.0,
+                        ChannelEvent::Audio(ChannelAudioEvent::Control(
+                            ControlEvent::PitchBendValue(e.pitch as f32 / 8192.0),
                         )),
                     ));
                 }
                 Event::ProgramChange(e) => {
                     sender.send_event(SynthEvent::Channel(
                         e.channel as u32,
-                        ChannelAudioEvent::ProgramChange(e.program),
+                        ChannelEvent::Audio(ChannelAudioEvent::ProgramChange(e.program)),
                     ));
                 }
                 _ => {}
