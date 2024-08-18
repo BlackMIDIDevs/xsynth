@@ -33,8 +33,8 @@ pub fn main() {
             SoundfontInitOptions {
                 bank: None,
                 preset: None,
+                vol_envelope_options: Default::default(),
                 interpolator: Interpolator::Nearest,
-                linear_release: false,
                 use_effects: false,
             },
         )
