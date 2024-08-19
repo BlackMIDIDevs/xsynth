@@ -555,7 +555,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
                     target,
                     duration: _,
                 } => params.modify_stage_data(part, EnvelopePart::lerp_convex(target, duration)),
-                _ => unreachable!(),
+                _ => {}
             }
         }
         if let Some(release) = envelope.release {
@@ -573,7 +573,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
                     target,
                     duration: _,
                 } => params.modify_stage_data(part, EnvelopePart::lerp_concave(target, duration)),
-                _ => unreachable!(),
+                _ => {}
             }
         }
 

@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, VoiceChannel},
-    soundfont::{Interpolator, SampleSoundfont, SoundfontBase, SoundfontInitOptions},
+    soundfont::{EnvelopeCurveType, EnvelopeOptions, Interpolator, SampleSoundfont, SoundfontBase, SoundfontInitOptions},
     AudioPipe, AudioStreamParams, ChannelCount,
 };
 
@@ -33,7 +33,11 @@ pub fn main() {
             SoundfontInitOptions {
                 bank: None,
                 preset: None,
-                vol_envelope_options: Default::default(),
+                vol_envelope_options: EnvelopeOptions {
+                    attack_curve: EnvelopeCurveType::Convex,
+                    decay_curve: EnvelopeCurveType::Concave,
+                    release_curve: EnvelopeCurveType::Concave,
+                },
                 interpolator: Interpolator::Nearest,
                 use_effects: false,
             },
