@@ -32,4 +32,10 @@ jobs:
         name: Check code with clippy
         with:
           command: clippy
-          args: --all -- --deny "warnings"
+          args: --workspace --all-targets -- --deny "warnings"
+      
+      - uses: actions-rs/cargo@v1
+        name: Check code
+        with:
+          command: check
+          args: --workspace --all-targets
