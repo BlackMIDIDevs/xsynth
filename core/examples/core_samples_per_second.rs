@@ -2,7 +2,10 @@ use std::{sync::Arc, time::Instant};
 
 use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, VoiceChannel},
-    soundfont::{EnvelopeCurveType, EnvelopeOptions, Interpolator, SampleSoundfont, SoundfontBase, SoundfontInitOptions},
+    soundfont::{
+        EnvelopeCurveType, EnvelopeOptions, Interpolator, SampleSoundfont, SoundfontBase,
+        SoundfontInitOptions,
+    },
     AudioPipe, AudioStreamParams, ChannelCount,
 };
 
