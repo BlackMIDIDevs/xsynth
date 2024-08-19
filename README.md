@@ -8,14 +8,12 @@ Handles the core audio rendering functionality.
 The main components are:
 - `VoiceChannel`: Channels represent a single MIDI channel
 - `ChannelGroup`: A channel group represents a manager of channels (MIDI synthesizer)
+- `SampleSoundfont`: Holds the data and samples from an SFZ or SF2 soundfont
 - `Voice`: A voice represents a single SoundFont sound
 
 ### Realtime
 The real-time rendering module within XSynth. Currently it outputs audio using `cpal`.
 It uses an asynchronous event sending system for high performance and simple to use API.
-
-### KDMAPI
-A cdylib wrapper around real-time to act as a drop-in replacement for OmniMIDI.
 
 ### Rendered
 A module for rendering audio to a file.
