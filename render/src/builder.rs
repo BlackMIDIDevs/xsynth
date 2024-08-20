@@ -23,7 +23,7 @@ use midi_toolkit::{
     },
 };
 
-pub use xsynth_core::channel_group::ParallelismOptions;
+pub use xsynth_core::channel_group::{ParallelismOptions, SynthFormat};
 
 /// Statistics of an XSynthRender object.
 pub struct XSynthRenderStats {
@@ -86,8 +86,8 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
         self
     }
 
-    pub fn with_channel_count(mut self, channels: u32) -> Self {
-        self.config.group_options.channel_count = channels;
+    pub fn with_synth_format(mut self, format: SynthFormat) -> Self {
+        self.config.group_options.format = format;
         self
     }
 

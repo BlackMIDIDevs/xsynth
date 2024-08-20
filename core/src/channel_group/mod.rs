@@ -59,7 +59,12 @@ impl ChannelGroup {
             ),
         };
 
-        for _ in 0..config.channel_count {
+        let channel_count = match config.format {
+            SynthFormat::MidiSingle => 16,
+            SynthFormat::Custom { channels } => channels,
+        };
+
+        for _ in 0..channel_count {
             channels.push(VoiceChannel::new(
                 config.channel_init_options,
                 config.audio_params,
@@ -69,10 +74,10 @@ impl ChannelGroup {
             sample_cache_vecs.push(Vec::new());
         }
 
-        if config.channel_count >= 16 {
+        if config.format == SynthFormat::MidiSingle {
             channels[9].push_events_iter(std::iter::once(ChannelEvent::Config(
                 ChannelConfigEvent::SetPercussionMode(true),
-            )))
+            )));
         }
 
         Self {
