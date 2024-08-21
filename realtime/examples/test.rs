@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 use xsynth_core::{
-    channel::{ChannelAudioEvent, ChannelConfigEvent},
+    channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
 };
 
@@ -31,7 +31,9 @@ fn main() {
         SampleSoundfont::new(sfz, params, Default::default()).unwrap(),
     )];
 
-    sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
+    sender.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
+        ChannelConfigEvent::SetSoundfonts(soundfonts),
+    )));
 
     // for k in 0..127 {
     //     for c in 0..16 {
@@ -45,7 +47,7 @@ fn main() {
     // }
     sender.send_event(SynthEvent::Channel(
         0,
-        ChannelAudioEvent::NoteOn { key: 10, vel: 127 },
+        ChannelEvent::Audio(ChannelAudioEvent::NoteOn { key: 10, vel: 127 }),
     ));
 
     std::thread::sleep(Duration::from_secs(10000));

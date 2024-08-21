@@ -15,7 +15,7 @@ use crossbeam_channel::{bounded, unbounded};
 
 use xsynth_core::{
     buffered_renderer::{BufferedRenderer, BufferedRendererStatsReader},
-    channel::VoiceChannel,
+    channel::{ChannelConfigEvent, ChannelEvent, VoiceChannel},
     effects::VolumeLimiter,
     helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams, FunctionAudioPipe,
@@ -152,13 +152,9 @@ impl RealtimeSynth {
 
         let mut thread_handles = vec![];
 
-        for i in 0u32..(config.channel_count) {
-            let mut init = config.channel_init_options;
-            if config.drums_channels.clone().into_iter().any(|c| c == i) {
-                init.drums_only = true;
-            }
-
-            let mut channel = VoiceChannel::new(init, stream_params, pool.clone());
+        for _ in 0u32..(config.channel_count) {
+            let mut channel =
+                VoiceChannel::new(config.channel_init_options, stream_params, pool.clone());
             let stats = channel.get_channel_stats();
             channel_stats.push(stats);
 
@@ -185,6 +181,14 @@ impl RealtimeSynth {
                 .unwrap();
 
             thread_handles.push(join_handle);
+        }
+
+        if config.channel_count >= 16 {
+            senders[9]
+                .send(ChannelEvent::Config(ChannelConfigEvent::SetPercussionMode(
+                    true,
+                )))
+                .unwrap();
         }
 
         let mut vec_cache: VecDeque<Vec<f32>> = VecDeque::new();

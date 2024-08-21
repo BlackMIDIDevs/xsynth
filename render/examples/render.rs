@@ -69,8 +69,7 @@ fn main() {
     let config = XSynthRenderConfig {
         group_options: ChannelGroupConfig {
             channel_init_options: Default::default(),
-            channel_count: 16,
-            drums_channels: vec![9],
+            format: Default::default(),
             audio_params: AudioStreamParams::new(48000, 2.into()),
             parallelism: Default::default(),
         },

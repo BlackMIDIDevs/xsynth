@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    channel::{ChannelAudioEvent, ChannelEvent, VoiceChannel},
+    channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, VoiceChannel},
     helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams,
 };
@@ -59,17 +59,25 @@ impl ChannelGroup {
             ),
         };
 
-        for i in 0..config.channel_count {
-            let mut init = config.channel_init_options;
-            init.drums_only = config.drums_channels.clone().into_iter().any(|c| c == i);
+        let channel_count = match config.format {
+            SynthFormat::MidiSingle => 16,
+            SynthFormat::Custom { channels } => channels,
+        };
 
+        for _ in 0..channel_count {
             channels.push(VoiceChannel::new(
-                init,
+                config.channel_init_options,
                 config.audio_params,
                 channel_pool.clone(),
             ));
             channel_events_cache.push(Vec::new());
             sample_cache_vecs.push(Vec::new());
+        }
+
+        if config.format == SynthFormat::MidiSingle {
+            channels[9].push_events_iter(std::iter::once(ChannelEvent::Config(
+                ChannelConfigEvent::SetPercussionMode(true),
+            )));
         }
 
         Self {
@@ -86,27 +94,32 @@ impl ChannelGroup {
     /// See the `SynthEvent` documentation for more information.
     pub fn send_event(&mut self, event: SynthEvent) {
         match event {
-            SynthEvent::Channel(channel, event) => {
-                self.channel_events_cache[channel as usize].push(event);
-                self.cached_event_count += 1;
-                if self.cached_event_count > MAX_EVENT_CACHE_SIZE {
-                    self.flush_events();
+            SynthEvent::Channel(channel, event) => match event {
+                ChannelEvent::Audio(e) => {
+                    self.channel_events_cache[channel as usize].push(e);
+                    self.cached_event_count += 1;
+                    if self.cached_event_count > MAX_EVENT_CACHE_SIZE {
+                        self.flush_events();
+                    }
                 }
-            }
-            SynthEvent::AllChannels(event) => {
-                for channel in self.channel_events_cache.iter_mut() {
-                    channel.push(event);
+                ChannelEvent::Config(_) => self.channels[channel as usize].process_event(event),
+            },
+            SynthEvent::AllChannels(event) => match event {
+                ChannelEvent::Audio(e) => {
+                    for channel in self.channel_events_cache.iter_mut() {
+                        channel.push(e);
+                    }
+                    self.cached_event_count += self.channel_events_cache.len() as u32;
+                    if self.cached_event_count > MAX_EVENT_CACHE_SIZE {
+                        self.flush_events();
+                    }
                 }
-                self.cached_event_count += self.channel_events_cache.len() as u32;
-                if self.cached_event_count > MAX_EVENT_CACHE_SIZE {
-                    self.flush_events();
+                ChannelEvent::Config(_) => {
+                    for channel in self.channels.iter_mut() {
+                        channel.process_event(event.clone());
+                    }
                 }
-            }
-            SynthEvent::ChannelConfig(config) => {
-                for channel in self.channels.iter_mut() {
-                    channel.process_event(ChannelEvent::Config(config.clone()));
-                }
-            }
+            },
         }
     }
 
