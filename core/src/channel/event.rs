@@ -28,6 +28,10 @@ pub enum ChannelConfigEvent {
 
     /// Sets the layer count for the soundfont
     SetLayerCount(Option<usize>),
+
+    /// Controls whether the channel will be standard or percussion.
+    /// Setting to `true` will make the channel only use percussion patches.
+    SetPercussionMode(bool),
 }
 
 /// MIDI events for a channel.

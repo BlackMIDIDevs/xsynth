@@ -6,7 +6,7 @@ use crate::{
 use std::sync::Arc;
 
 use xsynth_core::{
-    channel::{ChannelAudioEvent, ChannelConfigEvent, ControlEvent},
+    channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, ControlEvent},
     channel_group::SynthEvent,
     soundfont::{LoadSfError, SoundfontBase},
 };
@@ -23,7 +23,7 @@ use midi_toolkit::{
     },
 };
 
-pub use xsynth_core::channel_group::ParallelismOptions;
+pub use xsynth_core::channel_group::{ParallelismOptions, SynthFormat};
 
 /// Statistics of an XSynthRender object.
 pub struct XSynthRenderStats {
@@ -86,8 +86,8 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
         self
     }
 
-    pub fn with_channel_count(mut self, channels: u32) -> Self {
-        self.config.group_options.channel_count = channels;
+    pub fn with_synth_format(mut self, format: SynthFormat) -> Self {
+        self.config.group_options.format = format;
         self
     }
 
@@ -146,17 +146,17 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
     pub fn run(mut self) -> Result<(), XSynthRenderError> {
         let mut synth = XSynthRender::new(self.config.clone(), self.out_path.into());
 
-        synth.send_event(SynthEvent::ChannelConfig(
+        synth.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
             ChannelConfigEvent::SetSoundfonts(
                 self.soundfonts
                     .drain(..)
                     .collect::<Vec<Arc<dyn SoundfontBase>>>(),
             ),
-        ));
+        )));
 
-        synth.send_event(SynthEvent::ChannelConfig(
+        synth.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
             ChannelConfigEvent::SetLayerCount(self.layer_count),
-        ));
+        )));
 
         let midi = MIDIFile::open(self.midi_path, None)?;
 
@@ -185,44 +185,51 @@ impl<'a, ProgressCallback: FnMut(XSynthRenderStats)> XSynthRenderBuilder<'a, Pro
                     Event::NoteOn(e) => {
                         synth.send_event(SynthEvent::Channel(
                             e.channel as u32,
-                            ChannelAudioEvent::NoteOn {
+                            ChannelEvent::Audio(ChannelAudioEvent::NoteOn {
                                 key: e.key,
                                 vel: e.velocity,
-                            },
+                            }),
                         ));
                     }
                     Event::NoteOff(e) => {
                         synth.send_event(SynthEvent::Channel(
                             e.channel as u32,
-                            ChannelAudioEvent::NoteOff { key: e.key },
+                            ChannelEvent::Audio(ChannelAudioEvent::NoteOff { key: e.key }),
                         ));
                     }
                     Event::ControlChange(e) => {
                         synth.send_event(SynthEvent::Channel(
                             e.channel as u32,
-                            ChannelAudioEvent::Control(ControlEvent::Raw(e.controller, e.value)),
+                            ChannelEvent::Audio(ChannelAudioEvent::Control(ControlEvent::Raw(
+                                e.controller,
+                                e.value,
+                            ))),
                         ));
                     }
                     Event::PitchWheelChange(e) => {
                         synth.send_event(SynthEvent::Channel(
                             e.channel as u32,
-                            ChannelAudioEvent::Control(ControlEvent::PitchBendValue(
-                                e.pitch as f32 / 8192.0,
+                            ChannelEvent::Audio(ChannelAudioEvent::Control(
+                                ControlEvent::PitchBendValue(e.pitch as f32 / 8192.0),
                             )),
                         ));
                     }
                     Event::ProgramChange(e) => {
                         synth.send_event(SynthEvent::Channel(
                             e.channel as u32,
-                            ChannelAudioEvent::ProgramChange(e.program),
+                            ChannelEvent::Audio(ChannelAudioEvent::ProgramChange(e.program)),
                         ));
                     }
                     _ => {}
                 }
             }
         }
-        synth.send_event(SynthEvent::AllChannels(ChannelAudioEvent::AllNotesOff));
-        synth.send_event(SynthEvent::AllChannels(ChannelAudioEvent::ResetControl));
+        synth.send_event(SynthEvent::AllChannels(ChannelEvent::Audio(
+            ChannelAudioEvent::AllNotesOff,
+        )));
+        synth.send_event(SynthEvent::AllChannels(ChannelEvent::Audio(
+            ChannelAudioEvent::ResetControl,
+        )));
         synth.finalize();
 
         Ok(())

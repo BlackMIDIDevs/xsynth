@@ -92,12 +92,10 @@ struct ControlEventData {
     cutoff: Option<f32>,
     resonance: Option<f32>,
     expression: ValueLerp,
-    preset: u8,
-    bank: u8,
 }
 
 impl ControlEventData {
-    pub fn new_defaults(sample_rate: u32, drums_only: bool) -> Self {
+    pub fn new_defaults(sample_rate: u32) -> Self {
         ControlEventData {
             selected_lsb: -1,
             selected_msb: -1,
@@ -114,8 +112,6 @@ impl ControlEventData {
             cutoff: None,
             resonance: None,
             expression: ValueLerp::new(1.0, sample_rate),
-            preset: 0,
-            bank: if drums_only { 128 } else { 0 },
         }
     }
 }
@@ -130,11 +126,6 @@ pub struct ChannelInitOptions {
     ///
     /// Default: `false`
     pub fade_out_killing: bool,
-
-    /// If set to true, the channel will only use drum patches.
-    ///
-    /// Default: `false`
-    pub drums_only: bool,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -142,7 +133,6 @@ impl Default for ChannelInitOptions {
     fn default() -> Self {
         Self {
             fade_out_killing: false,
-            drums_only: false,
         }
     }
 }
@@ -173,7 +163,6 @@ pub struct VoiceChannel {
     threadpool: Option<Arc<rayon::ThreadPool>>,
 
     stream_params: AudioStreamParams,
-    options: ChannelInitOptions,
 
     /// The helper struct for keeping track of MIDI control event data
     control_event_data: ControlEventData,
@@ -216,12 +205,8 @@ impl VoiceChannel {
             threadpool,
 
             stream_params,
-            options,
 
-            control_event_data: ControlEventData::new_defaults(
-                stream_params.sample_rate,
-                options.drums_only,
-            ),
+            control_event_data: ControlEventData::new_defaults(stream_params.sample_rate),
             voice_control_data: VoiceControlData::new_defaults(),
 
             cutoff: MultiChannelBiQuad::new(
@@ -273,9 +258,7 @@ impl VoiceChannel {
     }
 
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
-        self.params
-            .channel_sf
-            .change_program(self.control_event_data.bank, self.control_event_data.preset);
+        self.params.load_program();
 
         out.fill(0.0);
         match self.threadpool.as_ref() {
@@ -332,9 +315,7 @@ impl VoiceChannel {
             ControlEvent::Raw(controller, value) => match controller {
                 0x00 => {
                     // Bank select
-                    if !self.options.drums_only {
-                        self.control_event_data.bank = value;
-                    }
+                    self.params.set_bank(value);
                 }
                 0x64 => {
                     self.control_event_data.selected_lsb = value as i8;
@@ -563,7 +544,7 @@ impl VoiceChannel {
                         self.process_control_event(control);
                     }
                     ChannelAudioEvent::ProgramChange(preset) => {
-                        self.control_event_data.preset = preset;
+                        self.params.set_preset(preset);
                     }
                 },
                 ChannelEvent::Config(config) => self.params.process_config_event(config),
@@ -579,8 +560,7 @@ impl VoiceChannel {
     }
 
     fn reset_control(&mut self) {
-        self.control_event_data =
-            ControlEventData::new_defaults(self.stream_params.sample_rate, self.options.drums_only);
+        self.control_event_data = ControlEventData::new_defaults(self.stream_params.sample_rate);
         self.voice_control_data = VoiceControlData::new_defaults();
         self.process_event(ChannelEvent::Audio(ChannelAudioEvent::ProgramChange(0)));
         self.propagate_voice_controls();
