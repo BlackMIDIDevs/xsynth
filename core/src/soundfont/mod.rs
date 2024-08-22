@@ -29,7 +29,7 @@ mod voice_spawners;
 use utils::*;
 use voice_spawners::*;
 
-pub use config::{Interpolator, SoundfontInitOptions};
+pub use config::*;
 
 pub trait VoiceSpawner: Sync + Send {
     fn spawn_voice(&self, control: &VoiceControlData) -> Box<dyn Voice>;
@@ -244,9 +244,10 @@ impl SampleSoundfont {
             if !exists {
                 unique_envelope_params.push((
                     envelope_descriptor,
-                    Arc::new(
-                        envelope_descriptor.to_envelope_params(stream_params.sample_rate, options),
-                    ),
+                    Arc::new(envelope_descriptor.to_envelope_params(
+                        stream_params.sample_rate,
+                        options.vol_envelope_options,
+                    )),
                 ));
             }
         }
@@ -397,7 +398,10 @@ impl SampleSoundfont {
             for region in preset.regions {
                 let envelope_params = Arc::new(
                     envelope_descriptor_from_region_params(&region.ampeg_envelope)
-                        .to_envelope_params(stream_params.sample_rate, options),
+                        .to_envelope_params(
+                            stream_params.sample_rate,
+                            options.vol_envelope_options,
+                        ),
                 );
 
                 for key in region.keyrange.clone() {

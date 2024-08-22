@@ -1,6 +1,6 @@
 use simdeez::prelude::*;
 
-use crate::soundfont::SoundfontInitOptions;
+use crate::soundfont::{EnvelopeCurveType, EnvelopeOptions};
 use crate::voice::{EnvelopeControlData, ReleaseType, VoiceControlData};
 
 use super::{SIMDSampleMono, SIMDVoiceGenerator, VoiceGeneratorBase};
@@ -65,24 +65,28 @@ impl<T: Simd> SIMDLerper<T> {
     }
 }
 
-struct SIMDLerpToZeroCurve<T: Simd> {
-    start_simd: T::Vf32,
-    start: f32,
+struct SIMDLerperConcave<T: Simd> {
+    length_simd: T::Vf32,
+    end_simd: T::Vf32,
+    length: f32,
+    end: f32,
 }
 
-impl<T: Simd> SIMDLerpToZeroCurve<T> {
-    fn new(start: f32) -> Self {
+impl<T: Simd> SIMDLerperConcave<T> {
+    fn new(start: f32, end: f32) -> Self {
         simd_invoke!(T, {
-            SIMDLerpToZeroCurve {
-                start_simd: T::Vf32::set1(start),
-                start,
+            SIMDLerperConcave {
+                length_simd: T::Vf32::set1(start - end),
+                end_simd: T::Vf32::set1(end),
+                length: start - end,
+                end,
             }
         })
     }
 
     fn lerp(&self, factor: f32) -> f32 {
-        let mult = 1.0 - factor;
-        mult.powi(8) * self.start
+        let mult = (1.0 - factor).powi(8);
+        self.length * mult + self.end
     }
 
     fn lerp_simd(&self, factor: T::Vf32) -> T::Vf32 {
@@ -92,7 +96,41 @@ impl<T: Simd> SIMDLerpToZeroCurve<T> {
             let r2 = r1 * r1;
             let r3 = r2 * r2;
             let mult = r3 * r3;
-            self.start_simd * mult
+            self.length_simd * mult + self.end_simd
+        })
+    }
+}
+
+struct SIMDLerperConvex<T: Simd> {
+    start_simd: T::Vf32,
+    length_simd: T::Vf32,
+    start: f32,
+    length: f32,
+}
+
+impl<T: Simd> SIMDLerperConvex<T> {
+    fn new(start: f32, end: f32) -> Self {
+        simd_invoke!(T, {
+            SIMDLerperConvex {
+                start_simd: T::Vf32::set1(start),
+                length_simd: T::Vf32::set1(end - start),
+                start,
+                length: end - start,
+            }
+        })
+    }
+
+    fn lerp(&self, factor: f32) -> f32 {
+        let mult = factor.powi(8);
+        self.length * mult + self.start
+    }
+
+    fn lerp_simd(&self, factor: T::Vf32) -> T::Vf32 {
+        simd_invoke!(T, {
+            let r1 = factor * factor;
+            let r2 = r1 * r1;
+            let mult = r2 * r2;
+            self.length_simd * mult + self.start_simd
         })
     }
 }
@@ -182,7 +220,12 @@ pub enum EnvelopePart {
         target: f32,   // Target value by the end of the envelope part
         duration: u32, // Duration in samples
     },
-    LerpToZeroCurve {
+    LerpConcave {
+        target: f32,
+        duration: u32,
+    },
+    LerpConvex {
+        target: f32,
         duration: u32,
     },
     Hold(f32),
@@ -193,8 +236,12 @@ impl EnvelopePart {
         EnvelopePart::Lerp { target, duration }
     }
 
-    pub fn lerp_to_zero_curve(duration: u32) -> EnvelopePart {
-        EnvelopePart::LerpToZeroCurve { duration }
+    pub fn lerp_concave(target: f32, duration: u32) -> EnvelopePart {
+        EnvelopePart::LerpConcave { target, duration }
+    }
+
+    pub fn lerp_convex(target: f32, duration: u32) -> EnvelopePart {
+        EnvelopePart::LerpConvex { target, duration }
     }
 
     pub fn hold(value: f32) -> EnvelopePart {
@@ -219,14 +266,39 @@ impl EnvelopeDescriptor {
     pub fn to_envelope_params(
         &self,
         samplerate: u32,
-        options: SoundfontInitOptions,
+        options: EnvelopeOptions,
     ) -> EnvelopeParameters {
         let samplerate = samplerate as f32;
 
-        let release = if options.linear_release {
-            EnvelopePart::lerp(0.0, (self.release * samplerate) as u32)
-        } else {
-            EnvelopePart::lerp_to_zero_curve((self.release * samplerate) as u32)
+        // The following are in dB scale (or cents for modulation) so:
+        // Linear dB -> Concave or Convex in amp
+        // Concave or Convex in dB -> Linear in amp
+
+        let attack = match options.attack_curve {
+            EnvelopeCurveType::Linear => {
+                EnvelopePart::lerp_convex(1.0, (self.attack * samplerate) as u32)
+            }
+            EnvelopeCurveType::Exponential => {
+                EnvelopePart::lerp(1.0, (self.attack * samplerate) as u32)
+            }
+        };
+
+        let decay = match options.decay_curve {
+            EnvelopeCurveType::Exponential => {
+                EnvelopePart::lerp(self.sustain_percent, (self.decay * samplerate) as u32)
+            }
+            EnvelopeCurveType::Linear => {
+                EnvelopePart::lerp_concave(self.sustain_percent, (self.decay * samplerate) as u32)
+            }
+        };
+
+        let release = match options.release_curve {
+            EnvelopeCurveType::Exponential => {
+                EnvelopePart::lerp(0.0, (self.release * samplerate) as u32)
+            }
+            EnvelopeCurveType::Linear => {
+                EnvelopePart::lerp_concave(0.0, (self.release * samplerate) as u32)
+            }
         };
 
         EnvelopeParameters {
@@ -235,11 +307,11 @@ impl EnvelopeDescriptor {
                 // Delay
                 EnvelopePart::lerp(self.start_percent, (self.delay * samplerate) as u32),
                 // Attack
-                EnvelopePart::lerp(1.0, (self.attack * samplerate) as u32),
+                attack,
                 // Hold
                 EnvelopePart::lerp(1.0, (self.hold * samplerate) as u32),
                 // Decay
-                EnvelopePart::lerp(self.sustain_percent, (self.decay * samplerate) as u32),
+                decay,
                 // Sustain
                 EnvelopePart::hold(self.sustain_percent),
                 // Release
@@ -285,13 +357,30 @@ impl EnvelopeParameters {
                         }
                     }
                 }
-                EnvelopePart::LerpToZeroCurve { duration } => {
+                EnvelopePart::LerpConcave { target, duration } => {
                     let duration = *duration;
+                    let target = *target;
                     if duration == 0 {
-                        self.get_stage_data(stage.next_stage(), 0.0)
+                        self.get_stage_data(stage.next_stage(), target)
                     } else {
-                        let data = StageData::LerpToZeroCurve(
-                            SIMDLerpToZeroCurve::new(start_amp),
+                        let data = StageData::LerpConcave(
+                            SIMDLerperConcave::new(start_amp, target),
+                            StageTime::new(0, duration),
+                        );
+                        VoiceEnvelopeState {
+                            current_stage: stage,
+                            stage_data: data,
+                        }
+                    }
+                }
+                EnvelopePart::LerpConvex { target, duration } => {
+                    let duration = *duration;
+                    let target = *target;
+                    if duration == 0 {
+                        self.get_stage_data(stage.next_stage(), target)
+                    } else {
+                        let data = StageData::LerpConvex(
+                            SIMDLerperConvex::new(start_amp, target),
                             StageTime::new(0, duration),
                         );
                         VoiceEnvelopeState {
@@ -318,7 +407,14 @@ impl EnvelopeParameters {
                 target: _,
                 duration,
             } => *duration,
-            EnvelopePart::LerpToZeroCurve { duration } => *duration,
+            EnvelopePart::LerpConcave {
+                target: _,
+                duration,
+            } => *duration,
+            EnvelopePart::LerpConvex {
+                target: _,
+                duration,
+            } => *duration,
             EnvelopePart::Hold(_) => 0,
         }
     }
@@ -330,7 +426,8 @@ impl EnvelopeParameters {
 
 enum StageData<T: Simd> {
     Lerp(SIMDLerper<T>, StageTime<T>),
-    LerpToZeroCurve(SIMDLerpToZeroCurve<T>, StageTime<T>),
+    LerpConcave(SIMDLerperConcave<T>, StageTime<T>),
+    LerpConvex(SIMDLerperConvex<T>, StageTime<T>),
     Constant(T::Vf32),
 }
 
@@ -372,7 +469,10 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             StageData::Lerp(lerper, stage_time) => {
                 lerper.lerp(stage_time.simd_array_start_f32() / stage_time.stage_end_time_f32)
             }
-            StageData::LerpToZeroCurve(lerper, stage_time) => {
+            StageData::LerpConcave(lerper, stage_time) => {
+                lerper.lerp(stage_time.simd_array_start_f32() / stage_time.stage_end_time_f32)
+            }
+            StageData::LerpConvex(lerper, stage_time) => {
                 lerper.lerp(stage_time.simd_array_start_f32() / stage_time.stage_end_time_f32)
             }
             StageData::Constant(constant) => constant[0],
@@ -400,7 +500,10 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             StageData::Lerp(_, stage_time) => {
                 stage_time.increment_by(increment);
             }
-            StageData::LerpToZeroCurve(_, stage_time) => {
+            StageData::LerpConcave(_, stage_time) => {
+                stage_time.increment_by(increment);
+            }
+            StageData::LerpConvex(_, stage_time) => {
                 stage_time.increment_by(increment);
             }
             StageData::Constant(_) => {}
@@ -415,7 +518,9 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
                 values[i] = sample;
                 self.increment_time_by(1);
                 let should_progress = match &mut self.state.stage_data {
-                    StageData::Lerp(_, stage_time) | StageData::LerpToZeroCurve(_, stage_time) => {
+                    StageData::Lerp(_, stage_time)
+                    | StageData::LerpConcave(_, stage_time)
+                    | StageData::LerpConvex(_, stage_time) => {
                         stage_time.is_ending() && !stage_time.is_intersecting_end()
                     }
                     StageData::Constant(_) => false,
@@ -442,23 +547,40 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         }
 
         if let Some(attack) = envelope.attack {
-            let duration = params.get_stage_duration(EnvelopeStage::Attack) as f32 / sample_rate;
-            params.modify_stage_data(
-                1,
-                EnvelopePart::lerp(
-                    1.0,
-                    (calculate_curve(attack, duration) * sample_rate) as u32,
-                ),
-            );
+            let old_duration =
+                params.get_stage_duration(EnvelopeStage::Attack) as f32 / sample_rate;
+            let duration = (calculate_curve(attack, old_duration) * sample_rate) as u32;
+
+            let part = EnvelopeStage::Attack.as_usize();
+            match params.parts[part] {
+                EnvelopePart::Lerp {
+                    target,
+                    duration: _,
+                } => params.modify_stage_data(part, EnvelopePart::lerp(target, duration)),
+                EnvelopePart::LerpConvex {
+                    target,
+                    duration: _,
+                } => params.modify_stage_data(part, EnvelopePart::lerp_convex(target, duration)),
+                _ => {}
+            }
         }
         if let Some(release) = envelope.release {
-            let duration = params.get_stage_duration(EnvelopeStage::Release) as f32 / sample_rate;
-            params.modify_stage_data(
-                5,
-                EnvelopePart::lerp_to_zero_curve(
-                    (calculate_curve(release, duration).max(0.02) * sample_rate) as u32,
-                ),
-            );
+            let old_duration =
+                params.get_stage_duration(EnvelopeStage::Release) as f32 / sample_rate;
+            let duration = (calculate_curve(release, old_duration).max(0.02) * sample_rate) as u32;
+
+            let part = EnvelopeStage::Release.as_usize();
+            match params.parts[part] {
+                EnvelopePart::Lerp {
+                    target,
+                    duration: _,
+                } => params.modify_stage_data(part, EnvelopePart::lerp(target, duration)),
+                EnvelopePart::LerpConcave {
+                    target,
+                    duration: _,
+                } => params.modify_stage_data(part, EnvelopePart::lerp_concave(target, duration)),
+                _ => {}
+            }
         }
 
         params
@@ -525,20 +647,29 @@ impl<T: Simd> SIMDVoiceGenerator<T, SIMDSampleMono<T>> for SIMDVoiceEnvelope<T> 
                         SIMDSampleMono(values)
                     }
                 }
-                StageData::LerpToZeroCurve(lerper, stage_time) => {
+                StageData::LerpConcave(lerper, stage_time) => {
                     if stage_time.is_ending() {
                         if stage_time.is_intersecting_end() {
-                            // It is ended, and the SIMD array intersects the border of the envelope part.
-                            // Therefore, this needs to generate one float sample at a time for this SIMD array.
                             self.manually_build_simd_sample()
                         } else {
-                            // Is ended, except the SIMD array isn't intersecting the end.
-                            // Therefore can jump to the next stage, and try again
                             self.switch_to_next_stage();
                             self.next_sample()
                         }
                     } else {
-                        // No special conditions happening, return the next entire simd array lerped
+                        let values = lerper.lerp_simd(stage_time.progress_simd_array());
+                        stage_time.increment();
+                        SIMDSampleMono(values)
+                    }
+                }
+                StageData::LerpConvex(lerper, stage_time) => {
+                    if stage_time.is_ending() {
+                        if stage_time.is_intersecting_end() {
+                            self.manually_build_simd_sample()
+                        } else {
+                            self.switch_to_next_stage();
+                            self.next_sample()
+                        }
+                    } else {
                         let values = lerper.lerp_simd(stage_time.progress_simd_array());
                         stage_time.increment();
                         SIMDSampleMono(values)

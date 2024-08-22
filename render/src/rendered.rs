@@ -106,6 +106,11 @@ impl XSynthRender {
             );
             self.channel_group
                 .read_samples(&mut self.render_elements.output_vec);
+
+            if let Some(limiter) = &mut self.limiter {
+                limiter.limit(&mut self.render_elements.output_vec);
+            }
+
             let mut is_empty = true;
             for s in &self.render_elements.output_vec {
                 if *s > 0.0001 || *s < -0.0001 {
