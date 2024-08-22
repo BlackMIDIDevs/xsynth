@@ -3,7 +3,7 @@ use clap::{command, Arg, ArgAction};
 use std::path::PathBuf;
 use xsynth_core::{
     channel::ChannelInitOptions,
-    channel_group::{ChannelGroupConfig, ParallelismOptions, ThreadCount},
+    channel_group::{ChannelGroupConfig, ParallelismOptions, SynthFormat, ThreadCount},
     soundfont::{Interpolator, SoundfontInitOptions},
     AudioStreamParams, ChannelCount,
 };
@@ -131,10 +131,8 @@ impl State {
                         .get_one("disable fade out voice killing")
                         .copied()
                         .unwrap_or(true),
-                    drums_only: false,
                 },
-                channel_count: 16,
-                drums_channels: vec![9],
+                format: SynthFormat::MidiSingle,
                 audio_params: AudioStreamParams::new(
                     matches.get_one("sample rate").copied().unwrap_or(48000),
                     matches
