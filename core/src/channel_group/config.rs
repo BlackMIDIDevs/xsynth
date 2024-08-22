@@ -83,7 +83,7 @@ pub struct ChannelGroupConfig {
 
     /// Defines the format that the synthesizer will use. See the `SynthFormat`
     /// documentation for more information.
-    /// 
+    ///
     /// Default: `SynthFormat::Midi`
     pub format: SynthFormat,
 
