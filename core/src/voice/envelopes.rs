@@ -278,21 +278,27 @@ impl EnvelopeDescriptor {
             EnvelopeCurveType::Linear => {
                 EnvelopePart::lerp_convex(1.0, (self.attack * samplerate) as u32)
             }
-            _ => EnvelopePart::lerp(1.0, (self.attack * samplerate) as u32),
+            EnvelopeCurveType::Exponential => {
+                EnvelopePart::lerp(1.0, (self.attack * samplerate) as u32)
+            }
         };
 
         let decay = match options.decay_curve {
-            EnvelopeCurveType::Concave => {
+            EnvelopeCurveType::Exponential => {
                 EnvelopePart::lerp(self.sustain_percent, (self.decay * samplerate) as u32)
             }
-            _ => EnvelopePart::lerp_concave(self.sustain_percent, (self.decay * samplerate) as u32),
+            EnvelopeCurveType::Linear => {
+                EnvelopePart::lerp_concave(self.sustain_percent, (self.decay * samplerate) as u32)
+            }
         };
 
         let release = match options.release_curve {
-            EnvelopeCurveType::Concave => {
+            EnvelopeCurveType::Exponential => {
                 EnvelopePart::lerp(0.0, (self.release * samplerate) as u32)
             }
-            _ => EnvelopePart::lerp_concave(0.0, (self.release * samplerate) as u32),
+            EnvelopeCurveType::Linear => {
+                EnvelopePart::lerp_concave(0.0, (self.release * samplerate) as u32)
+            }
         };
 
         EnvelopeParameters {

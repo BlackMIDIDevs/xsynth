@@ -21,13 +21,10 @@ pub enum EnvelopeCurveType {
     /// This option is supported by the attack, decay and release stages.
     Linear,
 
-    /// Apply a concave curve to the envelope stage.
-    /// This option is supported by the decay and release stages.
-    Concave,
-
-    /// Apply a concave curve to the envelope stage.
-    /// This option is supported by the attack stage.
-    Convex,
+    /// Apply an exponential curve to the envelope stage.
+    /// The decay and release stages will use a concave curve, while the
+    /// attack stage will use a convex curve.
+    Exponential,
 }
 
 /// Options for the curves of a specific envelope.
@@ -56,7 +53,7 @@ pub struct EnvelopeOptions {
 impl Default for EnvelopeOptions {
     fn default() -> Self {
         Self {
-            attack_curve: EnvelopeCurveType::Convex,
+            attack_curve: EnvelopeCurveType::Exponential,
             decay_curve: EnvelopeCurveType::Linear,
             release_curve: EnvelopeCurveType::Linear,
         }

@@ -37,9 +37,9 @@ pub fn main() {
                 bank: None,
                 preset: None,
                 vol_envelope_options: EnvelopeOptions {
-                    attack_curve: EnvelopeCurveType::Convex,
-                    decay_curve: EnvelopeCurveType::Concave,
-                    release_curve: EnvelopeCurveType::Concave,
+                    attack_curve: EnvelopeCurveType::Exponential,
+                    decay_curve: EnvelopeCurveType::Exponential,
+                    release_curve: EnvelopeCurveType::Exponential,
                 },
                 interpolator: Interpolator::Nearest,
                 use_effects: false,
