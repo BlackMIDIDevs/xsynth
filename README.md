@@ -26,4 +26,4 @@ what is supported, please visit the `SampleSoundfont` documentation in `core`.
 
 ## License
 
-XSynth is licensed under the MIT license.
+XSynth is licensed under the GNU Lesser General Public License 3.0.
