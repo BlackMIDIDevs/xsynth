@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use xsynth_core::{
     channel::ChannelInitOptions,
     channel_group::{ChannelGroupConfig, ParallelismOptions, SynthFormat, ThreadCount},
-    soundfont::{Interpolator, SoundfontInitOptions},
+    soundfont::{EnvelopeCurveType, EnvelopeOptions, Interpolator, SoundfontInitOptions},
     AudioStreamParams, ChannelCount,
 };
 
@@ -91,9 +91,9 @@ impl State {
                     .long("disable_fade_out")
                     .help("Disables fade out when killing a voice. This may cause popping.")
                     .action(ArgAction::SetFalse),
-                Arg::new("linear release")
-                    .long("linear_release")
-                    .help("Use a linear release phase in the volume envelope.")
+                Arg::new("linear envelope")
+                    .long("linear_envelope")
+                    .help("Use a linear decay and release phase in the volume envelope.")
                     .action(ArgAction::SetTrue),
                 Arg::new("interpolation")
                     .short('I')
@@ -152,10 +152,23 @@ impl State {
             sf_options: SoundfontInitOptions {
                 bank: None,
                 preset: None,
-                linear_release: matches
+                vol_envelope_options: if matches
                     .get_one("linear release")
                     .copied()
-                    .unwrap_or_default(),
+                    .unwrap_or_default()
+                {
+                    EnvelopeOptions {
+                        attack_curve: EnvelopeCurveType::Exponential,
+                        decay_curve: EnvelopeCurveType::Exponential,
+                        release_curve: EnvelopeCurveType::Exponential,
+                    }
+                } else {
+                    EnvelopeOptions {
+                        attack_curve: EnvelopeCurveType::Exponential,
+                        decay_curve: EnvelopeCurveType::Linear,
+                        release_curve: EnvelopeCurveType::Linear,
+                    }
+                },
                 use_effects: true,
                 interpolator: matches
                     .get_one("interpolation")
