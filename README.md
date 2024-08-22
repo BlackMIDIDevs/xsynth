@@ -19,6 +19,9 @@ It uses an asynchronous event sending system for high performance and simple to 
 A command line utility for rendering MIDIs to audio using XSynth.
 It receives a MIDI file path and other parameters as arguments, and generates an audio file in WAV format.
 
+See available options using `cargo run -r -- --help` if you are compiling from source
+or `xsynth-render --help` if you are using a pre-built binary.
+
 ### Soundfonts
 A module to parse different types of soundfonts to be used in XSynth.
 Currently supports SFZ and SF2 soundfonts. For detailed information about
