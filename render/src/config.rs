@@ -27,20 +27,24 @@ pub struct State {
 }
 
 impl State {
-    const THREADING_HELP: &'static str = "Use \"none\" for no multithreading, \"auto\" for multithreading with\n\
-                              an automatically determined thread count or any number to specify the\n\
-                              amount of threads that should be used.\n\
-                              Default: \"auto\"";
+    const THREADING_HELP: &'static str =
+        "Use \"none\" for no multithreading, \"auto\" for multithreading with\n\
+        an automatically determined thread count or any number to specify the\n\
+        amount of threads that should be used.\n\
+        Default: \"auto\"";
 
     pub fn from_args() -> Self {
         let matches = command!()
             .args([
                 Arg::new("midi")
                     .required(true)
-                    .help("The MIDI file to be converted."),
+                    .help("The path of the MIDI file to be converted."),
                 Arg::new("soundfonts")
                     .required(true)
-                    .help("The list of soundfonts. Will be loaded in the order they are typed.")
+                    .help(
+                        "Paths of the soundfonts to be used.\n\
+                        Will be loaded in the order they are typed.",
+                    )
                     .action(ArgAction::Append),
                 Arg::new("output").short('o').long("output").help(
                     "The path of the output audio file.\n\
@@ -57,7 +61,7 @@ impl State {
                     .short('c')
                     .help(
                         "The audio channel count of the output audio.\n\
-                        Supported: \"1\" (mono) and \"2\" (stereo)\n\
+                        Supported: \"mono\" and \"stereo\"\n\
                         Default: stereo",
                     )
                     .value_parser(audio_channels_parser),
@@ -81,7 +85,7 @@ impl State {
                 Arg::new("limiter")
                     .short('L')
                     .long("apply_limiter")
-                    .help("Apply audio limiter to the output audio to prevent clipping.")
+                    .help("Apply an audio limiter to the output audio to prevent clipping.")
                     .action(ArgAction::SetTrue),
                 Arg::new("disable fade out voice killing")
                     .long("disable_fade_out")
@@ -89,7 +93,7 @@ impl State {
                     .action(ArgAction::SetFalse),
                 Arg::new("linear release")
                     .long("linear_release")
-                    .help("Use linear release phase in the volume envelope.")
+                    .help("Use a linear release phase in the volume envelope.")
                     .action(ArgAction::SetTrue),
                 Arg::new("interpolation")
                     .short('I')
@@ -109,14 +113,8 @@ impl State {
 
         let output = matches
             .get_one::<String>("output")
-            .map(|s| {
-                if s.is_empty() {
-                    String::from("out.wav")
-                } else {
-                    s.clone()
-                }
-            })
-            .unwrap_or_default();
+            .cloned()
+            .unwrap_or("out.wav".to_owned());
 
         let soundfonts = matches
             .get_many::<String>("soundfonts")

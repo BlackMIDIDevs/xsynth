@@ -26,8 +26,11 @@ pub fn threading_parser(s: &str) -> Result<ThreadCount, String> {
 
 #[inline(always)]
 pub fn audio_channels_parser(s: &str) -> Result<ChannelCount, String> {
-    let c: u16 = s.parse().map_err(|e| format!("{}", e))?;
-    Ok(c.into())
+    match s {
+        "mono" => Ok(ChannelCount::Mono),
+        "stereo" => Ok(ChannelCount::Stereo),
+        _ => Err("Invalid channel count".to_string()),
+    }
 }
 
 #[inline(always)]
