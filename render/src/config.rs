@@ -52,6 +52,7 @@ impl State {
                 ),
                 Arg::new("sample rate")
                     .short('s')
+                    .long("sample-rate")
                     .help(
                         "The sample rate of the output audio in Hz.\n\
                         Default: 48000 (48kHz)",
@@ -59,6 +60,7 @@ impl State {
                     .value_parser(int_parser),
                 Arg::new("audio channels")
                     .short('c')
+                    .long("audio-channels")
                     .help(
                         "The audio channel count of the output audio.\n\
                         Supported: \"mono\" and \"stereo\"\n\
@@ -75,32 +77,33 @@ impl State {
                     )
                     .value_parser(layers_parser),
                 Arg::new("channel threading")
-                    .long("channel_threading")
+                    .long("channel-threading")
                     .help("Per-channel multithreading options.\n".to_owned() + Self::THREADING_HELP)
                     .value_parser(threading_parser),
                 Arg::new("key threading")
-                    .long("key_threading")
+                    .long("key-threading")
                     .help("Per-key multithreading options.\n".to_owned() + Self::THREADING_HELP)
                     .value_parser(threading_parser),
                 Arg::new("limiter")
                     .short('L')
-                    .long("apply_limiter")
+                    .long("apply-limiter")
                     .help("Apply an audio limiter to the output audio to prevent clipping.")
                     .action(ArgAction::SetTrue),
                 Arg::new("disable fade out voice killing")
-                    .long("disable_fade_out")
+                    .long("disable-fade-out")
                     .help("Disables fade out when killing a voice. This may cause popping.")
                     .action(ArgAction::SetFalse),
                 Arg::new("linear envelope")
-                    .long("linear_envelope")
-                    .help("Use a linear decay and release phase in the volume envelope.")
+                    .long("linear-envelope")
+                    .help("Use a linear decay and release phase in the volume envelope, in amplitude units.")
                     .action(ArgAction::SetTrue),
                 Arg::new("interpolation")
                     .short('I')
                     .long("interpolation")
                     .help(
                         "The interpolation algorithm to use. Available options are\n\
-                        \"none\" (no interpolation) and \"linear\" (linear interpolation).",
+                        \"none\" (no interpolation) and \"linear\" (linear interpolation).\n\
+                        Default: \"linear\"",
                     )
                     .value_parser(interpolation_parser),
             ])
