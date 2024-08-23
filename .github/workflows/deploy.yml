@@ -1,0 +1,145 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - name: x86_64-unknown-linux-gnu
+            arch: x64
+          - name: aarch64-unknown-linux-gnu
+            arch: arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: ${{ matrix.target.name }}
+          override: true
+          profile: minimal
+
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target=${{ matrix.target.name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "xsynth-render-linux-${{ matrix.target.arch }}"
+          path: "target/${{ matrix.target.name }}/release/xsynth-render"
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target:
+          - name: x86_64-apple-darwin
+            arch: x86
+          - name: aarch64-apple-darwin
+            arch: arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install target
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: ${{ matrix.target.name }}
+          override: true
+          profile: minimal
+
+      - name: Build binary
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target.name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "xsynth-render-macos-${{ matrix.target.arch }}"
+          path: "target/${{ matrix.target.name }}/release/xsynth-render"
+
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target:
+          - name: x86_64-pc-windows-msvc
+            arch: x64
+          - name: aarch64-pc-windows-msvc
+            arch: arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: ${{ matrix.target.name }}
+          override: true
+          profile: minimal
+
+      - name: Build binary
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target.name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "xsynth-render-windows-${{ matrix.target.arch }}"
+          path: "target/${{ matrix.target.name }}/release/xsynth-render.exe"
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - build-linux
+      - build-macos
+      - build-windows
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts
+
+      - name: Move files
+        run: |
+          mkdir out
+          for dir in ./artifacts/*; do
+            for file in $dir/*; do
+              cp $dir/* ./out/${dir##*/}.${file##*.}
+            done
+          done
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: A new draft release.
+          draft: true
+          files: ./out/*
