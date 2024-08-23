@@ -34,7 +34,7 @@ pub struct EnvelopeOptions {
     /// Controls the type of curve of the attack envelope stage. See the
     /// documentation of the `EnvelopeCurveType` enum for available options.
     ///
-    /// Default: `Convex`
+    /// Default: `Exponential`
     pub attack_curve: EnvelopeCurveType,
 
     /// Controls the type of curve of the decay envelope stage. See the
@@ -76,7 +76,7 @@ pub struct SoundfontInitOptions {
     /// Default: `None`
     pub preset: Option<u8>,
 
-    /// Configures the volume envelope curves in the dB scale. See the
+    /// Configures the volume envelope curves in dB units. See the
     /// documentation for `EnvelopeOptions` for more information.
     pub vol_envelope_options: EnvelopeOptions,
 

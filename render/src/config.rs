@@ -133,7 +133,7 @@ impl State {
                         .copied()
                         .unwrap_or(true),
                 },
-                format: SynthFormat::MidiSingle,
+                format: SynthFormat::Midi,
                 audio_params: AudioStreamParams::new(
                     matches.get_one("sample rate").copied().unwrap_or(48000),
                     matches
