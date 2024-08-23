@@ -16,6 +16,7 @@ use crossbeam_channel::{bounded, unbounded};
 use xsynth_core::{
     buffered_renderer::{BufferedRenderer, BufferedRendererStatsReader},
     channel::{ChannelConfigEvent, ChannelEvent, VoiceChannel},
+    channel_group::SynthFormat,
     effects::VolumeLimiter,
     helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams, FunctionAudioPipe,
@@ -148,11 +149,16 @@ impl RealtimeSynth {
             )),
         };
 
-        let (output_sender, output_receiver) = bounded::<Vec<f32>>(config.channel_count as usize);
+        let channel_count = match config.format {
+            SynthFormat::Midi => 16,
+            SynthFormat::Custom { channels } => channels,
+        };
+
+        let (output_sender, output_receiver) = bounded::<Vec<f32>>(channel_count as usize);
 
         let mut thread_handles = vec![];
 
-        for _ in 0u32..(config.channel_count) {
+        for _ in 0u32..channel_count {
             let mut channel =
                 VoiceChannel::new(config.channel_init_options, stream_params, pool.clone());
             let stats = channel.get_channel_stats();
@@ -183,7 +189,7 @@ impl RealtimeSynth {
             thread_handles.push(join_handle);
         }
 
-        if config.channel_count >= 16 {
+        if config.format == SynthFormat::Midi {
             senders[9]
                 .send(ChannelEvent::Config(ChannelConfigEvent::SetPercussionMode(
                     true,
@@ -192,7 +198,7 @@ impl RealtimeSynth {
         }
 
         let mut vec_cache: VecDeque<Vec<f32>> = VecDeque::new();
-        for _ in 0..(config.channel_count) {
+        for _ in 0..channel_count {
             vec_cache.push_front(Vec::new());
         }
 
@@ -200,7 +206,6 @@ impl RealtimeSynth {
 
         let total_voice_count = stats.voice_count.clone();
 
-        let channel_count = config.channel_count;
         let render = FunctionAudioPipe::new(stream_params, move |out| {
             for sender in command_senders.iter() {
                 let mut buf = vec_cache.pop_front().unwrap();

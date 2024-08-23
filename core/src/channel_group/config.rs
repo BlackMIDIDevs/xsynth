@@ -6,7 +6,7 @@ use crate::{channel::ChannelInitOptions, AudioStreamParams};
 pub enum SynthFormat {
     /// Standard MIDI format with 16 channels. Channel 10 will be used for percussion.
     #[default]
-    MidiSingle,
+    Midi,
 
     /// Creates a custom number of channels with the default settings.
     Custom { channels: u32 },
@@ -83,6 +83,8 @@ pub struct ChannelGroupConfig {
 
     /// Defines the format that the synthesizer will use. See the `SynthFormat`
     /// documentation for more information.
+    ///
+    /// Default: `SynthFormat::Midi`
     pub format: SynthFormat,
 
     /// Parameters of the output audio.

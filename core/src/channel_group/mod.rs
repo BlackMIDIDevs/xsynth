@@ -60,7 +60,7 @@ impl ChannelGroup {
         };
 
         let channel_count = match config.format {
-            SynthFormat::MidiSingle => 16,
+            SynthFormat::Midi => 16,
             SynthFormat::Custom { channels } => channels,
         };
 
@@ -74,7 +74,7 @@ impl ChannelGroup {
             sample_cache_vecs.push(Vec::new());
         }
 
-        if config.format == SynthFormat::MidiSingle {
+        if config.format == SynthFormat::Midi {
             channels[9].push_events_iter(std::iter::once(ChannelEvent::Config(
                 ChannelConfigEvent::SetPercussionMode(true),
             )));
