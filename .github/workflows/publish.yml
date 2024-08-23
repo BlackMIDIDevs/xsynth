@@ -18,8 +18,24 @@ jobs:
           override: true
       - name: Install ALSA
         run: sudo apt-get install -y libasound2-dev
-      - name: Publish
+
+      - name: Publish xsynth-soundfonts
         uses: katyo/publish-crates@v2
         with:
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          args: -p xsynth-soundfonts
+          ignore-unpublished-changes: true
+
+      - name: Publish xsynth-core
+        uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          args: -p xsynth-core
+          ignore-unpublished-changes: true
+
+      - name: Publish xsynth-realtime
+        uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          args: -p xsynth-realtime
           ignore-unpublished-changes: true
