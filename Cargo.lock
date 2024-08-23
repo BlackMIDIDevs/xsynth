@@ -2011,7 +2011,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "atomic_refcell",
  "biquad",
@@ -2034,7 +2034,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-realtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "atomic_refcell",
  "bytemuck",
@@ -2053,7 +2053,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-render"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "atomic_float",
  "clap 4.5.16",
@@ -2068,7 +2068,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-soundfonts"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "encoding_rs",
  "encoding_rs_io",

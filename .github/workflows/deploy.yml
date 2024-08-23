@@ -32,7 +32,7 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --release --target=${{ matrix.target.name }}
+          args: --release --package xsynth-render --target=${{ matrix.target.name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -66,7 +66,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target ${{ matrix.target.name }}
+          args: --release --package xsynth-render --target ${{ matrix.target.name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -103,7 +103,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target ${{ matrix.target.name }}
+          args: --release --package xsynth-render --target ${{ matrix.target.name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -133,7 +133,7 @@ jobs:
           mkdir out
           for dir in ./artifacts/*; do
             for file in $dir/*; do
-              cp $dir/* ./out/${dir##*/}.${file##*.}
+              mv $dir/* ./out/${dir##*/}${file##*/xsynth-render}
             done
           done
 
