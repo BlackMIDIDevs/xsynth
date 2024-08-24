@@ -1,0 +1,26 @@
+[package]
+name = "xsynth-clib"
+description = "A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency."
+authors = ["MBMS"]
+readme = "README.md"
+
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "xsynth"
+crate-type = ["cdylib"]
+
+[dependencies]
+pkg-version = "1.0.0"
+xsynth-core = "0.3.0"
+xsynth-realtime = "0.3.0"
+
+[build-dependencies]
+cbindgen = "0.26.0"
+pkg-version = "1.0.0"

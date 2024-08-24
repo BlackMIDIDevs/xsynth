@@ -982,6 +982,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
+name = "pkg-version"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e848f61ee4b2010345e65757e427a077213af1cee5d3e6a02e4a151dabca377"
+dependencies = [
+ "pkg-version-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "pkg-version-impl"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1564bf5d476bf4a5eac420b88c500454c000dca79cef0a2e4304a1fe34361a3b"
+dependencies = [
+ "proc-macro-hack",
+]
+
+[[package]]
 name = "plotters"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1057,6 +1076,12 @@ dependencies = [
  "quote",
  "version_check",
 ]
+
+[[package]]
+name = "proc-macro-hack"
+version = "0.5.20+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
@@ -2010,6 +2035,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "xsynth-clib"
+version = "0.3.0"
+dependencies = [
+ "cbindgen",
+ "pkg-version",
+ "xsynth-core 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xsynth-realtime 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "xsynth-core"
 version = "0.3.0"
 dependencies = [
@@ -2029,7 +2064,28 @@ dependencies = [
  "symphonia",
  "thiserror",
  "to_vec",
- "xsynth-soundfonts",
+ "xsynth-soundfonts 0.3.0",
+]
+
+[[package]]
+name = "xsynth-core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebbe2484a496a5d3cca4afbe1808287374e53145497844d56233347e2d2cd5a3"
+dependencies = [
+ "atomic_refcell",
+ "biquad",
+ "bytemuck",
+ "crossbeam-channel",
+ "lazy_static",
+ "proc-macro2",
+ "rayon",
+ "simdeez",
+ "spin_sleep",
+ "symphonia",
+ "thiserror",
+ "to_vec",
+ "xsynth-soundfonts 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2048,7 +2104,26 @@ dependencies = [
  "spin_sleep",
  "to_vec",
  "wav",
- "xsynth-core",
+ "xsynth-core 0.3.0",
+]
+
+[[package]]
+name = "xsynth-realtime"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "266a606a30b56fdaff2f8cb66c4d4b313d02e882c4b54c35a2594114e0f9cdbf"
+dependencies = [
+ "atomic_refcell",
+ "bytemuck",
+ "cbindgen",
+ "cpal",
+ "crossbeam-channel",
+ "lazy_static",
+ "rayon",
+ "spin_sleep",
+ "to_vec",
+ "wav",
+ "xsynth-core 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2063,12 +2138,28 @@ dependencies = [
  "rayon",
  "spin_sleep",
  "thiserror",
- "xsynth-core",
+ "xsynth-core 0.3.0",
 ]
 
 [[package]]
 name = "xsynth-soundfonts"
 version = "0.3.0"
+dependencies = [
+ "encoding_rs",
+ "encoding_rs_io",
+ "lazy-regex",
+ "regex-bnf",
+ "rubato",
+ "simdeez",
+ "soundfont",
+ "thiserror",
+]
+
+[[package]]
+name = "xsynth-soundfonts"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "614b11db3ec3b1929562f8ebc7239058277bd556d922a5e8aab60ab58b09685b"
 dependencies = [
  "encoding_rs",
  "encoding_rs_io",

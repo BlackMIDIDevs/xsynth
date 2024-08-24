@@ -1,0 +1,9 @@
+[target.x86_64-unknown-linux-gnu]
+pre-build = [
+    "apt-get update; DEBIAN_FRONTEND=noninteractive apt-get install -y libasound2-dev portaudio19-dev build-essential libpulse-dev libdbus-1-dev",
+]
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture arm64; apt-get update; DEBIAN_FRONTEND=noninteractive apt-get install -y libasound2-dev:arm64 portaudio19-dev:arm64 crossbuild-essential-arm64 libpulse-dev:arm64 libdbus-1-dev:arm64",
+]

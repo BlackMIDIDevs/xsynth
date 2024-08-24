@@ -3,30 +3,20 @@
 
 ## Modules
 
-### Core
-Handles the core audio rendering functionality.
-The main components are:
-- `VoiceChannel`: Channels represent a single MIDI channel
-- `ChannelGroup`: A channel group represents a manager of channels (MIDI synthesizer)
-- `SampleSoundfont`: Holds the data and samples from an SFZ or SF2 soundfont
-- `Voice`: A voice represents a single SoundFont sound
+- [`core`](https://github.com/BlackMIDIDevs/xsynth/tree/master/core): Handles the core audio rendering functionality.
+- [`clib`](https://github.com/BlackMIDIDevs/xsynth/tree/master/clib): C/C++ bindings for XSynth.
+- [`soundfonts`](https://github.com/BlackMIDIDevs/xsynth/tree/master/soundfonts): A module to parse soundfonts to be used in XSynth.
+- [`realtime`](https://github.com/BlackMIDIDevs/xsynth/tree/master/realtime): The real-time rendering module within XSynth.
+- [`render`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): A command line utility for rendering MIDIs to audio using XSynth.
 
-### Realtime
-The real-time rendering module within XSynth. Currently it outputs audio using `cpal`.
-It uses an asynchronous event sending system for high performance and simple to use API.
+## Demos
 
-### Rendered
-A command line utility for rendering MIDIs to audio using XSynth.
-It receives a MIDI file path and other parameters as arguments, and generates an audio file in WAV format.
+#### XSynth playing Immortal Smoke by EpreTroll
+placeholder
 
-See available options using `cargo run -r -- --help` if you are compiling from source
-or `xsynth-render --help` if you are using a pre-built binary.
-
-### Soundfonts
-A module to parse different types of soundfonts to be used in XSynth.
-Currently supports SFZ and SF2 soundfonts. For detailed information about
-what is supported, please visit the `SampleSoundfont` documentation in `core`.
+#### XSynth playing DANCE.MID
+placeholder
 
 ## License
 
-XSynth is licensed under the GNU Lesser General Public License 3.0.
+XSynth and all of its components is licensed under the [GNU Lesser General Public License 3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html#license-text).

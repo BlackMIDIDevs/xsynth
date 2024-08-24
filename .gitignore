@@ -1,8 +1,10 @@
 /target
 *.wav
-
 .env
 env.sh
 env.bat
 shell.nix
 .vscode
+xsynth.h
+a.out
+test*
