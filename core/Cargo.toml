@@ -1,14 +1,14 @@
 [package]
 name = "xsynth-core"
 description = "A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency."
+authors = ["Arduano", "MBMS", "Kaydax", "Khangaroo"]
+readme = "README.md"
 
-authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
