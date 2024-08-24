@@ -29,7 +29,11 @@ pub enum EnvelopeCurveType {
 
 /// Options for the curves of a specific envelope.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(default)
+)]
 pub struct EnvelopeOptions {
     /// Controls the type of curve of the attack envelope stage. See the
     /// documentation of the `EnvelopeCurveType` enum for available options.
@@ -62,7 +66,11 @@ impl Default for EnvelopeOptions {
 
 /// Options for initializing/loading a new sample soundfont.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(default)
+)]
 pub struct SoundfontInitOptions {
     /// The bank number (0-128) to extract and use from the soundfont.
     /// `None` means to use all available banks (bank 0 for SFZ).

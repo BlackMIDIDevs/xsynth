@@ -44,7 +44,11 @@ pub enum ThreadCount {
 ///     render very small sample counts each time (e.g. sub 1 millisecond), not using per-key
 ///     multithreading becomes more efficient.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(default)
+)]
 pub struct ParallelismOptions {
     /// Render the MIDI channels parallel in a threadpool with the specified
     /// thread count.
