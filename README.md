@@ -13,11 +13,11 @@
 
 #### XSynth playing Immortal Smoke by EpreTroll
 
-https://github.com/user-attachments/assets/f509a36c-6019-4d38-9e5e-1bf0eeb9b43d
+https://github.com/user-attachments/assets/d100e3d2-efa0-4367-a774-d5a171ac0bf8
 
 #### XSynth playing DANCE.MID
 
-https://github.com/user-attachments/assets/d100e3d2-efa0-4367-a774-d5a171ac0bf8
+https://github.com/user-attachments/assets/f509a36c-6019-4d38-9e5e-1bf0eeb9b43d
 
 ## License
 
