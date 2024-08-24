@@ -1,6 +1,6 @@
 [package]
 name = "xsynth-clib"
-description = "A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency."
+description = "C/C++ bindings for XSynth"
 authors = ["MBMS"]
 readme = "README.md"
 
