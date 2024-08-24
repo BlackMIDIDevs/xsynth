@@ -2040,8 +2040,8 @@ version = "0.3.0"
 dependencies = [
  "cbindgen",
  "pkg-version",
- "xsynth-core 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "xsynth-realtime 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xsynth-core",
+ "xsynth-realtime",
 ]
 
 [[package]]
@@ -2064,28 +2064,7 @@ dependencies = [
  "symphonia",
  "thiserror",
  "to_vec",
- "xsynth-soundfonts 0.3.0",
-]
-
-[[package]]
-name = "xsynth-core"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebbe2484a496a5d3cca4afbe1808287374e53145497844d56233347e2d2cd5a3"
-dependencies = [
- "atomic_refcell",
- "biquad",
- "bytemuck",
- "crossbeam-channel",
- "lazy_static",
- "proc-macro2",
- "rayon",
- "simdeez",
- "spin_sleep",
- "symphonia",
- "thiserror",
- "to_vec",
- "xsynth-soundfonts 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xsynth-soundfonts",
 ]
 
 [[package]]
@@ -2104,26 +2083,7 @@ dependencies = [
  "spin_sleep",
  "to_vec",
  "wav",
- "xsynth-core 0.3.0",
-]
-
-[[package]]
-name = "xsynth-realtime"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "266a606a30b56fdaff2f8cb66c4d4b313d02e882c4b54c35a2594114e0f9cdbf"
-dependencies = [
- "atomic_refcell",
- "bytemuck",
- "cbindgen",
- "cpal",
- "crossbeam-channel",
- "lazy_static",
- "rayon",
- "spin_sleep",
- "to_vec",
- "wav",
- "xsynth-core 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xsynth-core",
 ]
 
 [[package]]
@@ -2138,28 +2098,12 @@ dependencies = [
  "rayon",
  "spin_sleep",
  "thiserror",
- "xsynth-core 0.3.0",
+ "xsynth-core",
 ]
 
 [[package]]
 name = "xsynth-soundfonts"
 version = "0.3.0"
-dependencies = [
- "encoding_rs",
- "encoding_rs_io",
- "lazy-regex",
- "regex-bnf",
- "rubato",
- "simdeez",
- "soundfont",
- "thiserror",
-]
-
-[[package]]
-name = "xsynth-soundfonts"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "614b11db3ec3b1929562f8ebc7239058277bd556d922a5e8aab60ab58b09685b"
 dependencies = [
  "encoding_rs",
  "encoding_rs_io",

@@ -18,8 +18,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pkg-version = "1.0.0"
-xsynth-core = "0.3.0"
-xsynth-realtime = "0.3.0"
+xsynth-core = { workspace = true }
+xsynth-realtime = { workspace = true }
 
 [build-dependencies]
 cbindgen = "0.26.0"
