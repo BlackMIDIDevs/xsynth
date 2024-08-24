@@ -1,0 +1,6 @@
+language = "C"
+
+header = "/* The XSynth library is licensed under the LGPL 3.0. */"
+pragma_once = true
+cpp_compat = true
+documentation = true

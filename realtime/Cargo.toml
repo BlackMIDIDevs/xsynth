@@ -1,14 +1,14 @@
 [package]
 name = "xsynth-realtime"
 description = "A real-time MIDI synthesizer using XSynth."
+authors = ["Arduano", "MBMS", "Kaydax", "Khangaroo"]
+readme = "README.md"
 
-authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

@@ -1,21 +1,23 @@
 [workspace]
 resolver = "2"
-members = ["core", "realtime", "soundfonts", "render"]
+members = ["core", "clib", "soundfonts", "realtime", "render"]
 
 [workspace.package]
-authors = ["Arduano", "MBMS", "Kaydax", "Khangaroo"]
 version = "0.3.0"
 license = "LGPL-3.0"
 edition = "2021"
 homepage = "https://github.com/BlackMIDIDevs/xsynth"
 repository = "https://github.com/BlackMIDIDevs/xsynth"
-readme = "README.md"
 keywords = ["midi", "synthesizer", "soundfont"]
 categories = ["multimedia::audio"]
+
+[profile.dev]
+opt-level = 2
 
 [profile.release]
 codegen-units = 1
 lto = true
+opt-level = 3
 
 [profile.release-with-debug]
 inherits = "release"
