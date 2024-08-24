@@ -27,14 +27,34 @@ jobs:
           target: ${{ matrix.target.name }}
           override: true
           profile: minimal
-
-      - uses: actions-rs/cargo@v1
+        
+      - name: Build xsynth-clib
+        uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
-          args: --release --package xsynth-render --target=${{ matrix.target.name }}
+          args: --release --package xsynth-clib --target ${{ matrix.target.name }}
 
-      - name: Upload artifact
+      - name: Build xsynth-render
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --package xsynth-render --target ${{ matrix.target.name }}
+
+      - name: Upload clib
+        uses: actions/upload-artifact@v3
+        with:
+          name: "libxsynth-linux-${{ matrix.target.arch }}.so"
+          path: "target/${{ matrix.target.name }}/release/libxsynth.so"
+
+      - name: Upload header
+        uses: actions/upload-artifact@v3
+        with:
+          name: "xsynth.h"
+          path: "xsynth.h"
+      
+      - name: Upload render
         uses: actions/upload-artifact@v3
         with:
           name: "xsynth-render-linux-${{ matrix.target.arch }}"
@@ -54,7 +74,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install target
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -62,13 +82,26 @@ jobs:
           override: true
           profile: minimal
 
-      - name: Build binary
+      - name: Build xsynth-clib
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --package xsynth-clib --target ${{ matrix.target.name }}
+
+      - name: Build xsynth-render
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --package xsynth-render --target ${{ matrix.target.name }}
-
-      - name: Upload artifact
+      
+      - name: Upload clib
+        uses: actions/upload-artifact@v3
+        with:
+          name: "libxsynth-macos-${{ matrix.target.arch }}.dylib"
+          path: "target/${{ matrix.target.name }}/release/libxsynth.dylib"
+      
+      - name: Upload render
         uses: actions/upload-artifact@v3
         with:
           name: "xsynth-render-macos-${{ matrix.target.arch }}"
@@ -98,19 +131,62 @@ jobs:
           target: ${{ matrix.target.name }}
           override: true
           profile: minimal
+      
+      - name: Build xsynth-clib
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --package xsynth-clib --target ${{ matrix.target.name }}
 
-      - name: Build binary
+      - name: Build xsynth-render
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --package xsynth-render --target ${{ matrix.target.name }}
-
-      - name: Upload artifact
+      
+      - name: Upload clib
         uses: actions/upload-artifact@v3
         with:
-          name: "xsynth-render-windows-${{ matrix.target.arch }}"
+          name: "xsynth-windows-${{ matrix.target.arch }}.dll"
+          path: "target/${{ matrix.target.name }}/release/xsynth.dll"
+
+      - name: Upload render
+        uses: actions/upload-artifact@v3
+        with:
+          name: "xsynth-render-windows-${{ matrix.target.arch }}.exe"
           path: "target/${{ matrix.target.name }}/release/xsynth-render.exe"
 
+  build-kdmapi:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-pc-windows-msvc
+          override: true
+          profile: minimal
+      
+      - name: Build xsynth-kdmapi
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --package xsynth-kdmapi --target x86_64-pc-windows-msvc
+      
+      - name: Upload kdmapi
+        uses: actions/upload-artifact@v3
+        with:
+          name: "OmniMIDI.dll"
+          path: "target/x86_64-pc-windows-msvc/release/OmniMIDI.dll"
+  
   create-release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
@@ -118,6 +194,7 @@ jobs:
       - build-linux
       - build-macos
       - build-windows
+      - build-kdmapi
 
     steps:
       - name: Checkout repository
@@ -133,13 +210,21 @@ jobs:
           mkdir out
           for dir in ./artifacts/*; do
             for file in $dir/*; do
-              mv $dir/* ./out/${dir##*/}${file##*/xsynth-render}
+              mv $dir/* ./out/${dir##*/}
             done
           done
 
       - name: Create draft release
         uses: softprops/action-gh-release@v1
         with:
-          body: A new draft release.
+          generate_release_notes: true
+          append_body: true
+          body: |
+            
+            ## Files
+            - `.so`, `.dylib` and `.dll` files are part of the C/C++ API release of XSynth for each platform and architecture
+            - `xsynth.h` is the header file to be used with the libraries mentioned above
+            - `xsynth-render-*` files are binaries of the xsynth-render utility for each platform and architecture
+            - `OmniMIDI.dll` is the KDMAPI implementation of XSynth for x86 64bit Windows
           draft: true
           files: ./out/*
