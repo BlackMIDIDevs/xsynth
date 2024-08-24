@@ -12,10 +12,12 @@
 ## Demos
 
 #### XSynth playing Immortal Smoke by EpreTroll
-placeholder
+
+https://github.com/user-attachments/assets/f509a36c-6019-4d38-9e5e-1bf0eeb9b43d
 
 #### XSynth playing DANCE.MID
-placeholder
+
+https://github.com/user-attachments/assets/d100e3d2-efa0-4367-a774-d5a171ac0bf8
 
 ## License
 
