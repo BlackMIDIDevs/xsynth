@@ -2267,7 +2267,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-clib"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cbindgen",
  "pkg-version",
@@ -2277,7 +2277,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "atomic_refcell",
  "biquad",
@@ -2300,7 +2300,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-kdmapi"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cfg-if",
  "directories",
@@ -2314,7 +2314,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-realtime"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "atomic_refcell",
  "bytemuck",
@@ -2333,7 +2333,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-render"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "atomic_float",
  "clap 4.5.16",
@@ -2349,7 +2349,7 @@ dependencies = [
 
 [[package]]
 name = "xsynth-soundfonts"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "encoding_rs",
  "encoding_rs_io",
