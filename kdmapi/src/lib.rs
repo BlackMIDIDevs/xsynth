@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use hotwatch::{Event, EventKind, Hotwatch};
 use std::{
     ffi::c_void,
     os::raw::c_ulong,
@@ -7,13 +8,8 @@ use std::{
     thread,
     time::Duration,
 };
-
-use xsynth_core::{
-    channel::ChannelConfigEvent,
-    soundfont::{SampleSoundfont, SoundfontBase},
-};
-
-use xsynth_realtime::{RealtimeEventSender, RealtimeSynth, XSynthRealtimeConfig};
+use xsynth_core::channel::{ChannelConfigEvent, ChannelEvent};
+use xsynth_realtime::{RealtimeEventSender, RealtimeSynth, SynthEvent};
 
 #[cfg(windows)]
 use winapi::{
@@ -28,11 +24,14 @@ use winapi::{
     },
 };
 
+mod parsers;
+use parsers::*;
+
 struct Synth {
     killed: Arc<Mutex<bool>>,
     stats_join_handle: thread::JoinHandle<()>,
-
     senders: RealtimeEventSender,
+    hotwatch: Hotwatch,
 
     // This field is necessary to keep the synth loaded
     _synth: RealtimeSynth,
@@ -41,15 +40,13 @@ struct Synth {
 static mut GLOBAL_SYNTH: Option<Synth> = None;
 static mut CURRENT_VOICE_COUNT: u64 = 0;
 
-// region: Custom xsynth KDMAPI functions
+// region: Custom XSynth KDMAPI functions
 
+/// This entire function is custom to xsynth and is not part of
+/// the KDMAPI standard. Its basically just for testing.
 #[no_mangle]
-pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsynth and is not part of the kdmapi standard. Its basically just for testing
-{
-    unsafe {
-        //println!("Voice Count: {}", voice_count);
-        CURRENT_VOICE_COUNT
-    }
+pub extern "C" fn GetVoiceCount() -> u64 {
+    unsafe { CURRENT_VOICE_COUNT }
 }
 
 // endregion
@@ -58,26 +55,19 @@ pub extern "C" fn GetVoiceCount() -> u64 //This entire function is custom to xsy
 
 #[no_mangle]
 pub extern "C" fn InitializeKDMAPIStream() -> i32 {
-    let config = XSynthRealtimeConfig {
-        render_window_ms: 5.0,
-        ..Default::default()
-    };
+    let config = Config::<Settings>::new().load().unwrap();
+    let sflist = Config::<SFList>::new().load().unwrap();
 
-    let realtime_synth = RealtimeSynth::open_with_default_output(config);
+    let realtime_synth = RealtimeSynth::open_with_default_output(config.get_synth_config());
     let mut sender = realtime_synth.get_senders();
-
     let params = realtime_synth.stream_params();
 
-    let soundfonts: Vec<Arc<dyn SoundfontBase>> = vec![Arc::new(
-    SampleSoundfont::new(
-      "E:/Midis/Soundfonts/Loud and Proud Remastered/Kaydax Presets/Loud and Proud Remastered (Realistic).sfz",
-      params,
-      Default::default(),
-    )
-    .unwrap(),
-  )];
-
-    sender.send_config(ChannelConfigEvent::SetSoundfonts(soundfonts));
+    sender.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
+        ChannelConfigEvent::SetLayerCount(config.get_layers()),
+    )));
+    sender.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
+        ChannelConfigEvent::SetSoundfonts(sflist.create_sfbase_vector(params)),
+    )));
 
     let killed = Arc::new(Mutex::new(false));
 
@@ -93,11 +83,45 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32 {
         }
     });
 
+    let mut hotwatch = Hotwatch::new_with_custom_delay(Duration::from_millis(500)).unwrap();
+
+    // Watch for config changes and apply them
+    let mut sender_thread = sender.clone();
+    hotwatch
+        .watch(Config::<Settings>::path(), move |event: Event| {
+            if let EventKind::Modify(_) = event.kind {
+                thread::sleep(Duration::from_millis(10));
+                let layers = Config::<Settings>::new().load().unwrap().get_layers();
+                sender_thread.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
+                    ChannelConfigEvent::SetLayerCount(layers),
+                )));
+            }
+        })
+        .unwrap();
+
+    // Watch for soundfont list changes and apply them
+    let mut sender_thread = sender.clone();
+    hotwatch
+        .watch(Config::<SFList>::path(), move |event: Event| {
+            if let EventKind::Modify(_) = event.kind {
+                thread::sleep(Duration::from_millis(10));
+                let sfs = Config::<SFList>::new()
+                    .load()
+                    .unwrap()
+                    .create_sfbase_vector(params);
+                sender_thread.send_event(SynthEvent::AllChannels(ChannelEvent::Config(
+                    ChannelConfigEvent::SetSoundfonts(sfs),
+                )));
+            }
+        })
+        .unwrap();
+
     unsafe {
         GLOBAL_SYNTH = Some(Synth {
             killed,
             senders: sender,
             stats_join_handle,
+            hotwatch,
             _synth: realtime_synth,
         });
     }
@@ -107,22 +131,31 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32 {
 #[no_mangle]
 pub extern "C" fn TerminateKDMAPIStream() -> i32 {
     unsafe {
-        if let Some(synth) = GLOBAL_SYNTH.take() {
+        if let Some(mut synth) = GLOBAL_SYNTH.take() {
             *synth.killed.lock().unwrap() = true;
             synth.stats_join_handle.join().ok();
+
+            synth.hotwatch.unwatch(Config::<Settings>::path()).unwrap();
+            synth.hotwatch.unwatch(Config::<SFList>::path()).unwrap();
+            Config::<Settings>::new()
+                .repair()
+                .expect("Error while saving settings");
+            Config::<SFList>::new()
+                .repair()
+                .expect("Error while saving sf list");
+            return 1;
         }
+        0
     }
-    println!("TerminateKDMAPIStream");
-    //std::process::exit(0) //Currently a workaround for chikara not closing
-    1
 }
 
 #[no_mangle]
 pub extern "C" fn ResetKDMAPIStream() {
-    println!("ResetKDMAPIStream");
-    //Just terminate and reinitialize
-    TerminateKDMAPIStream();
-    InitializeKDMAPIStream();
+    unsafe {
+        if let Some(synth) = GLOBAL_SYNTH.as_mut() {
+            synth.senders.reset_synth();
+        }
+    }
 }
 
 #[no_mangle]
@@ -130,21 +163,43 @@ pub extern "C" fn SendDirectData(dwMsg: u32) -> u32 {
     unsafe {
         if let Some(sender) = GLOBAL_SYNTH.as_mut() {
             sender.senders.send_event_u32(dwMsg);
+            return 1;
         }
+        0
     }
-    1
 }
 
 #[no_mangle]
 pub extern "C" fn SendDirectDataNoBuf(dwMsg: u32) -> u32 {
-    SendDirectData(dwMsg); //We don't have a buffer, just use SendDirectData
-    1
+    SendDirectData(dwMsg)
 }
 
 #[no_mangle]
 pub extern "C" fn IsKDMAPIAvailable() -> u32 {
-    println!("IsKDMAPIAvailable");
-    1 //Yes, we are available
+    unsafe { GLOBAL_SYNTH.is_some() as u32 }
+}
+
+#[no_mangle]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ReturnKDMAPIVer(
+    Major: *mut c_ulong,
+    Minor: *mut c_ulong,
+    Build: *mut c_ulong,
+    Revision: *mut c_ulong,
+) -> u32 {
+    *Major = 4;
+    *Minor = 1;
+    *Build = 0;
+    *Revision = 5;
+    1
+}
+
+#[no_mangle]
+pub extern "C" fn timeGetTime64() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
 }
 
 // endregion
@@ -152,37 +207,30 @@ pub extern "C" fn IsKDMAPIAvailable() -> u32 {
 // region: Unimplemented functions
 
 #[no_mangle]
-pub extern "C" fn DisableFeedbackMode() {
-    println!("DisableFeedbackMode");
-}
+pub extern "C" fn DisableFeedbackMode() {}
 
 #[no_mangle]
 pub extern "C" fn SendCustomEvent(_eventtype: u32, _chan: u32, _param: u32) -> u32 {
-    println!("SendCustomEvent");
     1
 }
 
 #[no_mangle]
 pub extern "C" fn SendDirectLongData() -> u32 {
-    println!("SendDirectLongData");
     1
 }
 
 #[no_mangle]
 pub extern "C" fn SendDirectLongDataNoBuf() -> u32 {
-    println!("SendDirectLongDataNoBuf");
     1
 }
 
 #[no_mangle]
 pub extern "C" fn PrepareLongData() -> u32 {
-    println!("PrepareLongData");
     1
 }
 
 #[no_mangle]
 pub extern "C" fn UnprepareLongData() -> u32 {
-    println!("UnprepareLongData");
     1
 }
 
@@ -193,19 +241,14 @@ pub extern "C" fn DriverSettings(
     _lpValue: *mut c_void,
     _cbSize: c_ulong,
 ) -> u32 {
-    println!("DriverSettings");
     1
 }
 
 #[no_mangle]
-pub extern "C" fn LoadCustomSoundFontsList(_Directory: u16) {
-    println!("LoadCustomSoundFontsList");
-}
+pub extern "C" fn LoadCustomSoundFontsList(_Directory: u16) {}
 
 #[no_mangle]
-pub extern "C" fn GetDriverDebugInfo() {
-    println!("GetDriverDebugInfo");
-}
+pub extern "C" fn GetDriverDebugInfo() {}
 
 // endregion
 
@@ -222,32 +265,7 @@ cfg_if::cfg_if! {
     static mut CALLBACK_TYPE: DWORD = 0;
 
     #[no_mangle]
-    #[allow(clippy::missing_safety_doc)]
-    pub unsafe extern "C" fn ReturnKDMAPIVer(
-        Major: *mut c_ulong,
-        Minor: *mut c_ulong,
-        Build: *mut c_ulong,
-        Revision: *mut c_ulong,
-    ) -> u32 {
-        println!("ReturnKDMAPIVer");
-        *Major = 4;
-        *Minor = 1;
-        *Build = 0;
-        *Revision = 5;
-        1
-    }
-
-    #[no_mangle]
-    pub extern "C" fn timeGetTime64() -> u64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
-    }
-
-    #[no_mangle]
     pub extern "C" fn modMessage() -> u32 {
-        println!("modMessage");
         1
     }
 
@@ -260,8 +278,6 @@ cfg_if::cfg_if! {
         _OMU: DWORD_PTR,
         OMCM: DWORD,
     ) -> u32 {
-        println!("InitializeCallbackFeatures");
-
         DUMMY_DEVICE = OMHM;
         CALLBACK = OMCB;
         CALLBACK_INSTANCE = OMI;
@@ -278,8 +294,6 @@ cfg_if::cfg_if! {
     #[no_mangle]
     #[allow(clippy::missing_safety_doc)]
     pub unsafe extern "C" fn RunCallbackFunction(Msg: DWORD, P1: DWORD_PTR, P2: DWORD_PTR) {
-        println!("RunCallbackFunction");
-
         //We do a match case just to support stuff if needed
         match CALLBACK_TYPE {
             CALLBACK_FUNCTION => {
