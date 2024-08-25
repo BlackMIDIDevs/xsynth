@@ -6,7 +6,11 @@ pub use xsynth_core::{
 
 /// Options for initializing a new RealtimeSynth.
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(default)
+)]
 pub struct XSynthRealtimeConfig {
     /// Channel initialization options (same for all channels).
     /// See the `ChannelInitOptions` documentation for more information.

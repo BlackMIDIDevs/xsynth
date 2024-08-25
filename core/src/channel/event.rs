@@ -24,6 +24,7 @@ pub enum KeyNoteEvent {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ChannelConfigEvent {
     /// Sets the soundfonts for the channel
+    #[cfg_attr(feature = "serde", serde(skip))]
     SetSoundfonts(Vec<Arc<dyn SoundfontBase>>),
 
     /// Sets the layer count for the soundfont
