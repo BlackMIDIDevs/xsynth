@@ -217,10 +217,7 @@ jobs:
       - name: Create draft release
         uses: softprops/action-gh-release@v1
         with:
-          generate_release_notes: true
-          append_body: true
           body: |
-            
             ## Files
             - `.so`, `.dylib` and `.dll` files are part of the C/C++ API release of XSynth for each platform and architecture
             - `xsynth.h` is the header file to be used with the libraries mentioned above
