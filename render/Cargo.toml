@@ -22,3 +22,4 @@ spin_sleep = "1.2.1"
 atomic_float = "1.0.0"
 thiserror = "1.0.63"
 clap = { version = "4.5.16", features = ["cargo"] }
+crossbeam = "0.8.4"

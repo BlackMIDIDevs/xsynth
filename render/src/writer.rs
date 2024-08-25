@@ -1,11 +1,12 @@
 use crate::config::XSynthRenderConfig;
 
-use std::{fs::File, io::BufWriter, path::PathBuf};
+use std::{path::PathBuf, thread};
 
+use crossbeam_channel::Sender;
 use hound::{WavSpec, WavWriter};
 
 pub struct AudioFileWriter {
-    writer: WavWriter<BufWriter<File>>,
+    sender: Sender<Vec<f32>>,
 }
 
 impl AudioFileWriter {
@@ -16,18 +17,23 @@ impl AudioFileWriter {
             bits_per_sample: 32,
             sample_format: hound::SampleFormat::Float,
         };
-        let writer = WavWriter::create(path, spec).unwrap();
+        let mut writer = WavWriter::create(path, spec).unwrap();
 
-        Self { writer }
+        let (snd, rcv) = crossbeam_channel::unbounded::<Vec<f32>>();
+
+        thread::spawn(move || {
+            for batch in rcv {
+                for s in batch {
+                    writer.write_sample(s).unwrap();
+                }
+            }
+            writer.finalize().unwrap();
+        });
+
+        Self { sender: snd }
     }
 
     pub fn write_samples(&mut self, samples: &mut Vec<f32>) {
-        for s in samples.drain(0..) {
-            self.writer.write_sample(s).unwrap();
-        }
-    }
-
-    pub fn finalize(self) {
-        self.writer.finalize().unwrap();
+        self.sender.send(std::mem::take(samples)).unwrap();
     }
 }
