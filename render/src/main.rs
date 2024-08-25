@@ -74,6 +74,14 @@ fn main() {
         |>unwrap_items()
     );
 
+    let (snd, rcv) = crossbeam_channel::bounded(100);
+
+    thread::spawn(move || {
+        for batch in merged {
+            snd.send(batch).unwrap();
+        }
+    });
+
     let position = Arc::new(AtomicF64::new(0.0));
     let voices = Arc::new(AtomicU64::new(0));
 
@@ -94,6 +102,9 @@ fn main() {
             }
             print!("] {progress:.3}% | ");
             print!("Voice Count: {}", voices.load(Ordering::Relaxed));
+            for _ in 0..10 {
+                print!(" ");
+            }
             if progress >= 100.0 {
                 println!();
                 break;
@@ -101,7 +112,7 @@ fn main() {
         });
     }
 
-    for batch in merged {
+    for batch in rcv {
         if batch.delta > 0.0 {
             synth.render_batch(batch.delta);
             position.fetch_add(batch.delta, Ordering::Relaxed);

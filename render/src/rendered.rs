@@ -124,7 +124,6 @@ impl XSynthRender {
             self.audio_writer
                 .write_samples(&mut self.render_elements.output_vec);
         }
-        self.audio_writer.finalize();
     }
 
     /// Returns the active voice count of the MIDI synthesizer.
