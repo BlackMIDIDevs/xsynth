@@ -31,6 +31,7 @@ use std::{
         Arc,
     },
     thread,
+    time::{Duration, Instant},
 };
 
 use atomic_float::AtomicF64;
@@ -112,6 +113,8 @@ fn main() {
         });
     }
 
+    let now = Instant::now();
+
     for batch in rcv {
         if batch.delta > 0.0 {
             synth.render_batch(batch.delta);
@@ -169,4 +172,8 @@ fn main() {
         ChannelAudioEvent::ResetControl,
     )));
     synth.finalize();
+
+    let elapsed = now.elapsed();
+    thread::sleep(Duration::from_millis(200));
+    println!("Render time: {:?}", elapsed);
 }
