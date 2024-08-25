@@ -3,6 +3,7 @@ name = "xsynth-render"
 description = "A command line utility for rendering MIDIs to audio using XSynth."
 authors = ["Arduano", "MBMS"]
 readme = "README.md"
+publish = false
 
 version.workspace = true
 edition.workspace = true

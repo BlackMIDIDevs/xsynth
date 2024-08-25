@@ -3,6 +3,7 @@ name = "xsynth-kdmapi"
 description = "A cdylib wrapper around XSynth to act as a drop in replacement for OmniMIDI/KDMAPI."
 authors = ["Kaydax", "Arduano", "MBMS"]
 readme = "README.md"
+publish = false
 
 version.workspace = true
 edition.workspace = true

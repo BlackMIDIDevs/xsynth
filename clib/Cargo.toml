@@ -3,6 +3,7 @@ name = "xsynth-clib"
 description = "C/C++ bindings for XSynth"
 authors = ["MBMS"]
 readme = "README.md"
+publish = false
 
 version.workspace = true
 edition.workspace = true
