@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(static_mut_refs)]
 
 use hotwatch::{Event, EventKind, Hotwatch};
 use std::{

@@ -1,5 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::result_unit_err)]
+#![allow(clippy::too_long_first_doc_paragraph)]
 
 pub mod consts;
 pub mod group;
