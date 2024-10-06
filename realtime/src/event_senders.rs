@@ -338,6 +338,7 @@ impl RealtimeEventSender {
         )));
     }
 
+    /// Changes the range of velocities that will be ignored.
     pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
         for sender in self.senders.iter_mut() {
             sender.set_ignore_range(ignore_range.clone());
