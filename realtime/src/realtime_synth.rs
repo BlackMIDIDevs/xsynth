@@ -1,5 +1,6 @@
 use std::{
     collections::VecDeque,
+    ops::RangeInclusive,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, Mutex,
@@ -227,7 +228,7 @@ impl RealtimeSynth {
         let buffered = Arc::new(Mutex::new(BufferedRenderer::new(
             render,
             stream_params,
-            (sample_rate as f64 * config.render_window_ms / 1000.0) as usize,
+            calculate_render_size(sample_rate, config.render_window_ms),
         )));
 
         fn build_stream<T: SizedSample + ConvertSample>(
@@ -325,6 +326,20 @@ impl RealtimeSynth {
         let data = self.data.as_mut().unwrap();
         data.stream.play()
     }
+
+    /// Changes the length of the buffer reader.
+    pub fn set_buffer(&self, render_window_ms: f64) {
+        let data = self.data.as_ref().unwrap();
+        let sample_rate = self.stream_params.sample_rate;
+        let size = calculate_render_size(sample_rate, render_window_ms);
+        data.buffered_renderer.lock().unwrap().set_render_size(size);
+    }
+
+    /// Changes the range of velocities that will be ignored.
+    pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
+        let data = self.data.as_mut().unwrap();
+        data.event_senders.set_ignore_range(ignore_range);
+    }
 }
 
 impl Drop for RealtimeSynth {
@@ -358,4 +373,8 @@ impl ConvertSample for u16 {
     fn from_f32(s: f32) -> Self {
         ((s * u16::MAX as f32) as i32 + i16::MIN as i32) as u16
     }
+}
+
+fn calculate_render_size(sample_rate: u32, buffer_ms: f64) -> usize {
+    (sample_rate as f64 * buffer_ms / 1000.0) as usize
 }

@@ -179,6 +179,10 @@ impl EventSender {
         self.sender.send(ChannelEvent::Config(event)).ok();
     }
 
+    pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
+        self.ignore_range = ignore_range;
+    }
+
     // pub fn send(&mut self, event: ChannelEvent) {
     //     match event {
     //         ChannelEvent::Audio(event) => {
@@ -332,5 +336,11 @@ impl RealtimeEventSender {
         self.send_event(SynthEvent::AllChannels(ChannelEvent::Audio(
             ChannelAudioEvent::ResetControl,
         )));
+    }
+
+    pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
+        for sender in self.senders.iter_mut() {
+            sender.set_ignore_range(ignore_range.clone());
+        }
     }
 }
