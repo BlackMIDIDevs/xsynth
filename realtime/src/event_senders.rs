@@ -10,7 +10,10 @@ use crossbeam_channel::Sender;
 
 use xsynth_core::channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, ControlEvent};
 
-use crate::{util::ReadWriteAtomicU64, SynthEvent};
+use crate::{
+    util::{ReadWriteAtomicRange, ReadWriteAtomicU64},
+    SynthEvent,
+};
 
 static NPS_WINDOW_MILLISECONDS: u64 = 20;
 
@@ -123,7 +126,7 @@ struct EventSender {
     nps: RoughNpsTracker,
     max_nps: Arc<ReadWriteAtomicU64>,
     skipped_notes: [u64; 128],
-    ignore_range: RangeInclusive<u8>,
+    ignore_range: Arc<ReadWriteAtomicRange>,
 }
 
 impl EventSender {
@@ -137,7 +140,7 @@ impl EventSender {
             nps: RoughNpsTracker::new(),
             max_nps,
             skipped_notes: [0; 128],
-            ignore_range,
+            ignore_range: Arc::new(ReadWriteAtomicRange::new(ignore_range)),
         }
     }
 
@@ -148,7 +151,7 @@ impl EventSender {
                     return;
                 }
 
-                let in_ignore_range = self.ignore_range.contains(vel);
+                let in_ignore_range = self.ignore_range.read().contains(vel);
 
                 let nps = self.nps.calculate_nps();
                 if should_send_for_vel_and_nps(*vel, nps, self.max_nps.read()) && !in_ignore_range {
@@ -179,8 +182,8 @@ impl EventSender {
         self.sender.send(ChannelEvent::Config(event)).ok();
     }
 
-    pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
-        self.ignore_range = ignore_range;
+    pub fn set_ignore_range(&self, ignore_range: RangeInclusive<u8>) {
+        self.ignore_range.write(ignore_range);
     }
 
     // pub fn send(&mut self, event: ChannelEvent) {
@@ -339,8 +342,8 @@ impl RealtimeEventSender {
     }
 
     /// Changes the range of velocities that will be ignored.
-    pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
-        for sender in self.senders.iter_mut() {
+    pub fn set_ignore_range(&self, ignore_range: RangeInclusive<u8>) {
+        for sender in self.senders.iter() {
             sender.set_ignore_range(ignore_range.clone());
         }
     }

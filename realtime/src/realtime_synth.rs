@@ -1,5 +1,6 @@
 use std::{
     collections::VecDeque,
+    ops::RangeInclusive,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, Mutex,
@@ -332,6 +333,12 @@ impl RealtimeSynth {
         let sample_rate = self.stream_params.sample_rate;
         let size = calculate_render_size(sample_rate, render_window_ms);
         data.buffered_renderer.lock().unwrap().set_render_size(size);
+    }
+
+    /// Changes the range of velocities that will be ignored.
+    pub fn set_ignore_range(&self, ignore_range: RangeInclusive<u8>) {
+        let data = self.data.as_ref().unwrap();
+        data.event_senders.set_ignore_range(ignore_range);
     }
 }
 

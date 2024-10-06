@@ -72,18 +72,12 @@ pub extern "C" fn XSynth_Realtime_Create(config: XSynth_RealtimeConfig) -> XSynt
         fade_out_killing: config.fade_out_killing,
     };
 
-    let ignore_range = {
-        let low = (config.ignore_range & 255) as u8;
-        let high = (config.ignore_range >> 8) as u8;
-        low..=high
-    };
-
     let options = XSynthRealtimeConfig {
         channel_init_options,
         render_window_ms: config.render_window_ms,
         format: convert_synth_format(config.channels),
         multithreading: convert_threadcount(config.multithreading),
-        ignore_range,
+        ignore_range: get_range_from_u16(config.ignore_range),
     };
 
     let new = RealtimeSynth::open_with_default_output(options);
@@ -167,6 +161,28 @@ pub extern "C" fn XSynth_Realtime_SendConfigEventAll(
     if let Ok(ev) = convert_config_event(event, params) {
         handle.as_mut().send_event(SynthEvent::AllChannels(ev));
     }
+}
+
+/// Sets the length of the buffer reader to the desired value in ms.
+///
+/// --Parameters--
+/// - handle: The handle of the realtime synthesizer instance
+/// - render_window_ms: The length of the buffer reader in ms
+#[no_mangle]
+pub extern "C" fn XSynth_Realtime_SetBuffer(handle: XSynth_RealtimeSynth, render_window_ms: f64) {
+    handle.as_ref().set_buffer(render_window_ms);
+}
+
+/// Sets the range of velocities that will be ignored.
+///
+/// --Parameters--
+/// - handle: The handle of the realtime synthesizer instance
+/// - ignore_range: The range. LOBYTE = start (0-127), HIBYTE = end (start-127)
+#[no_mangle]
+pub extern "C" fn XSynth_Realtime_SetIgnoreRange(handle: XSynth_RealtimeSynth, ignore_range: u16) {
+    handle
+        .as_ref()
+        .set_ignore_range(get_range_from_u16(ignore_range));
 }
 
 /// Sets a list of soundfonts to be used in the specified realtime synth
