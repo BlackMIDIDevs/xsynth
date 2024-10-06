@@ -76,7 +76,7 @@ impl VolumeLimiter {
         &'a mut self,
         samples: T,
     ) -> VolumeLimiterIter<'a, 'b, T> {
-        impl<'a, 'b, T: 'b + Iterator<Item = f32>> Iterator for VolumeLimiterIter<'a, 'b, T> {
+        impl<'b, T: 'b + Iterator<Item = f32>> Iterator for VolumeLimiterIter<'_, 'b, T> {
             type Item = f32;
 
             fn next(&mut self) -> Option<Self::Item> {
