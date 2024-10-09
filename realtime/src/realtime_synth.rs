@@ -1,6 +1,5 @@
 use std::{
     collections::VecDeque,
-    ops::RangeInclusive,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, Mutex,
@@ -290,13 +289,25 @@ impl RealtimeSynth {
         data.event_senders.send_event(event);
     }
 
-    /// Returns the event sender of the realtime synthesizer.
+    /// Returns a reference to the event sender of the realtime synthesizer.
+    /// This can be used to clone the sender so it can be passed in threads.
     ///
     /// See the `RealtimeEventSender` documentation for more information
     /// on how to use.
-    pub fn get_senders(&self) -> RealtimeEventSender {
+    pub fn get_sender_ref(&self) -> &RealtimeEventSender {
         let data = self.data.as_ref().unwrap();
-        data.event_senders.clone()
+        &data.event_senders
+    }
+
+    /// Returns a mutable reference the event sender of the realtime synthesizer.
+    /// This can be used to modify its parameters (eg. ignore range).
+    /// Please note that each clone will store its own distinct parameters.
+    ///
+    /// See the `RealtimeEventSender` documentation for more information
+    /// on how to use.
+    pub fn get_sender_mut(&mut self) -> &mut RealtimeEventSender {
+        let data = self.data.as_mut().unwrap();
+        &mut data.event_senders
     }
 
     /// Returns the statistics reader of the realtime synthesizer.
@@ -333,12 +344,6 @@ impl RealtimeSynth {
         let sample_rate = self.stream_params.sample_rate;
         let size = calculate_render_size(sample_rate, render_window_ms);
         data.buffered_renderer.lock().unwrap().set_render_size(size);
-    }
-
-    /// Changes the range of velocities that will be ignored.
-    pub fn set_ignore_range(&self, ignore_range: RangeInclusive<u8>) {
-        let data = self.data.as_ref().unwrap();
-        data.event_senders.set_ignore_range(ignore_range);
     }
 }
 

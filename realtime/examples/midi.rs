@@ -39,7 +39,7 @@ fn main() {
     };
 
     let synth = RealtimeSynth::open_with_all_defaults();
-    let mut sender = synth.get_senders();
+    let mut sender = synth.get_sender_ref().clone();
 
     let params = synth.stream_params();
 

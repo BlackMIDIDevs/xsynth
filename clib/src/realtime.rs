@@ -1,4 +1,4 @@
-use crate::{handles::*, utils::*, XSynth_StreamParams};
+use crate::{handles::*, utils::*, XSynth_ByteRange, XSynth_StreamParams};
 use xsynth_core::{
     channel::{ChannelConfigEvent, ChannelEvent, ChannelInitOptions},
     channel_group::SynthEvent,
@@ -17,14 +17,14 @@ use xsynth_realtime::{RealtimeSynth, XSynthRealtimeConfig};
 ///         usually causing clicking but improving performance.
 /// - render_window_ms: The length of the buffer reader in ms
 /// - ignore_range: A range of velocities that will not be played
-///         LOBYTE = start (0-127), HIBYTE = end (start-127)
+///         (see XSynth_ByteRange)
 #[repr(C)]
 pub struct XSynth_RealtimeConfig {
     pub channels: u32,
     pub multithreading: i32,
     pub fade_out_killing: bool,
     pub render_window_ms: f64,
-    pub ignore_range: u16,
+    pub ignore_range: XSynth_ByteRange,
 }
 
 /// Generates the default values for the XSynth_RealtimeConfig struct
@@ -41,7 +41,7 @@ pub extern "C" fn XSynth_GenDefault_RealtimeConfig() -> XSynth_RealtimeConfig {
         multithreading: -1,
         fade_out_killing: false,
         render_window_ms: 10.0,
-        ignore_range: 0,
+        ignore_range: XSynth_ByteRange { start: 0, end: 0 },
     }
 }
 
@@ -77,7 +77,7 @@ pub extern "C" fn XSynth_Realtime_Create(config: XSynth_RealtimeConfig) -> XSynt
         render_window_ms: config.render_window_ms,
         format: convert_synth_format(config.channels),
         multithreading: convert_threadcount(config.multithreading),
-        ignore_range: get_range_from_u16(config.ignore_range),
+        ignore_range: config.ignore_range.start..=config.ignore_range.end,
     };
 
     let new = RealtimeSynth::open_with_default_output(options);
@@ -179,10 +179,14 @@ pub extern "C" fn XSynth_Realtime_SetBuffer(handle: XSynth_RealtimeSynth, render
 /// - handle: The handle of the realtime synthesizer instance
 /// - ignore_range: The range. LOBYTE = start (0-127), HIBYTE = end (start-127)
 #[no_mangle]
-pub extern "C" fn XSynth_Realtime_SetIgnoreRange(handle: XSynth_RealtimeSynth, ignore_range: u16) {
+pub extern "C" fn XSynth_Realtime_SetIgnoreRange(
+    handle: XSynth_RealtimeSynth,
+    ignore_range: XSynth_ByteRange,
+) {
     handle
-        .as_ref()
-        .set_ignore_range(get_range_from_u16(ignore_range));
+        .as_mut()
+        .get_sender_mut()
+        .set_ignore_range(ignore_range.start..=ignore_range.end);
 }
 
 /// Sets a list of soundfonts to be used in the specified realtime synth
@@ -264,7 +268,7 @@ pub extern "C" fn XSynth_Realtime_GetStats(handle: XSynth_RealtimeSynth) -> XSyn
 /// - handle: The handle of the realtime synthesizer instance
 #[no_mangle]
 pub extern "C" fn XSynth_Realtime_Reset(handle: XSynth_RealtimeSynth) {
-    handle.as_ref().get_senders().reset_synth();
+    handle.as_mut().get_sender_mut().reset_synth();
 }
 
 /// Drops the specified realtime synth instance.

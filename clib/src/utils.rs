@@ -2,7 +2,7 @@ use crate::{
     consts::*, group::XSynth_ParallelismOptions, handles::*, soundfont::XSynth_EnvelopeOptions,
     XSynth_StreamParams,
 };
-use std::{ops::RangeInclusive, sync::Arc};
+use std::sync::Arc;
 use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, ControlEvent},
     channel_group::{ParallelismOptions, SynthFormat, ThreadCount},
@@ -137,10 +137,4 @@ pub(crate) fn convert_program_value(val: i16) -> Option<u8> {
     } else {
         Some(val as u8)
     }
-}
-
-pub(crate) fn get_range_from_u16(val: u16) -> RangeInclusive<u8> {
-    let low = (val & 255) as u8;
-    let high = (val >> 8) as u8;
-    low..=high
 }
