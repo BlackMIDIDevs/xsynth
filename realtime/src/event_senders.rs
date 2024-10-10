@@ -148,10 +148,11 @@ impl EventSender {
                     return;
                 }
 
-                let in_ignore_range = self.ignore_range.contains(vel);
-
                 let nps = self.nps.calculate_nps();
-                if should_send_for_vel_and_nps(*vel, nps, self.max_nps.read()) && !in_ignore_range {
+
+                if should_send_for_vel_and_nps(*vel, nps, self.max_nps.read())
+                    && !self.ignore_range.contains(vel)
+                {
                     self.sender.send(ChannelEvent::Audio(event)).ok();
                     self.nps.add_note();
                 } else {
@@ -179,16 +180,9 @@ impl EventSender {
         self.sender.send(ChannelEvent::Config(event)).ok();
     }
 
-    // pub fn send(&mut self, event: ChannelEvent) {
-    //     match event {
-    //         ChannelEvent::Audio(event) => {
-    //             self.send_audio(event);
-    //         }
-    //         ChannelEvent::Config(event) => {
-    //             self.send_config(event);
-    //         }
-    //     }
-    // }
+    pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
+        self.ignore_range = ignore_range;
+    }
 }
 
 impl Clone for EventSender {
@@ -332,5 +326,13 @@ impl RealtimeEventSender {
         self.send_event(SynthEvent::AllChannels(ChannelEvent::Audio(
             ChannelAudioEvent::ResetControl,
         )));
+    }
+
+    /// Changes the range of velocities that will be ignored for the
+    /// specific sender instance.
+    pub fn set_ignore_range(&mut self, ignore_range: RangeInclusive<u8>) {
+        for sender in self.senders.iter_mut() {
+            sender.set_ignore_range(ignore_range.clone());
+        }
     }
 }

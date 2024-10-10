@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(static_mut_refs)]
 
 use hotwatch::{Event, EventKind, Hotwatch};
 use std::{
@@ -59,7 +60,7 @@ pub extern "C" fn InitializeKDMAPIStream() -> i32 {
     let sflist = Config::<SFList>::new().load().unwrap();
 
     let realtime_synth = RealtimeSynth::open_with_default_output(config.get_synth_config());
-    let mut sender = realtime_synth.get_senders();
+    let mut sender = realtime_synth.get_sender_ref().clone();
     let params = realtime_synth.stream_params();
 
     sender.send_event(SynthEvent::AllChannels(ChannelEvent::Config(

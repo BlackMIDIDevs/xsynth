@@ -1,5 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::result_unit_err)]
+#![allow(clippy::too_long_first_doc_paragraph)]
 
 pub mod consts;
 pub mod group;
@@ -44,4 +45,13 @@ pub extern "C" fn XSynth_GenDefault_StreamParams() -> XSynth_StreamParams {
         sample_rate: 44100,
         audio_channels: XSYNTH_AUDIO_CHANNELS_STEREO,
     }
+}
+
+/// A helper struct to specify a range of bytes.
+/// - start: The start of the range
+/// - end: The end of the range
+#[repr(C)]
+pub struct XSynth_ByteRange {
+    pub start: u8,
+    pub end: u8,
 }

@@ -59,13 +59,13 @@ bnf! {
 impl<'a> OpcodeValue<'a> {
     pub fn as_string(&self) -> Cow<'a, str> {
         if self.rest.is_empty() {
-            return Cow::Borrowed(self.first.value.text.text);
+            Cow::Borrowed(self.first.value.text.text)
         } else {
             let mut result = String::from(self.first.value.text.text);
             for part in self.rest.iter() {
                 result.push_str(part.value.text.text);
             }
-            return Cow::Owned(result);
+            Cow::Owned(result)
         }
     }
 }

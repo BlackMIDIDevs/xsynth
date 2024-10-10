@@ -227,7 +227,7 @@ impl RealtimeSynth {
         let buffered = Arc::new(Mutex::new(BufferedRenderer::new(
             render,
             stream_params,
-            (sample_rate as f64 * config.render_window_ms / 1000.0) as usize,
+            calculate_render_size(sample_rate, config.render_window_ms),
         )));
 
         fn build_stream<T: SizedSample + ConvertSample>(
@@ -289,13 +289,25 @@ impl RealtimeSynth {
         data.event_senders.send_event(event);
     }
 
-    /// Returns the event sender of the realtime synthesizer.
+    /// Returns a reference to the event sender of the realtime synthesizer.
+    /// This can be used to clone the sender so it can be passed in threads.
     ///
     /// See the `RealtimeEventSender` documentation for more information
     /// on how to use.
-    pub fn get_senders(&self) -> RealtimeEventSender {
+    pub fn get_sender_ref(&self) -> &RealtimeEventSender {
         let data = self.data.as_ref().unwrap();
-        data.event_senders.clone()
+        &data.event_senders
+    }
+
+    /// Returns a mutable reference the event sender of the realtime synthesizer.
+    /// This can be used to modify its parameters (eg. ignore range).
+    /// Please note that each clone will store its own distinct parameters.
+    ///
+    /// See the `RealtimeEventSender` documentation for more information
+    /// on how to use.
+    pub fn get_sender_mut(&mut self) -> &mut RealtimeEventSender {
+        let data = self.data.as_mut().unwrap();
+        &mut data.event_senders
     }
 
     /// Returns the statistics reader of the realtime synthesizer.
@@ -324,6 +336,14 @@ impl RealtimeSynth {
     pub fn resume(&mut self) -> Result<(), PlayStreamError> {
         let data = self.data.as_mut().unwrap();
         data.stream.play()
+    }
+
+    /// Changes the length of the buffer reader.
+    pub fn set_buffer(&self, render_window_ms: f64) {
+        let data = self.data.as_ref().unwrap();
+        let sample_rate = self.stream_params.sample_rate;
+        let size = calculate_render_size(sample_rate, render_window_ms);
+        data.buffered_renderer.lock().unwrap().set_render_size(size);
     }
 }
 
@@ -358,4 +378,8 @@ impl ConvertSample for u16 {
     fn from_f32(s: f32) -> Self {
         ((s * u16::MAX as f32) as i32 + i16::MIN as i32) as u16
     }
+}
+
+fn calculate_render_size(sample_rate: u32, buffer_ms: f64) -> usize {
+    (sample_rate as f64 * buffer_ms / 1000.0) as usize
 }
