@@ -70,10 +70,14 @@ impl RealtimeSynthStatsReader {
     }
 }
 
+struct SendSyncStream(Stream);
+unsafe impl Sync for SendSyncStream {}
+unsafe impl Send for SendSyncStream {}
+
 struct RealtimeSynthThreadSharedData {
     buffered_renderer: Arc<Mutex<BufferedRenderer>>,
 
-    stream: Stream,
+    stream: SendSyncStream,
 
     event_senders: RealtimeEventSender,
 }
@@ -272,7 +276,7 @@ impl RealtimeSynth {
                 buffered_renderer: buffered,
 
                 event_senders: RealtimeEventSender::new(senders, max_nps, config.ignore_range),
-                stream,
+                stream: SendSyncStream(stream),
             }),
             join_handles: thread_handles,
 
@@ -329,13 +333,13 @@ impl RealtimeSynth {
     /// Pauses the playback of the audio output device.
     pub fn pause(&mut self) -> Result<(), PauseStreamError> {
         let data = self.data.as_mut().unwrap();
-        data.stream.pause()
+        data.stream.0.pause()
     }
 
     /// Resumes the playback of the audio output device.
     pub fn resume(&mut self) -> Result<(), PlayStreamError> {
         let data = self.data.as_mut().unwrap();
-        data.stream.play()
+        data.stream.0.play()
     }
 
     /// Changes the length of the buffer reader.
