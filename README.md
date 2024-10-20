@@ -1,14 +1,20 @@
 <h1 align="center">XSynth</h1>
-<p align="center">A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency.</p>
+<p align="center"><b>A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency.</b></p>
+<p align="center">
+<img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/BlackMIDIDevs/xsynth">
+<img alt="GitHub License" src="https://img.shields.io/github/license/BlackMIDIDevs/xsynth">
+<img alt="GitHub Release" src="https://img.shields.io/github/v/release/BlackMIDIDevs/xsynth">
+<img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/BlackMIDIDevs/xsynth/total">
+</p>
 
 ## Modules
 
-- [`core`](https://github.com/BlackMIDIDevs/xsynth/tree/master/core): Handles the core audio rendering functionality.
-- [`clib`](https://github.com/BlackMIDIDevs/xsynth/tree/master/clib): C/C++ bindings for XSynth.
-- [`soundfonts`](https://github.com/BlackMIDIDevs/xsynth/tree/master/soundfonts): A module to parse soundfonts to be used in XSynth.
-- [`realtime`](https://github.com/BlackMIDIDevs/xsynth/tree/master/realtime): The real-time rendering module within XSynth.
-- [`render`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): A command line utility for rendering MIDIs to audio using XSynth.
-- [`kdmapi`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): A cdylib wrapper around XSynth to act as a drop in replacement for OmniMIDI/KDMAPI.
+- [`core`](https://github.com/BlackMIDIDevs/xsynth/tree/master/core): **Handles the core audio rendering functionality.**
+- [`clib`](https://github.com/BlackMIDIDevs/xsynth/tree/master/clib): **_C/C++_ bindings for XSynth.**
+- [`soundfonts`](https://github.com/BlackMIDIDevs/xsynth/tree/master/soundfonts): **A module to parse soundfonts to be used in XSynth.**
+- [`realtime`](https://github.com/BlackMIDIDevs/xsynth/tree/master/realtime): **The real-time rendering module within XSynth.**
+- [`render`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): **A command line utility for rendering MIDIs to audio using XSynth.**
+- [`kdmapi`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): **A cdylib wrapper around XSynth to act as a drop in replacement for OmniMIDI/KDMAPI.**
 
 ## Demos
 
