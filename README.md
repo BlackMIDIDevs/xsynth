@@ -1,5 +1,10 @@
 <h1 align="center">XSynth</h1>
-<p align="center">A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency.</p>
+<p align="center"><b>A fast Rust-based SoundFont synthesizer designed for high voice counts and low latency.</b></p>
+<p align="center">
+<img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/BlackMIDIDevs/xsynth">
+<img alt="GitHub License" src="https://img.shields.io/github/license/BlackMIDIDevs/xsynth">
+<img alt="GitHub Release" src="https://img.shields.io/github/v/release/BlackMIDIDevs/xsynth">
+</p>
 
 ## Modules
 
