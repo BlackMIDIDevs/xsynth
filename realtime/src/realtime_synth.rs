@@ -70,7 +70,7 @@ impl RealtimeSynthStatsReader {
     }
 }
 
-// A helper for making the stream be send/sync, allowing the entire synth to be passed between threads. 
+// A helper for making the stream be send/sync, allowing the entire synth to be passed between threads.
 // The stream is never actually accessed from multiple threads, it's only stored for ownership and then dropped.
 struct SendSyncStream(Stream);
 unsafe impl Sync for SendSyncStream {}
