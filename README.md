@@ -11,9 +11,9 @@
 - [`core`](https://github.com/BlackMIDIDevs/xsynth/tree/master/core): Handles the core audio rendering functionality.
 - [`clib`](https://github.com/BlackMIDIDevs/xsynth/tree/master/clib): C/C++ bindings for XSynth.
 - [`soundfonts`](https://github.com/BlackMIDIDevs/xsynth/tree/master/soundfonts): A module to parse soundfonts to be used in XSynth.
-- [`realtime`](https://github.com/BlackMIDIDevs/xsynth/tree/master/realtime): The real-time rendering module, within XSynth.
-- [`render`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): A command line utility, for rendering MIDIs to audio using XSynth.
-- [`kdmapi`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): A cdylib wrapper around XSynth, act as a drop in replacement for OmniMIDI/KDMAPI.
+- [`realtime`](https://github.com/BlackMIDIDevs/xsynth/tree/master/realtime): The real-time rendering module within XSynth.
+- [`render`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): A command line utility for rendering MIDIs to audio using XSynth.
+- [`kdmapi`](https://github.com/BlackMIDIDevs/xsynth/tree/master/render): A cdylib wrapper around XSynth to act as a drop in replacement for OmniMIDI/KDMAPI.
 
 ## Demos
 
