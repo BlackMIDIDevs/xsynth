@@ -13,7 +13,7 @@ use consts::*;
 use pkg_version::*;
 
 const XSYNTH_VERSION: u32 =
-    pkg_version_patch!() | pkg_version_minor!() << 8 | pkg_version_major!() << 16;
+    pkg_version_patch!() | (pkg_version_minor!() << 8) | (pkg_version_major!() << 16);
 
 /// Returns the version of XSynth
 ///
