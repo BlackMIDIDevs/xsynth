@@ -1,5 +1,5 @@
 use crate::LoopMode;
-use soundfont::{data::hydra::generator::GeneratorType, Zone};
+use soundfont::{raw::GeneratorType, Zone};
 use std::ops::RangeInclusive;
 
 #[derive(Default, Clone, Debug)]
@@ -38,7 +38,12 @@ impl Sf2Zone {
             let mut region = global_region.clone();
 
             for gen in &zone.gen_list {
-                match gen.ty {
+                let Ok(gen_ty) = gen.ty.into_result() else {
+                    // Some synths use non-spec generators let's just ignore them.
+                    continue;
+                };
+
+                match gen_ty {
                     GeneratorType::StartAddrsOffset => region.offset = gen.amount.as_i16().copied(),
                     GeneratorType::StartAddrsCoarseOffset => {
                         region.offset_coarse = gen.amount.as_i16().copied()
