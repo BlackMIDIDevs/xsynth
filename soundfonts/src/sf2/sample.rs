@@ -1,10 +1,11 @@
 use super::Sf2ParseError;
 use crate::resample::resample_vec;
-use soundfont::data::{
-    hydra::sample::{SampleHeader, SampleLink},
-    sample_data::SampleData,
+use soundfont::raw::{SampleChunk, SampleData, SampleHeader, SampleLink};
+use std::{
+    fs::File,
+    io::{self, Read, Seek, SeekFrom},
+    sync::Arc,
 };
-use std::{fs::File, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub struct Sf2Sample {
@@ -18,14 +19,23 @@ pub struct Sf2Sample {
 }
 
 impl Sf2Sample {
+    fn read_chunk(file: &mut File, chunk: SampleChunk) -> io::Result<Vec<u8>> {
+        let mut buff = vec![0; chunk.len as usize];
+
+        file.seek(SeekFrom::Start(chunk.offset))?;
+        file.read_exact(&mut buff)?;
+
+        Ok(buff)
+    }
+
     pub fn parse_sf2_samples(
         file: &mut File,
         headers: Vec<SampleHeader>,
         data: SampleData,
         sample_rate: u32,
     ) -> Result<Vec<Self>, Sf2ParseError> {
-        let smpl = if let Some(data) = data.smpl {
-            data.read_contents(file).map_err(|_| {
+        let smpl = if let Some(chunk) = data.smpl {
+            Self::read_chunk(file, chunk).map_err(|_| {
                 Sf2ParseError::FailedToParseFile("Error reading sample contents".to_string())
             })?
         } else {
@@ -38,7 +48,7 @@ impl Sf2Sample {
 
         if let Some(sm24) = data.sm24 {
             // SF2 is 24-bit
-            let extra = sm24.read_contents(file).map_err(|_| {
+            let extra = Self::read_chunk(file, sm24).map_err(|_| {
                 Sf2ParseError::FailedToParseFile("Error reading extra sample contents".to_string())
             })?;
 
