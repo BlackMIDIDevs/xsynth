@@ -4,7 +4,7 @@ fn main() {
     let major = pkg_version_major!();
     let minor = pkg_version_minor!();
     let patch = pkg_version_patch!();
-    let ver: u32 = patch | minor << 8 | major << 16;
+    let ver: u32 = patch | (minor << 8) | (major << 16);
 
     let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
 
