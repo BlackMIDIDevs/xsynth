@@ -24,6 +24,6 @@ inherits = "release"
 debug = true
 
 [workspace.dependencies]
-xsynth-core = { version = "0.3.1", path = "core" }
-xsynth-realtime = { version = "0.3.1", path = "realtime" }
-xsynth-soundfonts = { version = "0.3.1", path = "soundfonts" }
+xsynth-core = { version = "0.3.2", path = "core" }
+xsynth-realtime = { version = "0.3.2", path = "realtime" }
+xsynth-soundfonts = { version = "0.3.2", path = "soundfonts" }
