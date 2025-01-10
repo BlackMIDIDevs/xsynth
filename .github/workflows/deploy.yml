@@ -52,7 +52,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: "xsynth.h"
-          path: "xsynth.h"
+          path: "clib/xsynth.h"
       
       - name: Upload render
         uses: actions/upload-artifact@v3
