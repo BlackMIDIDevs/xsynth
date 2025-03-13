@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::io::stdin;
 
-use hotwatch::{Event, EventKind, Hotwatch};
+#[cfg(not(target_os = "windows"))]
 use midir::os::unix::VirtualInput;
+
+use hotwatch::{Event, EventKind, Hotwatch};
 use midir::{Ignore, MidiInput};
 use std::{thread, time::Duration};
 use xsynth_core::channel::{ChannelConfigEvent, ChannelEvent};
@@ -18,6 +20,7 @@ fn main() {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn run() -> Result<(), Box<dyn Error>> {
     let config = Config::<Settings>::new().load().unwrap();
     let sflist = Config::<SFList>::new().load().unwrap();
@@ -89,5 +92,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     stdin().read_line(&mut input)?;
     println!("Shutting down...");
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn run() -> Result<(), Box<dyn Error>> {
+    println!("xsynth-interface is not supported on Windows.");
     Ok(())
 }
