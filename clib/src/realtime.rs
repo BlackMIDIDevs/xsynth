@@ -207,9 +207,6 @@ pub extern "C" fn XSynth_Realtime_SetIgnoreRange(
 /// - handle: The handle of the realtime synthesizer instance
 /// - sf_ids: Pointer to an array of soundfont handles
 /// - count: The length of the above array
-///
-/// --Returns--
-/// This function returns the amount of soundfonts set.
 #[no_mangle]
 pub unsafe extern "C" fn XSynth_Realtime_SetSoundfonts(
     handle: XSynth_RealtimeSynth,
