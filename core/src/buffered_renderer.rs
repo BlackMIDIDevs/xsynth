@@ -100,7 +100,7 @@ impl BufferedRenderer {
     /// Creates a new instance of BufferedRenderer.
     ///
     /// - `render`: An object implementing the AudioPipe struct for BufferedRenderer to
-    ///         read samples from
+    ///   read samples from
     /// - `stream_params`: Parameters of the output audio
     /// - `render_size`: The number of samples to render each iteration
     pub fn new<F: 'static + AudioPipe + Send>(

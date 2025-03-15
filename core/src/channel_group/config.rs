@@ -39,10 +39,10 @@ pub enum ThreadCount {
 ///
 /// Best practices:
 /// - As there are often 16 channels in MIDI, per-key multithreading can balance out the
-///     load more evenly between CPU cores.
+///   load more evenly between CPU cores.
 /// - However, per-key multithreading adds some overhead, so if the synth is invoked to
-///     render very small sample counts each time (e.g. sub 1 millisecond), not using per-key
-///     multithreading becomes more efficient.
+///   render very small sample counts each time (e.g. sub 1 millisecond), not using per-key
+///   multithreading becomes more efficient.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serde",

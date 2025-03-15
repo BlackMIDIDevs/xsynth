@@ -184,8 +184,8 @@ impl VoiceChannel {
     /// - `options`: Channel configuration
     /// - `stream_params`: Parameters of the output audio
     /// - `threadpool`: The thread-pool that will be used to render the individual
-    ///         keys' voices concurrently. If None is used, the voices will be
-    ///         rendered on the same thread.
+    ///   keys' voices concurrently. If None is used, the voices will be
+    ///   rendered on the same thread.
     pub fn new(
         options: ChannelInitOptions,
         stream_params: AudioStreamParams,

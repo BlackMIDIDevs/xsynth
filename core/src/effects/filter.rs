@@ -92,7 +92,7 @@ impl MultiChannelBiQuad {
     /// - `freq`: Cutoff frequency
     /// - `sample_rate`: Sample rate of the audio to be processed
     /// - `q`: The Q parameter of the cutoff filter. Use None for the default
-    ///         Butterworth value.
+    ///   Butterworth value.
     pub fn new(
         channels: usize,
         fil_type: FilterType,

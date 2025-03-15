@@ -177,9 +177,9 @@ impl SampleSoundfont {
     /// Parameters:
     /// - `path`: The path of the soundfont to be loaded.
     /// - `stream_params`: Parameters of the output audio. See the `AudioStreamParams`
-    ///         documentation for the available options.
+    ///   documentation for the available options.
     /// - `options`: The soundfont configuration. See the `SoundfontInitOptions`
-    ///         documentation for the available options.
+    ///   documentation for the available options.
     pub fn new(
         path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
@@ -206,9 +206,9 @@ impl SampleSoundfont {
     /// Parameters:
     /// - `path`: The path of the SFZ soundfont to be loaded.
     /// - `stream_params`: Parameters of the output audio. See the `AudioStreamParams`
-    ///         documentation for the available options.
+    ///   documentation for the available options.
     /// - `options`: The soundfont configuration. See the `SoundfontInitOptions`
-    ///         documentation for the available options.
+    ///   documentation for the available options.
     pub fn new_sfz(
         sfz_path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
@@ -365,9 +365,9 @@ impl SampleSoundfont {
     /// Parameters:
     /// - `path`: The path of the SF2 soundfont to be loaded.
     /// - `stream_params`: Parameters of the output audio. See the `AudioStreamParams`
-    ///         documentation for the available options.
+    ///   documentation for the available options.
     /// - `options`: The soundfont configuration. See the `SoundfontInitOptions`
-    ///         documentation for the available options.
+    ///   documentation for the available options.
     pub fn new_sf2(
         sf2_path: impl Into<PathBuf>,
         stream_params: AudioStreamParams,
