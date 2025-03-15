@@ -215,7 +215,7 @@ pub unsafe extern "C" fn XSynth_Realtime_SetSoundfonts(
     handle: XSynth_RealtimeSynth,
     sf_ids: *const XSynth_Soundfont,
     count: u64,
-) -> u64 {
+) {
     unsafe {
         let ids = std::slice::from_raw_parts(sf_ids, count as usize);
         let sfvec = sfids_to_vec(ids);
@@ -224,7 +224,6 @@ pub unsafe extern "C" fn XSynth_Realtime_SetSoundfonts(
             .send_event(SynthEvent::AllChannels(ChannelEvent::Config(
                 ChannelConfigEvent::SetSoundfonts(sfvec),
             )));
-        count
     }
 }
 
