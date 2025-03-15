@@ -104,6 +104,10 @@ pub(crate) fn convert_config_event(event: u16, params: u32) -> Result<ChannelEve
             let layers = convert_layers(params);
             ChannelConfigEvent::SetLayerCount(layers)
         }
+        XSYNTH_CONFIG_SETSOUNDFONT => {
+            let soundfonts = unsafe { sfids_to_vec(std::slice::from_raw_parts(params as _, 16)) };
+            ChannelConfigEvent::SetSoundfonts(soundfonts)
+        }
         XSYNTH_CONFIG_SETPERCUSSIONMODE => {
             ChannelConfigEvent::SetPercussionMode(matches!(params, 1))
         }

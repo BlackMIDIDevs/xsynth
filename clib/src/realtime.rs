@@ -84,6 +84,16 @@ pub extern "C" fn XSynth_Realtime_Create(config: XSynth_RealtimeConfig) -> XSynt
     XSynth_RealtimeSynth::from(new)
 }
 
+/// Sends an raw u32 event to the desired realtime synth instance.
+///
+/// --Parameters--
+/// - handle: The handle of the realtime synthesizer instance
+/// - event: The raw u32 event to be sent
+#[no_mangle]
+pub extern "C" fn XSynth_Realtime_SendEventU32(handle: XSynth_RealtimeSynth, event: u32) {
+    handle.as_mut().send_event_u32(event);
+}
+
 /// Sends an audio event to a specific channel of the desired realtime synth instance.
 ///
 /// --Parameters--
@@ -197,12 +207,15 @@ pub extern "C" fn XSynth_Realtime_SetIgnoreRange(
 /// - handle: The handle of the realtime synthesizer instance
 /// - sf_ids: Pointer to an array of soundfont handles
 /// - count: The length of the above array
+///
+/// --Returns--
+/// This function returns the amount of soundfonts set.
 #[no_mangle]
 pub unsafe extern "C" fn XSynth_Realtime_SetSoundfonts(
     handle: XSynth_RealtimeSynth,
     sf_ids: *const XSynth_Soundfont,
     count: u64,
-) {
+) -> u64 {
     unsafe {
         let ids = std::slice::from_raw_parts(sf_ids, count as usize);
         let sfvec = sfids_to_vec(ids);
@@ -211,6 +224,7 @@ pub unsafe extern "C" fn XSynth_Realtime_SetSoundfonts(
             .send_event(SynthEvent::AllChannels(ChannelEvent::Config(
                 ChannelConfigEvent::SetSoundfonts(sfvec),
             )));
+        count
     }
 }
 

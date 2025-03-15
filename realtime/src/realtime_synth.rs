@@ -295,6 +295,12 @@ impl RealtimeSynth {
         data.event_senders.send_event(event);
     }
 
+    /// Sends a u32 event to the realtime synthesizer.
+    pub fn send_event_u32(&mut self, event: u32) {
+        let data = self.data.as_mut().unwrap();
+        data.event_senders.send_event_u32(event);
+    }
+
     /// Returns a reference to the event sender of the realtime synthesizer.
     /// This can be used to clone the sender so it can be passed in threads.
     ///
