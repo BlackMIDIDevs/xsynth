@@ -6,7 +6,7 @@ A cdylib wrapper around XSynth to act as a drop in replacement for OmniMIDI/KDMA
     1) Alternatively you can build the library yourself by cloning the repo and compiling with Cargo.
 2) Place it in the same directory as your KDMAPI aware software of choice.
 
-Upon loading the library, the following two files will be generated under `%userprofile%/AppData/Roaming/xsynth-kdmapi` (on Windows):
+Upon loading the library, the following two files will be generated under `%userprofile%/AppData/Roaming/xsynth` (on Windows):
 
 ### `settings.json`
 The synthesizer settings. Fields:

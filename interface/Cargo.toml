@@ -1,26 +1,17 @@
 [package]
-name = "xsynth-kdmapi"
-description = "A cdylib wrapper around XSynth to act as a drop in replacement for OmniMIDI/KDMAPI."
-authors = ["Kaydax", "Arduano", "MBMS"]
-readme = "README.md"
-publish = false
-
+name = "xsynth-interface"
 version.workspace = true
-edition.workspace = true
 license.workspace = true
+edition.workspace = true
 homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
-[lib]
-name = "OmniMIDI"
-crate-type = ["cdylib"]
-
 [dependencies]
 xsynth-core = { workspace = true, features = ["serde"] }
 xsynth-realtime = { workspace = true, features = ["serde"] }
-winapi = { version = "0.3.9", features = ["synchapi", "winuser", "mmsystem"] }
+midir = { version = "0.10.1" }
 cfg-if = "1.0.0"
 serde_json = "1.0.122"
 serde = { version = "1.0.206", features = ["derive"] }
