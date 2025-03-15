@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -43,19 +43,20 @@ jobs:
           args: --release --package xsynth-render --target ${{ matrix.target.name }}
 
       - name: Upload clib
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "libxsynth-linux-${{ matrix.target.arch }}.so"
           path: "target/${{ matrix.target.name }}/release/libxsynth.so"
 
       - name: Upload header
-        uses: actions/upload-artifact@v3
+        if: matrix.target.arch == 'x64'
+        uses: actions/upload-artifact@v4
         with:
           name: "xsynth.h"
           path: "clib/xsynth.h"
       
       - name: Upload render
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "xsynth-render-linux-${{ matrix.target.arch }}"
           path: "target/${{ matrix.target.name }}/release/xsynth-render"
@@ -72,7 +73,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -96,13 +97,13 @@ jobs:
           args: --release --package xsynth-render --target ${{ matrix.target.name }}
       
       - name: Upload clib
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "libxsynth-macos-${{ matrix.target.arch }}.dylib"
           path: "target/${{ matrix.target.name }}/release/libxsynth.dylib"
       
       - name: Upload render
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "xsynth-render-macos-${{ matrix.target.arch }}"
           path: "target/${{ matrix.target.name }}/release/xsynth-render"
@@ -119,7 +120,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup ninja
         uses: seanmiddleditch/gha-setup-ninja@master
@@ -146,13 +147,13 @@ jobs:
           args: --release --package xsynth-render --target ${{ matrix.target.name }}
       
       - name: Upload clib
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "xsynth-windows-${{ matrix.target.arch }}.dll"
           path: "target/${{ matrix.target.name }}/release/xsynth.dll"
 
       - name: Upload render
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "xsynth-render-windows-${{ matrix.target.arch }}.exe"
           path: "target/${{ matrix.target.name }}/release/xsynth-render.exe"
@@ -161,7 +162,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup ninja
         uses: seanmiddleditch/gha-setup-ninja@master
@@ -182,7 +183,7 @@ jobs:
           args: --release --package xsynth-kdmapi --target x86_64-pc-windows-msvc
       
       - name: Upload kdmapi
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "OmniMIDI.dll"
           path: "target/x86_64-pc-windows-msvc/release/OmniMIDI.dll"
@@ -198,10 +199,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
