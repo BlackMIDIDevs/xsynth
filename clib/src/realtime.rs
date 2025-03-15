@@ -84,6 +84,16 @@ pub extern "C" fn XSynth_Realtime_Create(config: XSynth_RealtimeConfig) -> XSynt
     XSynth_RealtimeSynth::from(new)
 }
 
+/// Sends an raw u32 event to the desired realtime synth instance.
+///
+/// --Parameters--
+/// - handle: The handle of the realtime synthesizer instance
+/// - event: The raw u32 event to be sent
+#[no_mangle]
+pub extern "C" fn XSynth_Realtime_SendEventU32(handle: XSynth_RealtimeSynth, event: u32) {
+    handle.as_mut().send_event_u32(event);
+}
+
 /// Sends an audio event to a specific channel of the desired realtime synth instance.
 ///
 /// --Parameters--
