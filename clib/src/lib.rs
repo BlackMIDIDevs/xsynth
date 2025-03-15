@@ -1,6 +1,7 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::too_long_first_doc_paragraph)]
+#![allow(clippy::doc_overindented_list_items)]
 
 pub mod consts;
 pub mod group;
