@@ -33,6 +33,12 @@ pub enum SfzOpcode {
     Offset(u32),
     Cutoff(f32),
     Resonance(f32),
+    AmpKeycenter(i8),
+    AmpKeytrack(f32),
+    AmpVeltrack(f32),
+    PanKeycenter(i8),
+    PanKeytrack(f32),
+    PanVeltrack(f32),
     FilVeltrack(i16),
     FilKeycenter(i8),
     FilKeytrack(i16),
@@ -52,6 +58,7 @@ pub enum SfzAmpegEnvelope {
     AmpegDecay(f32),
     AmpegSustain(f32),
     AmpegRelease(f32),
+    AmpegVel2Release(f32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -246,6 +253,12 @@ fn parse_sfz_opcode(
         "key" => parse_key_number(val).map(Key),
         "cutoff" => parse_float_in_range(val, 1.0..=100000.0).map(Cutoff),
         "resonance" => parse_float_in_range(val, 0.0..=40.0).map(Resonance),
+        "amp_keycenter" => parse_key_number(val).map(AmpKeycenter),
+        "amp_keytrack" => parse_float_in_range(val, -96.0..=12.0).map(AmpKeytrack),
+        "amp_veltrack" => parse_float_in_range(val, -100.0..=100.0).map(AmpVeltrack),
+        "pan_keycenter" => parse_key_number(val).map(PanKeycenter),
+        "pan_keytrack" => parse_float_in_range(val, -100.0..=100.0).map(PanKeytrack),
+        "pan_veltrack" => parse_float_in_range(val, -100.0..=100.0).map(PanVeltrack),
         "fil_veltrack" => parse_i16_in_range(val, -9600..=9600).map(FilVeltrack),
         "fil_keytrack" => parse_i16_in_range(val, 0..=1200).map(FilKeytrack),
         "fil_keycenter" => parse_key_number(val).map(FilKeycenter),
@@ -277,6 +290,9 @@ fn parse_sfz_opcode(
             .map(AmpegEnvelope),
         "ampeg_release" => parse_float_in_range(val, 0.0..=100.0)
             .map(AmpegRelease)
+            .map(AmpegEnvelope),
+        "ampeg_vel2release" => parse_float_in_range(val, -100.0..=100.0)
+            .map(AmpegVel2Release)
             .map(AmpegEnvelope),
 
         "sample" => Some(Sample(val.replace('\\', "/"))),

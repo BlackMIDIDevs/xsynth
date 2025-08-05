@@ -126,6 +126,7 @@ impl Sf2ParsedPreset {
                                         .unwrap_or(subzone.env_sustain.unwrap_or(100.0)),
                                     ampeg_release: subzone.env_release.unwrap_or(0.0)
                                         * zone.env_release.unwrap_or(1.0),
+                                    ampeg_vel2release: 0.0,
                                 },
                             };
 

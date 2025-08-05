@@ -22,7 +22,7 @@ impl Deref for GroupVoice {
 
 impl DerefMut for GroupVoice {
     #[inline(always)]
-    fn deref_mut(&mut self) -> &mut Box<(dyn Voice)> {
+    fn deref_mut(&mut self) -> &mut Box<dyn Voice> {
         &mut self.voice
     }
 }

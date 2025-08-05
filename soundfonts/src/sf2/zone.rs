@@ -84,7 +84,7 @@ impl Sf2Zone {
                         region.env_sustain = gen
                             .amount
                             .as_i16()
-                            .map(|v| 10f32.powf(-1.0 * *v as f32 / 200.0) * 100.0)
+                            .map(|v| 10f32.powf(-(*v as f32) / 200.0) * 100.0)
                     }
                     GeneratorType::ReleaseVolEnv => {
                         region.env_release =

@@ -18,7 +18,7 @@ use super::{
     voice::VoiceControlData,
     voice::{EnvelopeParameters, Voice},
 };
-use crate::{helpers::db_to_amp, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
+use crate::{helpers::db_to_amp, AudioStreamParams, ChannelCount};
 
 pub use xsynth_soundfonts::{sf2::Sf2ParseError, sfz::SfzParseError};
 
@@ -232,26 +232,6 @@ impl SampleSoundfont {
             .collect();
         let samples = samples?;
 
-        // Find the unique envelope params
-        let mut unique_envelope_params =
-            Vec::<(EnvelopeDescriptor, Arc<EnvelopeParameters>)>::new();
-        for region in regions.iter() {
-            let envelope_descriptor =
-                envelope_descriptor_from_region_params(&region.ampeg_envelope);
-            let exists = unique_envelope_params
-                .iter()
-                .any(|e| e.0 == envelope_descriptor);
-            if !exists {
-                unique_envelope_params.push((
-                    envelope_descriptor,
-                    Arc::new(envelope_descriptor.to_envelope_params(
-                        stream_params.sample_rate,
-                        options.vol_envelope_options,
-                    )),
-                ));
-            }
-        }
-
         // Generate region params
         let mut spawner_params_list = Vec::<Vec<Arc<SampleVoiceSpawnerParams>>>::new();
         for _ in 0..(128 * 128) {
@@ -275,12 +255,15 @@ impl SampleSoundfont {
                         get_speed_mult_from_keys(key as u8, region.pitch_keycenter as u8)
                             * cents_factor(region.tune as f32);
 
-                    let envelope_params = unique_envelope_params
-                        .iter()
-                        .find(|e| e.0 == envelope)
-                        .unwrap()
-                        .1
-                        .clone();
+                    let mut envelope = envelope;
+                    envelope.release +=
+                        (vel as f32 / 127.0) * region.ampeg_envelope.ampeg_vel2release;
+
+                    let envelope_params = envelope.to_envelope_params(
+                        stream_params.sample_rate,
+                        options.vol_envelope_options,
+                    );
+                    let envelope_params = Arc::new(envelope_params);
 
                     let mut cutoff = None;
                     if options.use_effects {
@@ -298,8 +281,25 @@ impl SampleSoundfont {
                         }
                     }
 
-                    let pan = ((region.pan as f32 / 100.0) + 1.0) / 2.0;
-                    let volume = db_to_amp(region.volume as f32);
+                    let pan_mult = vel as f32 / 127.0 * region.pan_veltrack
+                        + (key as f32 - region.pan_keycenter as f32) * region.pan_keytrack;
+                    let pan = (region.pan as f32 + pan_mult).clamp(-100.0, 100.0) / 100.0;
+                    let pan = (pan + 1.0) / 2.0;
+
+                    let vol_vel = {
+                        let a = region.amp_veltrack / 100.0;
+                        let aabs = a.abs();
+                        let vel = vel as f32;
+
+                        127.0 * (1.0 - aabs)
+                            + vel * (a + aabs) / 2.0
+                            + (127.0 - vel) * (aabs - a) / 2.0
+                    };
+                    let vol_mult = (vol_vel / 127.0).powi(2);
+                    let vol_db_add =
+                        (key as f32 - region.amp_keycenter as f32) * region.amp_keytrack;
+                    let vol_db = (region.volume as f32 + vol_db_add).clamp(-96.0, 12.0);
+                    let volume = vol_mult * db_to_amp(vol_db);
 
                     let sample_rate = samples[&params].1;
 
@@ -425,6 +425,7 @@ impl SampleSoundfont {
                         }
 
                         let pan = ((region.pan as f32 / 500.0) + 1.0) / 2.0;
+                        let volume = region.volume * (vel as f32 / 127.0).powi(2);
 
                         let loop_params = LoopParams {
                             mode: if region.loop_start == region.loop_end {
@@ -447,7 +448,7 @@ impl SampleSoundfont {
 
                         let spawner_params = Arc::new(SampleVoiceSpawnerParams {
                             pan,
-                            volume: region.volume,
+                            volume,
                             envelope: envelope_params.clone(),
                             speed_mult,
                             cutoff,
