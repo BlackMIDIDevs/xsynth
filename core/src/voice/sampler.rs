@@ -119,7 +119,7 @@ impl<Sampler: BufferSampler> SampleReader for SampleReaderNoLoop<Sampler> {
 
     fn is_past_end(&self, pos: usize) -> bool {
         if let Some(len) = self.length {
-            pos - self.offset >= len
+            pos - self.offset.min(pos) >= len
         } else {
             false
         }
@@ -198,12 +198,12 @@ impl<Sampler: BufferSampler> SampleReader for SampleReaderLoopSustain<Sampler> {
         let start = self.loop_start;
 
         if !self.is_released {
-            self.last = pos;
             if pos > end {
                 pos = (pos - end - 1) % (end - start) + start;
+                self.last = pos;
             }
         } else {
-            pos = pos - self.last + self.loop_end;
+            pos -= self.last;
         }
 
         self.buffer.get(pos)
@@ -211,7 +211,7 @@ impl<Sampler: BufferSampler> SampleReader for SampleReaderLoopSustain<Sampler> {
 
     fn is_past_end(&self, pos: usize) -> bool {
         if let Some(len) = self.length {
-            pos - self.last - self.offset >= len
+            pos - (self.last - self.offset).min(pos) >= len
         } else {
             false
         }
