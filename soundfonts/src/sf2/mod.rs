@@ -60,7 +60,7 @@ pub fn load_soundfont(
         .map_err(|_| Sf2ParseError::FailedToReadFile(sf2_path.clone()))?;
     let file = &mut file;
     let sf2 = soundfont::SoundFont2::load(file)
-        .map_err(|e| Sf2ParseError::FailedToParseFile(format!("{:#?}", e)))?
+        .map_err(|e| Sf2ParseError::FailedToParseFile(format!("{e:#?}")))?
         .sort_presets();
 
     let sample_data = sample::Sf2Sample::parse_sf2_samples(

@@ -10,7 +10,7 @@ fn main() {
 
     let mut config = cbindgen::Config::from_file("cbindgen.toml")
         .expect("Unable to find cbindgen.toml configuration file");
-    config.after_includes = Some(format!("\n#define XSYNTH_VERSION {:#x}", ver));
+    config.after_includes = Some(format!("\n#define XSYNTH_VERSION {ver:#x}"));
 
     cbindgen::Builder::new()
         .with_config(config)

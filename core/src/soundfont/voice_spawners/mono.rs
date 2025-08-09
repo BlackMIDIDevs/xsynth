@@ -43,7 +43,7 @@ impl<S: Simd + Send + Sync> MonoSampledVoiceSpawner<S> {
         vel: u8,
         stream_params: AudioStreamParams,
     ) -> Self {
-        let amp = (vel as f32 / 127.0).powi(2) * params.volume;
+        let amp = params.volume;
 
         let filter = params.cutoff.map(|cutoff| {
             BiQuadFilter::new(
