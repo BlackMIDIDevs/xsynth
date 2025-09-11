@@ -216,7 +216,7 @@ impl VoiceChannel {
             cutoff: MultiChannelBiQuad::new(
                 stream_params.channels.count() as usize,
                 FilterType::LowPass,
-                20000.0,
+                stream_params.sample_rate as f32 / 2.0,
                 stream_params.sample_rate as f32,
                 None,
             ),
