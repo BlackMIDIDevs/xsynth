@@ -67,14 +67,12 @@ impl KeyData {
     }
 
     pub fn render_to(&mut self, out: &mut [f32]) {
-        if !self.has_voices() {
-            return;
+        if self.has_voices() {
+            for voice in &mut self.voices.iter_voices_mut() {
+                voice.render_to(out);
+            }
+            self.voices.remove_ended_voices();
         }
-
-        for voice in &mut self.voices.iter_voices_mut() {
-            voice.render_to(out);
-        }
-        self.voices.remove_ended_voices();
 
         let voice_count = self.voices.voice_count();
         let change = voice_count as i64 - self.last_voice_count as i64;

@@ -59,6 +59,9 @@ pub enum ChannelAudioEvent {
 
     /// Program change event
     ProgramChange(u8),
+
+    /// System reset
+    SystemReset,
 }
 
 /// Wrapper enum for various events for a channel.

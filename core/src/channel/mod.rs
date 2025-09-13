@@ -550,6 +550,14 @@ impl VoiceChannel {
                     ChannelAudioEvent::ProgramChange(preset) => {
                         self.params.set_preset(preset);
                     }
+                    ChannelAudioEvent::SystemReset => {
+                        for key in self.key_voices.iter_mut() {
+                            key.event_cache.clear();
+                            key.event_cache.push(KeyNoteEvent::AllKilled);
+                        }
+                        self.reset_control();
+                        self.reset_program();
+                    }
                 },
                 ChannelEvent::Config(config) => self.params.process_config_event(config),
             }
@@ -566,7 +574,6 @@ impl VoiceChannel {
     fn reset_control(&mut self) {
         self.control_event_data = ControlEventData::new_defaults(self.stream_params.sample_rate);
         self.voice_control_data = VoiceControlData::new_defaults();
-        self.process_event(ChannelEvent::Audio(ChannelAudioEvent::ProgramChange(0)));
         self.propagate_voice_controls();
 
         self.control_event_data.cutoff = None;
@@ -574,6 +581,11 @@ impl VoiceChannel {
         for key in self.key_voices.iter_mut() {
             key.data.set_damper(false);
         }
+    }
+
+    fn reset_program(&mut self) {
+        self.params.set_bank(0);
+        self.params.set_preset(0);
     }
 }
 
