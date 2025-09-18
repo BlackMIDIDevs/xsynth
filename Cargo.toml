@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "clib", "soundfonts", "realtime", "render", "kdmapi"]
+members = ["core", "clib", "soundfonts", "realtime", "render", "kdmapi", "interface"]
 
 [workspace.package]
 version = "0.3.4"
