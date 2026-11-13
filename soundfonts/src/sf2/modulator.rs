@@ -1,4 +1,10 @@
-use crate::sfz::AmpegEnvelopeParams;
+use crate::{
+    modulation::{
+        shape_value, EnvelopeTarget, ModController, ModCurve, ModDestination, ModSource,
+        RegionModulation, RuntimeModulator,
+    },
+    sfz::AmpegEnvelopeParams,
+};
 use soundfont::raw::{
     default_modulators, ControllerPalette, GeneralPalette, GeneratorType, Modulator,
     ModulatorTransform, SourceDirection, SourcePolarity, SourceType,
@@ -81,6 +87,20 @@ struct Sf2NoteModSource {
 enum Sf2NoteController {
     Velocity,
     KeyNumber,
+    Cc(u8),
+    PitchWheel,
+    ChannelPressure,
+}
+
+impl Sf2NoteController {
+    fn runtime(&self) -> Option<ModController> {
+        match *self {
+            Sf2NoteController::Velocity | Sf2NoteController::KeyNumber => None,
+            Sf2NoteController::Cc(cc) => Some(ModController::Cc(cc)),
+            Sf2NoteController::PitchWheel => Some(ModController::PitchWheel),
+            Sf2NoteController::ChannelPressure => Some(ModController::ChannelPressure),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -154,7 +174,7 @@ impl Sf2Region {
     fn note_modulation(&self, key: u8, velocity: u8) -> Sf2NoteModulation {
         let mut out = Sf2NoteModulation::default();
 
-        for modulator in self.note_modulators.iter() {
+        for modulator in self.note_modulators.iter().filter(|m| m.is_note_only()) {
             let amount = modulator.evaluate(key, velocity);
             if amount == 0.0 {
                 continue;
@@ -178,10 +198,100 @@ impl Sf2Region {
 
         out
     }
+
+    /// Returns the controller-driven modulators of this region for a note,
+    /// with any key/velocity source folded into the amount.
+    pub fn runtime_modulation(&self, key: u8, velocity: u8) -> RegionModulation {
+        let modulators = self
+            .note_modulators
+            .iter()
+            .filter_map(|m| m.to_runtime(key, velocity))
+            .collect();
+        RegionModulation {
+            modulators,
+            amplitude_percent: 100.0,
+            ..Default::default()
+        }
+    }
 }
 
 impl Sf2NoteModulator {
+    pub(crate) fn is_note_only(&self) -> bool {
+        self.src.controller.runtime().is_none()
+            && self
+                .amount_src
+                .is_none_or(|src| src.controller.runtime().is_none())
+    }
+
+    fn to_runtime(self, key: u8, velocity: u8) -> Option<RuntimeModulator> {
+        if self.is_note_only() {
+            return None;
+        }
+
+        // Fold note-on sources into the amount so only live controllers remain.
+        let mut amount = self.amount as f32;
+        let (source, amount_source) = match (self.src.to_runtime(), self.amount_src) {
+            (Some(src), None) => (src, None),
+            (Some(src), Some(amt)) => match amt.to_runtime() {
+                Some(amt) => (src, Some(amt)),
+                None => {
+                    amount *= amt.evaluate(key, velocity);
+                    (src, None)
+                }
+            },
+            (None, Some(amt)) => {
+                amount *= self.src.evaluate(key, velocity);
+                (amt.to_runtime()?, None)
+            }
+            (None, None) => return None,
+        };
+
+        let (destination, amount) = match self.dest {
+            // Attenuation is in centibels, positive values make the voice quieter.
+            Sf2NoteModDestination::InitialAttenuation => (ModDestination::VolumeDb, -amount / 10.0),
+            Sf2NoteModDestination::InitialFilterFc => (ModDestination::CutoffCents, amount),
+            Sf2NoteModDestination::InitialFilterQ => (ModDestination::ResonanceDb, amount / 10.0),
+            // Pan is in 0.1% units, -500 is full left.
+            Sf2NoteModDestination::Pan => (ModDestination::Pan, amount / 500.0),
+            Sf2NoteModDestination::FineTune => (ModDestination::PitchCents, amount),
+            Sf2NoteModDestination::CoarseTune => (ModDestination::PitchCents, amount * 100.0),
+            Sf2NoteModDestination::DelayVolEnv => {
+                (ModDestination::EnvelopeLog(EnvelopeTarget::Delay), amount)
+            }
+            Sf2NoteModDestination::AttackVolEnv => {
+                (ModDestination::EnvelopeLog(EnvelopeTarget::Attack), amount)
+            }
+            Sf2NoteModDestination::HoldVolEnv => {
+                (ModDestination::EnvelopeLog(EnvelopeTarget::Hold), amount)
+            }
+            Sf2NoteModDestination::DecayVolEnv => {
+                (ModDestination::EnvelopeLog(EnvelopeTarget::Decay), amount)
+            }
+            Sf2NoteModDestination::SustainVolEnv => {
+                (ModDestination::EnvelopeLog(EnvelopeTarget::Sustain), amount)
+            }
+            Sf2NoteModDestination::ReleaseVolEnv => {
+                (ModDestination::EnvelopeLog(EnvelopeTarget::Release), amount)
+            }
+        };
+
+        Some(RuntimeModulator {
+            source,
+            amount_source,
+            amount,
+            absolute: self.transform == Sf2NoteTransform::Absolute,
+            destination,
+        })
+    }
+
     pub(crate) fn parse_zone(modulator: &Modulator) -> Option<Self> {
+        // The SF2 default controller modulators (CC7, CC10, CC11, pitch wheel, ...) are
+        // implemented once per channel. A zone redefining one of them replaces the
+        // default with the same behaviour, so it is skipped here instead of being
+        // applied twice.
+        if is_default_controller_modulator(modulator) {
+            return None;
+        }
         Self::parse(modulator)
     }
 
@@ -284,6 +394,15 @@ impl Sf2NoteModSource {
                 ControllerPalette::General(GeneralPalette::NoteOnKeyNumber) => {
                     Sf2NoteController::KeyNumber
                 }
+                ControllerPalette::General(GeneralPalette::PitchWheel) => {
+                    Sf2NoteController::PitchWheel
+                }
+                ControllerPalette::General(GeneralPalette::ChannelPressure) => {
+                    Sf2NoteController::ChannelPressure
+                }
+                // CC 0-31 LSBs pair with their MSB, and 96-127 are channel mode / RPN
+                // controllers which the SF2 spec does not allow as sources.
+                ControllerPalette::Midi(cc) if cc < 120 => Sf2NoteController::Cc(cc),
                 _ => return None,
             },
             direction: match source.direction {
@@ -308,76 +427,59 @@ impl Sf2NoteModSource {
         let value = match self.controller {
             Sf2NoteController::Velocity => velocity as f32,
             Sf2NoteController::KeyNumber => key as f32,
+            _ => return 1.0,
         };
-        let normalized = value / 127.0;
+        self.shape(value / 127.0)
+    }
 
-        match (self.curve, self.polarity, self.direction) {
-            (Sf2NoteCurve::Linear, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Positive) => {
-                normalized
-            }
-            (Sf2NoteCurve::Linear, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Negative) => {
-                1.0 - normalized
-            }
-            (Sf2NoteCurve::Linear, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Positive) => {
-                -1.0 + 2.0 * normalized
-            }
-            (Sf2NoteCurve::Linear, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Negative) => {
-                1.0 - 2.0 * normalized
-            }
-            (Sf2NoteCurve::Concave, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Positive) => {
-                concave_lookup(normalized)
-            }
-            (Sf2NoteCurve::Concave, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Negative) => {
-                concave_lookup(1.0 - normalized)
-            }
-            (Sf2NoteCurve::Concave, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Positive) => {
-                bipolar_lookup(normalized, concave_lookup)
-            }
-            (Sf2NoteCurve::Concave, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Negative) => {
-                -bipolar_lookup(normalized, concave_lookup)
-            }
-            (Sf2NoteCurve::Convex, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Positive) => {
-                convex_lookup(normalized)
-            }
-            (Sf2NoteCurve::Convex, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Negative) => {
-                convex_lookup(1.0 - normalized)
-            }
-            (Sf2NoteCurve::Convex, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Positive) => {
-                bipolar_lookup(normalized, convex_lookup)
-            }
-            (Sf2NoteCurve::Convex, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Negative) => {
-                -bipolar_lookup(normalized, convex_lookup)
-            }
-            (Sf2NoteCurve::Switch, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Positive) => {
-                if normalized >= 0.5 {
-                    1.0
-                } else {
-                    0.0
-                }
-            }
-            (Sf2NoteCurve::Switch, Sf2NotePolarity::Unipolar, Sf2NoteDirection::Negative) => {
-                if normalized >= 0.5 {
-                    0.0
-                } else {
-                    1.0
-                }
-            }
-            (Sf2NoteCurve::Switch, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Positive) => {
-                if normalized >= 0.5 {
-                    1.0
-                } else {
-                    -1.0
-                }
-            }
-            (Sf2NoteCurve::Switch, Sf2NotePolarity::Bipolar, Sf2NoteDirection::Negative) => {
-                if normalized >= 0.5 {
-                    -1.0
-                } else {
-                    1.0
-                }
-            }
+    fn shape(&self, normalized: f32) -> f32 {
+        shape_value(
+            self.curve.into(),
+            self.polarity == Sf2NotePolarity::Bipolar,
+            self.direction == Sf2NoteDirection::Negative,
+            normalized,
+        )
+    }
+
+    fn to_runtime(self) -> Option<ModSource> {
+        Some(ModSource {
+            controller: self.controller.runtime()?,
+            curve: self.curve.into(),
+            bipolar: self.polarity == Sf2NotePolarity::Bipolar,
+            negative: self.direction == Sf2NoteDirection::Negative,
+        })
+    }
+}
+
+impl From<Sf2NoteCurve> for ModCurve {
+    fn from(value: Sf2NoteCurve) -> Self {
+        match value {
+            Sf2NoteCurve::Linear => ModCurve::Linear,
+            Sf2NoteCurve::Concave => ModCurve::Concave,
+            Sf2NoteCurve::Convex => ModCurve::Convex,
+            Sf2NoteCurve::Switch => ModCurve::Switch,
         }
     }
+}
+
+fn is_default_controller_modulator(modulator: &Modulator) -> bool {
+    use default_modulators::*;
+    [
+        &DEFAULT_AT2VIBLFO_MOD,
+        &DEFAULT_MOD2VIBLFO_MOD,
+        &DEFAULT_ATT_MOD,
+        &DEFAULT_PAN_MOD,
+        &DEFAULT_EXPR_MOD,
+        &DEFAULT_REVERB_MOD,
+        &DEFAULT_CHORUS_MOD,
+    ]
+    .iter()
+    .any(|default| {
+        default.src == modulator.src
+            && default.amt_src == modulator.amt_src
+            && default.dest == modulator.dest
+            && default.transform == modulator.transform
+    })
 }
 
 #[allow(clippy::excessive_precision)]
@@ -652,20 +754,12 @@ fn lookup_controller_curve(table: &[f32; 128], normalized: f32) -> f32 {
     table[index] + (table[next] - table[index]) * frac
 }
 
-fn concave_lookup(normalized: f32) -> f32 {
+pub(crate) fn concave_lookup(normalized: f32) -> f32 {
     lookup_controller_curve(&CONCAVE_TABLE, normalized)
 }
 
-fn convex_lookup(normalized: f32) -> f32 {
+pub(crate) fn convex_lookup(normalized: f32) -> f32 {
     lookup_controller_curve(&CONVEX_TABLE, normalized)
-}
-
-fn bipolar_lookup(normalized: f32, map: fn(f32) -> f32) -> f32 {
-    if normalized > 0.5 {
-        map((normalized - 0.5) * 2.0)
-    } else {
-        -map((0.5 - normalized) * 2.0)
-    }
 }
 
 fn keynum_to_timecents(amount: i16, key: u8) -> f32 {
@@ -858,6 +952,50 @@ mod tests {
         .unwrap();
 
         assert!(explicit.suppresses_default(&default));
+    }
+
+    #[test]
+    fn cc_modulator_becomes_runtime_with_velocity_folded_in() {
+        let modulator = Modulator {
+            src: source(
+                ControllerPalette::Midi(2),
+                SourceDirection::Positive,
+                SourcePolarity::Unipolar,
+                SourceType::Linear,
+            ),
+            dest: GeneratorType::InitialAttenuation,
+            amount: 200,
+            amt_src: source(
+                ControllerPalette::General(GeneralPalette::NoteOnVelocity),
+                SourceDirection::Positive,
+                SourcePolarity::Unipolar,
+                SourceType::Linear,
+            ),
+            transform: ModulatorTransform::Linear,
+        };
+
+        let parsed = Sf2NoteModulator::parse_zone(&modulator).unwrap();
+        assert!(!parsed.is_note_only());
+        // Runtime modulators must not leak into the baked note-on values
+        assert_eq!(parsed.evaluate(60, 127), 200.0);
+
+        let runtime = parsed.to_runtime(60, 127).unwrap();
+        assert_eq!(runtime.source.controller, ModController::Cc(2));
+        assert!(runtime.amount_source.is_none());
+        assert_eq!(runtime.destination, ModDestination::VolumeDb);
+        // 200cB of attenuation at full velocity -> -20dB
+        assert!((runtime.amount + 20.0).abs() < 1e-4);
+
+        let half = parsed.to_runtime(60, 0).unwrap();
+        assert_eq!(half.amount, 0.0);
+    }
+
+    #[test]
+    fn default_controller_modulators_are_left_to_the_channel() {
+        assert!(Sf2NoteModulator::parse_zone(&default_modulators::DEFAULT_ATT_MOD).is_none());
+        assert!(Sf2NoteModulator::parse_zone(&default_modulators::DEFAULT_PAN_MOD).is_none());
+        assert!(Sf2NoteModulator::parse_zone(&default_modulators::DEFAULT_EXPR_MOD).is_none());
+        assert!(Sf2NoteModulator::parse_zone(&default_modulators::DEFAULT_VEL2ATT_MOD).is_some());
     }
 
     #[test]

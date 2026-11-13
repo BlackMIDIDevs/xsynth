@@ -55,7 +55,7 @@ where
 {
     fn render_to(&mut self, buffer: &mut [f32]) {
         simd_invoke!(S, {
-            for chunk in buffer.chunks_exact_mut(2) {
+            for chunk in buffer.as_chunks_mut::<2>().0 {
                 if self.remainder_pos == S::Vf32::WIDTH {
                     self.remainder = self.generator.next_sample();
                     self.remainder_pos = 0;

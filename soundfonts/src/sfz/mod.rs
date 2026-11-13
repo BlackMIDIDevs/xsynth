@@ -122,4 +122,148 @@ sample=samples/tone.wav
 
         fs::remove_dir_all(dir).unwrap();
     }
+
+    #[test]
+    fn parse_soundfont_reads_controller_opcodes() {
+        use crate::modulation::{
+            CcCrossfade, CcRange, CrossfadeCurve, EnvelopeTarget, ModController, ModDestination,
+        };
+
+        let dir = create_temp_dir("controllers");
+        let sfz_path = dir.join("instrument.sfz");
+        let sample_path = dir.join("tone.wav");
+
+        write(&sample_path, "");
+        write(
+            &sfz_path,
+            r#"
+<control>
+set_cc1=20
+set_hdcc11=0.5
+<group>
+amplitude=0
+amplitude_oncc1=100
+volume_oncc7=-12
+gain_cc11=6
+pan_oncc10=50
+pitch_oncc128=200
+tune_cc2=100
+cutoff_oncc74=1200
+resonance_oncc71=6
+ampeg_attack_oncc73=2
+ampeg_releasecc72=1.5
+cutoff_chanaft=600
+locc64=64
+hicc64=127
+xfin_locc1=0
+xfin_hicc1=64
+xf_cccurve=gain
+effect1=40
+effect2=10
+<region>
+sample=tone.wav
+<region>
+sample=tone.wav
+on_locc64=100
+on_hicc64=127
+"#,
+        );
+
+        let regions = parse_soundfont(&sfz_path).unwrap();
+        assert_eq!(regions.len(), 2);
+        let r = &regions[0];
+
+        assert_eq!(r.amplitude, 0.0);
+        assert_eq!(r.set_cc, vec![(1, 20), (11, 64)]);
+        assert_eq!(r.reverb_send, Some(40.0));
+        assert_eq!(r.chorus_send, Some(10.0));
+        assert_eq!(
+            r.cc_conditions,
+            vec![CcRange {
+                cc: 64,
+                lo: 64,
+                hi: 127
+            }]
+        );
+        assert!(r.cc_triggers.is_empty());
+        assert_eq!(
+            r.modulation.crossfades,
+            vec![CcCrossfade {
+                cc: 1,
+                lo: 0,
+                hi: 64,
+                fade_in: true
+            }]
+        );
+        assert_eq!(r.modulation.crossfade_curve, CrossfadeCurve::Gain);
+
+        let find = |dest: ModDestination, controller: ModController| {
+            r.modulation
+                .modulators
+                .iter()
+                .find(|m| m.destination == dest && m.source.controller == controller)
+                .map(|m| (m.amount, m.source.bipolar))
+        };
+        assert_eq!(
+            find(ModDestination::AmplitudePercent, ModController::Cc(1)),
+            Some((100.0, false))
+        );
+        assert_eq!(
+            find(ModDestination::VolumeDb, ModController::Cc(7)),
+            Some((-12.0, false))
+        );
+        assert_eq!(
+            find(ModDestination::VolumeDb, ModController::Cc(11)),
+            Some((6.0, false))
+        );
+        assert_eq!(
+            find(ModDestination::Pan, ModController::Cc(10)),
+            Some((0.5, false))
+        );
+        assert_eq!(
+            find(ModDestination::PitchCents, ModController::PitchWheel),
+            Some((200.0, true))
+        );
+        assert_eq!(
+            find(ModDestination::PitchCents, ModController::Cc(2)),
+            Some((100.0, false))
+        );
+        assert_eq!(
+            find(ModDestination::CutoffCents, ModController::Cc(74)),
+            Some((1200.0, false))
+        );
+        assert_eq!(
+            find(ModDestination::CutoffCents, ModController::ChannelPressure),
+            Some((600.0, false))
+        );
+        assert_eq!(
+            find(ModDestination::ResonanceDb, ModController::Cc(71)),
+            Some((6.0, false))
+        );
+        assert_eq!(
+            find(
+                ModDestination::EnvelopeLinear(EnvelopeTarget::Attack),
+                ModController::Cc(73)
+            ),
+            Some((2.0, false))
+        );
+        assert_eq!(
+            find(
+                ModDestination::EnvelopeLinear(EnvelopeTarget::Release),
+                ModController::Cc(72)
+            ),
+            Some((1.5, false))
+        );
+
+        assert_eq!(
+            regions[1].cc_triggers,
+            vec![CcRange {
+                cc: 64,
+                lo: 100,
+                hi: 127
+            }]
+        );
+
+        fs::remove_dir_all(dir).unwrap();
+    }
 }

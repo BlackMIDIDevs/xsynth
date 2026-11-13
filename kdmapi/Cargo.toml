@@ -8,7 +8,6 @@ publish = false
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
@@ -20,9 +19,11 @@ crate-type = ["cdylib"]
 [dependencies]
 xsynth-core = { workspace = true, features = ["serde"] }
 xsynth-realtime = { workspace = true, features = ["serde"] }
-winapi = { version = "0.3.9", features = ["synchapi", "winuser", "mmsystem"] }
-cfg-if = "1.0.0"
-serde_json = "1.0.122"
-serde = { version = "1.0.206", features = ["derive"] }
+cfg-if = "1.0.5"
+serde_json = "1.0.154"
+serde = { version = "1.0.229", features = ["derive"] }
 hotwatch = "0.5.0"
-directories = "5.0.1"
+directories = "6.0.0"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.9", features = ["synchapi", "winuser", "mmsystem"] }

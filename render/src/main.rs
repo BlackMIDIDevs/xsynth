@@ -14,11 +14,7 @@ use xsynth_render::{OfflineRenderConfig, OfflineWavRenderer};
 use midi_toolkit::{
     events::{Event, MIDIEventEnum},
     io::MIDIFile,
-    pipe,
-    sequence::{
-        event::{cancel_tempo_events, scale_event_time},
-        unwrap_items, TimeCaster,
-    },
+    prelude::*,
 };
 
 use std::{
@@ -64,13 +60,12 @@ fn main() {
     let midi = MIDIFile::open(state.midi, None).unwrap();
 
     let ppq = midi.ppq();
-    let merged = pipe!(
-        midi.iter_all_track_events_merged_batches()
-        |>TimeCaster::<f64>::cast_event_delta()
-        |>cancel_tempo_events(250000)
-        |>scale_event_time(1.0 / ppq as f64)
-        |>unwrap_items()
-    );
+    let merged = midi
+        .iter_all_track_events_merged_batches()
+        .cast_event_delta::<f64>()
+        .cancel_tempo_events(250000)
+        .scale_event_time(1.0 / ppq as f64)
+        .unwrap_items();
 
     let (snd, rcv) = crossbeam_channel::bounded(100);
 
@@ -149,6 +144,14 @@ fn main() {
                         e.channel as u32,
                         ChannelEvent::Audio(ChannelAudioEvent::Control(
                             ControlEvent::PitchBendValue(e.pitch as f32 / 8192.0),
+                        )),
+                    ));
+                }
+                Event::ChannelPressure(e) => {
+                    synth.send_event(SynthEvent::Channel(
+                        e.channel as u32,
+                        ChannelEvent::Audio(ChannelAudioEvent::Control(
+                            ControlEvent::ChannelPressure(e.pressure),
                         )),
                     ));
                 }

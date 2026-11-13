@@ -4,15 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use midi_toolkit::{
-    events::Event,
-    io::MIDIFile,
-    pipe,
-    sequence::{
-        event::{cancel_tempo_events, scale_event_time},
-        unwrap_items, TimeCaster,
-    },
-};
+use midi_toolkit::{events::Event, io::MIDIFile, prelude::*};
 use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, ControlEvent},
     soundfont::{SampleSoundfont, SoundfontBase},
@@ -67,13 +59,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let midi = MIDIFile::open(&midi, None).unwrap();
 
     let ppq = midi.ppq();
-    let merged = pipe!(
-        midi.iter_all_events_merged_batches()
-        |>TimeCaster::<f64>::cast_event_delta()
-        |>cancel_tempo_events(250000)
-        |>scale_event_time(1.0 / ppq as f64)
-        |>unwrap_items()
-    );
+    let merged = midi
+        .iter_all_events_merged_batches()
+        .cast_event_delta::<f64>()
+        .cancel_tempo_events(250000)
+        .scale_event_time(1.0 / ppq as f64)
+        .unwrap_items();
 
     let (snd, rcv) = crossbeam_channel::bounded(100);
 

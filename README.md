@@ -41,7 +41,7 @@ possible up front during load time.
 ## SFZ Support
 
 XSynth supports a practical subset of SFZ centered around sample-region
-playback and amplitude/filter shaping.
+playback, amplitude/filter shaping and MIDI controller modulation.
 
 Supported today:
 - `lovel`, `hivel`, `lokey`, `hikey`
@@ -51,6 +51,13 @@ Supported today:
 - `loop_mode`, `loop_start`, `loop_end`, `offset`
 - `cutoff`, `resonance`, `fil_veltrack`, `fil_keycenter`, `fil_keytrack`, `filter_type`
 - `ampeg_start`, `ampeg_delay`, `ampeg_attack`, `ampeg_hold`, `ampeg_decay`, `ampeg_sustain`, `ampeg_release`
+- `amplitude`
+- controller modulation, updated live while voices play: `amplitude_onccN`, `volume_onccN`/`gain_onccN`, `pan_onccN`, `pitch_onccN`/`tune_onccN`, `cutoff_onccN`, `resonance_onccN`, `cutoff_chanaft` (and the SFZ v1 `*_ccN` aliases)
+- note-on envelope modulation: `ampeg_start_onccN`, `ampeg_delay_onccN`, `ampeg_attack_onccN`, `ampeg_hold_onccN`, `ampeg_decay_onccN`, `ampeg_sustain_onccN`, `ampeg_release_onccN` (and `ampeg_*ccN`)
+- extended controllers `128` (pitch bend) and `129` (channel aftertouch) in `*_onccN` opcodes
+- `loccN`/`hiccN` (note-on gating), `on_loccN`/`on_hiccN` (controller-triggered regions), `set_ccN`/`set_hdccN`
+- `xfin_loccN`, `xfin_hiccN`, `xfout_loccN`, `xfout_hiccN`, `xf_cccurve`
+- `effect1`/`effect2` as reverb/chorus send levels (averaged per channel program)
 - nested includes and `#define` substitution in the parser
 
 The SFZ path is intended to cover the common sample-playback workflow well. It
@@ -64,12 +71,30 @@ SoundFont 2 spec emulation.
 Supported today:
 - static sample-region playback, including offsets, loop points, stereo links, root key, tuning, scale tuning, key/velocity ranges, fixed key/velocity, filter cutoff/Q, volume envelope generators, and exclusive class
 - a baked subset of note-on modulators, resolved at soundfont load time, covering key/velocity sources with linear/concave/convex/switch curves for practical destinations such as attenuation, filter cutoff, pan, volume envelope timings, and static pitch offsets
+- runtime modulators driven by MIDI CCs, channel pressure or the pitch wheel, targeting attenuation, pan, filter cutoff/Q and fine/coarse tune (updated live) or volume envelope timings (applied at note-on); key/velocity amount sources are folded in at load time
+- the default CC7/CC10/CC11/pitch wheel/CC91/CC93 modulators are implemented once per channel rather than per voice
 
 Intentionally out of scope for performance and binary-size reasons:
 - modulation envelope generators and their destinations
-- modulation LFO / vibrato LFO generators and destinations
-- generic runtime SF2 modulators driven by CCs, aftertouch, or pitch wheel
-- SF2 chorus and reverb send behavior
+- modulation LFO / vibrato LFO generators and destinations (the channel-level CC1 vibrato is used instead)
+- modulators targeting chorus/reverb sends, poly pressure or pitch wheel sensitivity sources, and linked modulators
+- per-region SF2 chorus and reverb send generators
+
+## MIDI Controller Support
+
+Controllers are handled per channel, so most of them cost nothing per voice:
+- `CC0` bank select, `CC1` modulation wheel (channel vibrato, depth from RPN 5), `CC5`/`CC65`/`CC84` portamento
+- `CC6`/`CC38` data entry, `CC96`/`CC97` data increment/decrement, `CC98`-`CC101` NRPN/RPN select (pitch bend range, fine/coarse tune, modulation depth range, RPN null, GS/XG vibrato/filter/envelope NRPNs)
+- `CC7` volume, `CC8` balance, `CC10` pan, `CC11` expression
+- `CC64` damper, `CC66` sostenuto, `CC67` soft pedal, `CC69` hold 2
+- `CC71`-`CC77` resonance, release, attack, cutoff, decay, vibrato rate, vibrato depth
+- `CC91`/`CC93` reverb/chorus sends into a shared reverb and chorus, which only run while a channel sends signal to them
+- `CC120`, `CC121`, `CC123`-`CC125`, `CC126`/`CC127` channel mode messages
+- channel pressure
+
+Every CC value, the pitch wheel and channel pressure are also available to
+soundfont modulators. A voice only re-evaluates its modulation when a
+controller that the loaded soundfonts actually use changes.
 
 ## Realtime And Offline Rendering
 

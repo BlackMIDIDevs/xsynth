@@ -1,5 +1,6 @@
 use rubato::{
-    Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+    audioadapter_buffers::direct::SequentialSliceOfVecs, Async, FixedAsync, Resampler,
+    SincInterpolationParameters, SincInterpolationType, WindowFunction,
 };
 use std::sync::Arc;
 
@@ -18,20 +19,27 @@ pub fn resample_vecs(
 pub fn resample_vec(vec: Vec<f32>, sample_rate: f32, new_sample_rate: f32) -> Arc<[f32]> {
     let params = SincInterpolationParameters {
         sinc_len: 32,
-        f_cutoff: 0.95,
+        f_cutoff: Some(0.95),
         interpolation: SincInterpolationType::Linear,
         oversampling_factor: 128,
         window: WindowFunction::BlackmanHarris2,
     };
 
     let len = vec.len();
-    let mut resampler = SincFixedIn::<f32>::new(
+    let mut resampler = Async::<f32>::new_sinc(
         new_sample_rate as f64 / sample_rate as f64,
         2.0,
-        params,
-        len,
+        &params,
+        len.max(1),
         1,
+        FixedAsync::Input,
     )
     .unwrap();
-    resampler.process(&[vec], None).unwrap()[0].clone().into()
+    let input = [vec];
+    let adapter = SequentialSliceOfVecs::new(&input, 1, len).unwrap();
+    resampler
+        .process_all(&adapter, len, None)
+        .unwrap()
+        .take_data()
+        .into()
 }

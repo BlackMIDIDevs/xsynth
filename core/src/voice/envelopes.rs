@@ -268,6 +268,7 @@ pub struct SIMDVoiceEnvelope<T: Simd> {
     state: VoiceEnvelopeState<T>,
     sample_rate: f32,
     killed: bool,
+    last_control: Option<EnvelopeControlData>,
 }
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
@@ -286,6 +287,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             state,
             sample_rate,
             killed: false,
+            last_control: None,
         }
     }
 
@@ -389,6 +391,21 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
                 _ => {}
             }
         }
+        if let Some(decay) = envelope.decay {
+            let old_duration = params.get_stage_duration(EnvelopeStage::Decay) as f32 / sample_rate;
+            let duration = (calculate_curve(decay, old_duration) * sample_rate) as u32;
+
+            let part = EnvelopeStage::Decay.as_usize();
+            match params.parts[part] {
+                EnvelopePart::Lerp { target, .. } => {
+                    params.modify_stage_data(part, EnvelopePart::lerp(target, duration))
+                }
+                EnvelopePart::LerpConcave { target, .. } => {
+                    params.modify_stage_data(part, EnvelopePart::lerp_concave(target, duration))
+                }
+                _ => {}
+            }
+        }
         if let Some(release) = envelope.release {
             let old_duration =
                 params.get_stage_duration(EnvelopeStage::Release) as f32 / sample_rate;
@@ -412,6 +429,12 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
     }
 
     pub fn modify_envelope(&mut self, envelope: EnvelopeControlData) {
+        // Control updates are broadcast for every pitch bend and modulated CC,
+        // so skip the rebuild when the envelope controls did not change.
+        if self.last_control == Some(envelope) {
+            return;
+        }
+        self.last_control = Some(envelope);
         if !self.killed {
             self.params =
                 Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);

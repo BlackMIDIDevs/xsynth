@@ -4,7 +4,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{FilterType, LoopMode};
+use crate::{
+    modulation::{CrossfadeCurve, EnvelopeTarget, ModController},
+    FilterType, LoopMode,
+};
 
 use self::defines::apply_defines;
 
@@ -46,6 +49,51 @@ pub enum SfzOpcode {
     DefaultPath(String),
     Tune(i16),
     AmpegEnvelope(SfzAmpegEnvelope),
+    Amplitude(f32),
+    /// A controller-driven modulation opcode, such as `volume_onccN`.
+    CcMod {
+        target: SfzCcTarget,
+        controller: ModController,
+        value: f32,
+    },
+    /// `loccN` / `hiccN`
+    CcCondition {
+        cc: u8,
+        high: bool,
+        value: u8,
+    },
+    /// `on_loccN` / `on_hiccN` (also `start_loccN` / `start_hiccN`)
+    CcTrigger {
+        cc: u8,
+        high: bool,
+        value: u8,
+    },
+    /// `xfin_loccN`, `xfin_hiccN`, `xfout_loccN`, `xfout_hiccN`
+    CcCrossfade {
+        cc: u8,
+        fade_in: bool,
+        high: bool,
+        value: u8,
+    },
+    XfCcCurve(CrossfadeCurve),
+    /// `set_ccN` / `set_hdccN`, the initial value of a controller
+    SetCc(u8, u8),
+    /// `effect1`: reverb send in percent
+    ReverbSend(f32),
+    /// `effect2`: chorus send in percent
+    ChorusSend(f32),
+}
+
+/// The parameter modulated by a controller-driven SFZ opcode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SfzCcTarget {
+    Amplitude,
+    Volume,
+    Pan,
+    Pitch,
+    Cutoff,
+    Resonance,
+    Envelope(EnvelopeTarget),
 }
 
 #[derive(Debug, Clone)]
@@ -220,6 +268,130 @@ fn parse_loop_mode(val: &str) -> Option<LoopMode> {
     }
 }
 
+/// Splits an opcode name like `volume_oncc7` into `("volume_oncc", 7)`.
+fn split_number_suffix(name: &str) -> Option<(&str, u16)> {
+    let digits = name
+        .bytes()
+        .rev()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits == name.len() {
+        return None;
+    }
+    let (head, num) = name.split_at(name.len() - digits);
+    Some((head, num.parse().ok()?))
+}
+
+/// Maps an SFZ controller number to a controller, including the ARIA extended
+/// controllers for pitch bend (128) and channel aftertouch (129).
+fn sfz_controller(num: u16) -> Option<ModController> {
+    match num {
+        0..=127 => Some(ModController::Cc(num as u8)),
+        128 => Some(ModController::PitchWheel),
+        129 => Some(ModController::ChannelPressure),
+        _ => None,
+    }
+}
+
+fn cc_target(head: &str) -> Option<SfzCcTarget> {
+    use EnvelopeTarget as E;
+    use SfzCcTarget::*;
+    Some(match head {
+        "amplitude_oncc" | "amplitude_cc" => Amplitude,
+        "volume_oncc" | "volume_cc" | "gain_oncc" | "gain_cc" => Volume,
+        "pan_oncc" | "pan_cc" => Pan,
+        "pitch_oncc" | "pitch_cc" | "tune_oncc" | "tune_cc" => Pitch,
+        "cutoff_oncc" | "cutoff_cc" | "cutoff1_oncc" => Cutoff,
+        "resonance_oncc" | "resonance_cc" | "resonance1_oncc" => Resonance,
+        "ampeg_start_oncc" | "ampeg_startcc" => Envelope(E::Start),
+        "ampeg_delay_oncc" | "ampeg_delaycc" => Envelope(E::Delay),
+        "ampeg_attack_oncc" | "ampeg_attackcc" => Envelope(E::Attack),
+        "ampeg_hold_oncc" | "ampeg_holdcc" => Envelope(E::Hold),
+        "ampeg_decay_oncc" | "ampeg_decaycc" => Envelope(E::Decay),
+        "ampeg_sustain_oncc" | "ampeg_sustaincc" => Envelope(E::Sustain),
+        "ampeg_release_oncc" | "ampeg_releasecc" => Envelope(E::Release),
+        _ => return None,
+    })
+}
+
+fn parse_cc_opcode(name: &str, val: &str) -> Option<SfzOpcode> {
+    use SfzOpcode::*;
+
+    let (head, num) = split_number_suffix(name)?;
+
+    if let Some(target) = cc_target(head) {
+        let range = match target {
+            SfzCcTarget::Amplitude => -100.0..=100.0,
+            SfzCcTarget::Volume => -144.0..=48.0,
+            SfzCcTarget::Pan => -200.0..=200.0,
+            SfzCcTarget::Pitch | SfzCcTarget::Cutoff => -9600.0..=9600.0,
+            SfzCcTarget::Resonance => -40.0..=40.0,
+            SfzCcTarget::Envelope(_) => -100.0..=100.0,
+        };
+        return Some(CcMod {
+            target,
+            controller: sfz_controller(num)?,
+            value: parse_float_in_range(val, range)?,
+        });
+    }
+
+    // The remaining opcodes only accept regular MIDI controllers.
+    let cc = u8::try_from(num).ok().filter(|cc| *cc < 128)?;
+    let value = || parse_u8_in_range(val, 0..=127);
+    Some(match head {
+        "locc" => CcCondition {
+            cc,
+            high: false,
+            value: value()?,
+        },
+        "hicc" => CcCondition {
+            cc,
+            high: true,
+            value: value()?,
+        },
+        "on_locc" | "start_locc" => CcTrigger {
+            cc,
+            high: false,
+            value: value()?,
+        },
+        "on_hicc" | "start_hicc" => CcTrigger {
+            cc,
+            high: true,
+            value: value()?,
+        },
+        "xfin_locc" => CcCrossfade {
+            cc,
+            fade_in: true,
+            high: false,
+            value: value()?,
+        },
+        "xfin_hicc" => CcCrossfade {
+            cc,
+            fade_in: true,
+            high: true,
+            value: value()?,
+        },
+        "xfout_locc" => CcCrossfade {
+            cc,
+            fade_in: false,
+            high: false,
+            value: value()?,
+        },
+        "xfout_hicc" => CcCrossfade {
+            cc,
+            fade_in: false,
+            high: true,
+            value: value()?,
+        },
+        "set_cc" => SetCc(cc, value()?),
+        "set_hdcc" => SetCc(
+            cc,
+            (parse_float_in_range(val, 0.0..=1.0)? * 127.0).round() as u8,
+        ),
+        _ => return None,
+    })
+}
+
 fn parse_sfz_opcode(
     opcode: Opcode,
     defines: &HashMap<String, String>,
@@ -289,7 +461,21 @@ fn parse_sfz_opcode(
 
         "sample" => Some(Sample(val.replace('\\', "/"))),
 
-        _ => None,
+        "amplitude" => parse_float_in_range(val, 0.0..=100.0).map(Amplitude),
+        "effect1" => parse_float_in_range(val, 0.0..=100.0).map(ReverbSend),
+        "effect2" => parse_float_in_range(val, 0.0..=100.0).map(ChorusSend),
+        "xf_cccurve" => match val {
+            "power" => Some(XfCcCurve(CrossfadeCurve::Power)),
+            "gain" => Some(XfCcCurve(CrossfadeCurve::Gain)),
+            _ => None,
+        },
+        "cutoff_chanaft" => parse_float_in_range(val, -9600.0..=9600.0).map(|value| CcMod {
+            target: SfzCcTarget::Cutoff,
+            controller: ModController::ChannelPressure,
+            value,
+        }),
+
+        _ => parse_cc_opcode(name, val),
     })
 }
 

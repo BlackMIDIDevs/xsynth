@@ -52,6 +52,16 @@ impl BiQuadFilter {
         }
     }
 
+    pub fn set_params(
+        &mut self,
+        fil_type: FilterType,
+        freq: f32,
+        sample_rate: f32,
+        q: Option<f32>,
+    ) {
+        self.set_coefficients(Self::get_coeffs(fil_type, freq, sample_rate, q));
+    }
+
     pub fn set_coefficients(&mut self, coeffs: Coefficients<f32>) {
         self.filter.replace_coefficients(coeffs);
     }

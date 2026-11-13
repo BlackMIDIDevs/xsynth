@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, VoiceChannel},
+    effects::SendEffects,
     helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams,
 };
@@ -18,6 +19,9 @@ const MAX_EVENT_CACHE_SIZE: u32 = 1024 * 1024;
 ///
 /// Manages multiple VoiceChannel objects at once. For info about MIDI CC
 /// support, please see the documentation of the `VoiceChannel` struct.
+///
+/// The group also owns the reverb and chorus effects fed by each channel's
+/// CC91/CC93 sends. They only run while a channel sends signal to them.
 pub struct ChannelGroup {
     thread_pool: Option<rayon::ThreadPool>,
     cached_event_count: u32,
@@ -25,6 +29,7 @@ pub struct ChannelGroup {
     sample_cache_vecs: Box<[Vec<f32>]>,
     channels: Box<[VoiceChannel]>,
     audio_params: AudioStreamParams,
+    send_effects: SendEffects,
 }
 
 impl ChannelGroup {
@@ -87,6 +92,7 @@ impl ChannelGroup {
             channels: channels.into_boxed_slice(),
             sample_cache_vecs: sample_cache_vecs.into_boxed_slice(),
             audio_params: config.audio_params,
+            send_effects: SendEffects::new(config.audio_params),
         }
     }
 
@@ -171,6 +177,7 @@ impl ChannelGroup {
                 let len = buffer.len();
                 let channels = &mut self.channels;
                 let sample_cache_vecs = &mut self.sample_cache_vecs;
+                let out = &mut *buffer;
                 pool.install(move || {
                     channels
                         .par_iter_mut()
@@ -181,9 +188,10 @@ impl ChannelGroup {
                         });
 
                     for vec in sample_cache_vecs.iter_mut() {
-                        sum_simd(vec, buffer);
+                        sum_simd(vec, out);
                     }
                 });
+                self.mix_send_effects(buffer);
             }
             None => {
                 let len = buffer.len();
@@ -200,8 +208,24 @@ impl ChannelGroup {
                 for vec in self.sample_cache_vecs.iter_mut() {
                     sum_simd(vec, buffer);
                 }
+                self.mix_send_effects(buffer);
             }
         }
+    }
+
+    /// Feeds the channel outputs to the shared reverb and chorus (CC91/CC93).
+    fn mix_send_effects(&mut self, buffer: &mut [f32]) {
+        self.send_effects.begin(buffer.len());
+        for (i, (channel, samples)) in self
+            .channels
+            .iter()
+            .zip(self.sample_cache_vecs.iter())
+            .enumerate()
+        {
+            self.send_effects
+                .add_channel(i, samples, channel.effect_sends());
+        }
+        self.send_effects.finish(buffer);
     }
 
     /// Returns the active voice count of the synthesizer.

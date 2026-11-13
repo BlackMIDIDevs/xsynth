@@ -3,16 +3,18 @@ resolver = "2"
 members = ["core", "clib", "soundfonts", "realtime", "render", "kdmapi"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 license = "LGPL-3.0"
 edition = "2021"
-homepage = "https://github.com/BlackMIDIDevs/xsynth"
 repository = "https://github.com/BlackMIDIDevs/xsynth"
 keywords = ["midi", "synthesizer", "soundfont"]
 categories = ["multimedia::audio"]
 
 [profile.dev]
 opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 3
 
 [profile.release]
 codegen-units = 1
@@ -24,6 +26,6 @@ inherits = "release"
 debug = true
 
 [workspace.dependencies]
-xsynth-core = { version = "=0.4.0", path = "core" }
-xsynth-realtime = { version = "=0.4.0", path = "realtime" }
-xsynth-soundfonts = { version = "=0.4.0", path = "soundfonts" }
+xsynth-core = { version = "=0.5.0", path = "core" }
+xsynth-realtime = { version = "=0.5.0", path = "realtime" }
+xsynth-soundfonts = { version = "=0.5.0", path = "soundfonts" }

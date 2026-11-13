@@ -93,6 +93,10 @@ pub(crate) fn convert_audio_event(event: u16, params: u16) -> Result<ChannelEven
             ChannelAudioEvent::Control(ControlEvent::CoarseTune(val - 64.0))
         }
         XSYNTH_AUDIO_EVENT_SYSTEMRESET => ChannelAudioEvent::SystemReset,
+        XSYNTH_AUDIO_EVENT_CHANNELPRESSURE => {
+            let val = ((params & 255) as u8).clamp(0, 127);
+            ChannelAudioEvent::Control(ControlEvent::ChannelPressure(val))
+        }
         _ => return Err(()),
     };
 

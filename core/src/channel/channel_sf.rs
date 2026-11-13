@@ -1,8 +1,10 @@
 use std::{iter, ops::Deref, sync::Arc};
 
+use xsynth_soundfonts::modulation::ControllerMask;
+
 use crate::{
     helpers::are_arc_vecs_equal,
-    soundfont::SoundfontBase,
+    soundfont::{CcTriggeredSpawner, SoundfontBase},
     voice::{Voice, VoiceControlData},
 };
 
@@ -18,6 +20,12 @@ pub struct ChannelSoundfont {
     soundfonts: Vec<Arc<dyn SoundfontBase>>,
     matrix: VoiceSpawnerMatrix,
     curr_program: ProgramDescriptor,
+    /// Controllers that modulate voices of the current program while they play
+    used_controllers: ControllerMask,
+    /// Reverb and chorus send scale requested by the current program
+    effect_scale: (f32, f32),
+    cc_triggered: Vec<CcTriggeredSpawner>,
+    default_controllers: Vec<(u8, u8)>,
 }
 
 impl Deref for ChannelSoundfont {
@@ -35,14 +43,50 @@ impl ChannelSoundfont {
             soundfonts: Vec::new(),
             matrix: VoiceSpawnerMatrix::new(),
             curr_program: Default::default(),
+            used_controllers: ControllerMask::EMPTY,
+            effect_scale: (1.0, 1.0),
+            cc_triggered: Vec::new(),
+            default_controllers: Vec::new(),
         }
     }
 
-    pub fn set_soundfonts(&mut self, soundfonts: Vec<Arc<dyn SoundfontBase>>) {
+    /// Sets the soundfonts. Returns true if they changed.
+    pub fn set_soundfonts(&mut self, soundfonts: Vec<Arc<dyn SoundfontBase>>) -> bool {
         if !are_arc_vecs_equal(&self.soundfonts, &soundfonts) {
             self.soundfonts = soundfonts;
+            // Earlier soundfonts take priority, so apply them last.
+            let mut defaults = Vec::<(u8, u8)>::new();
+            for sf in self.soundfonts.iter().rev() {
+                for (cc, value) in sf.default_controllers() {
+                    defaults.retain(|(c, _)| *c != cc);
+                    defaults.push((cc, value));
+                }
+            }
+            self.default_controllers = defaults;
             self.rebuild_matrix();
+            true
+        } else {
+            false
         }
+    }
+
+    #[inline(always)]
+    pub fn used_controllers(&self) -> &ControllerMask {
+        &self.used_controllers
+    }
+
+    #[inline(always)]
+    pub fn effect_scale(&self) -> (f32, f32) {
+        self.effect_scale
+    }
+
+    #[inline(always)]
+    pub fn cc_triggered(&self) -> &[CcTriggeredSpawner] {
+        &self.cc_triggered
+    }
+
+    pub fn default_controllers(&self) -> &[(u8, u8)] {
+        &self.default_controllers
     }
 
     pub fn change_program(&mut self, program: ProgramDescriptor) {
@@ -60,6 +104,10 @@ impl ChannelSoundfont {
 
         let bank = self.curr_program.bank;
         let preset = self.curr_program.preset;
+
+        let mut used = ControllerMask::EMPTY;
+        let (mut reverb_sum, mut reverb_count) = (0.0f64, 0usize);
+        let (mut chorus_sum, mut chorus_count) = (0.0f64, 0usize);
 
         for k in 0..128u8 {
             for v in 0..128u8 {
@@ -107,10 +155,48 @@ impl ChannelSoundfont {
                     .find(|vec| !vec.is_empty())
                     .unwrap_or_default();
 
+                for spawner in attack_spawners.iter().chain(release_spawners.iter()) {
+                    used = used.union(&spawner.used_controllers());
+                    let (reverb, chorus) = spawner.effect_sends();
+                    if let Some(reverb) = reverb {
+                        reverb_sum += reverb as f64;
+                        reverb_count += 1;
+                    }
+                    if let Some(chorus) = chorus {
+                        chorus_sum += chorus as f64;
+                        chorus_count += 1;
+                    }
+                }
+
                 self.matrix.set_spawners_attack(k, v, attack_spawners);
                 self.matrix.set_spawners_release(k, v, release_spawners);
             }
         }
+
+        self.cc_triggered = self
+            .soundfonts
+            .iter()
+            .map(|sf| sf.get_cc_triggered_voice_spawners_at(bank, preset))
+            .find(|vec| !vec.is_empty())
+            .unwrap_or_default();
+        for trig in &self.cc_triggered {
+            used = used.union(&trig.spawner.used_controllers());
+        }
+
+        // Per-voice sends would need a second output bus per voice, so the region
+        // send levels are averaged into one scale per channel program.
+        let average = |sum: f64, count: usize| {
+            if count == 0 {
+                1.0
+            } else {
+                (sum / count as f64) as f32
+            }
+        };
+        self.effect_scale = (
+            average(reverb_sum, reverb_count),
+            average(chorus_sum, chorus_count),
+        );
+        self.used_controllers = used;
     }
 
     pub fn spawn_voices_attack<'a>(

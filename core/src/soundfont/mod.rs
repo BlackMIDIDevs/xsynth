@@ -9,7 +9,11 @@ use std::{
 use biquad::Q_BUTTERWORTH_F32;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use thiserror::Error;
-use xsynth_soundfonts::{convert_sample_index, FilterType, LoopMode};
+use xsynth_soundfonts::{
+    convert_sample_index,
+    modulation::{CcRange, ControllerMask, ModDestination, RegionModulation},
+    FilterType, LoopMode,
+};
 
 use self::audio::load_audio_file;
 pub use self::audio::AudioLoadError;
@@ -19,6 +23,8 @@ use super::{
     voice::{EnvelopeParameters, Voice},
 };
 use crate::{helpers::db_to_amp, voice::EnvelopeDescriptor, AudioStreamParams, ChannelCount};
+
+pub use xsynth_soundfonts::modulation;
 
 pub use xsynth_soundfonts::{sf2::Sf2ParseError, sfz::SfzParseError};
 
@@ -36,6 +42,32 @@ pub trait VoiceSpawner: Sync + Send {
     fn exclusive_class(&self) -> Option<u8> {
         None
     }
+
+    /// Whether the voice may start with the current controller values
+    /// (e.g. SFZ `loccN`/`hiccN`).
+    fn can_spawn(&self, _control: &VoiceControlData) -> bool {
+        true
+    }
+
+    /// Controllers that change the sound of voices from this spawner while they play.
+    fn used_controllers(&self) -> ControllerMask {
+        ControllerMask::EMPTY
+    }
+
+    /// Reverb and chorus send levels (0-1) requested by the soundfont region, if any.
+    fn effect_sends(&self) -> (Option<f32>, Option<f32>) {
+        (None, None)
+    }
+}
+
+/// A voice spawner that is triggered by a controller instead of a note
+/// (SFZ `on_loccN`/`on_hiccN`).
+pub struct CcTriggeredSpawner {
+    /// The controller range that triggers the voice when entered
+    pub trigger: CcRange,
+    /// The key the voice is played on
+    pub key: u8,
+    pub spawner: Box<dyn VoiceSpawner>,
 }
 
 pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
@@ -55,6 +87,20 @@ pub trait SoundfontBase: Sync + Send + std::fmt::Debug {
         key: u8,
         vel: u8,
     ) -> Vec<Box<dyn VoiceSpawner>>;
+
+    /// Voice spawners triggered by controller changes for the given program.
+    fn get_cc_triggered_voice_spawners_at(
+        &self,
+        _bank: u8,
+        _preset: u8,
+    ) -> Vec<CcTriggeredSpawner> {
+        Vec::new()
+    }
+
+    /// Initial controller values requested by the soundfont (SFZ `set_ccN`).
+    fn default_controllers(&self) -> Vec<(u8, u8)> {
+        Vec::new()
+    }
 }
 
 #[derive(Clone)]
@@ -67,6 +113,16 @@ pub(super) struct LoopParams {
 }
 
 struct SampleVoiceSpawnerParams {
+    /// Base envelope, used to rebuild the envelope when note-on envelope modulators exist
+    envelope_descriptor: EnvelopeDescriptor,
+    envelope_options: EnvelopeOptions,
+    /// Controller-driven modulation, `None` when the region has none
+    modulation: Option<Arc<RegionModulation>>,
+    /// Controller ranges required to start the voice
+    cc_conditions: Arc<[CcRange]>,
+    used_controllers: ControllerMask,
+    reverb_send: Option<f32>,
+    chorus_send: Option<f32>,
     volume: f32,
     pan: f32,
     speed_mult: f32,
@@ -84,6 +140,7 @@ pub(super) struct SoundfontInstrument {
     bank: u8,
     preset: u8,
     spawner_params_list: Vec<Vec<Arc<SampleVoiceSpawnerParams>>>,
+    cc_triggered: Vec<(CcRange, u8, Arc<SampleVoiceSpawnerParams>)>,
 }
 
 /// Represents a sample soundfont to be used within XSynth.
@@ -116,6 +173,16 @@ pub(super) struct SoundfontInstrument {
 /// - `ampeg_decay`
 /// - `ampeg_sustain`
 /// - `ampeg_release`
+/// - `amplitude`
+/// - `amplitude_onccN`, `volume_onccN`, `gain_onccN`, `pan_onccN`, `pitch_onccN`,
+///   `tune_onccN`, `cutoff_onccN`, `resonance_onccN`, `cutoff_chanaft`
+///   (and the SFZ v1 `*_ccN` aliases), updated while voices play
+/// - `ampeg_*_onccN` / `ampeg_*ccN`, applied at note-on
+/// - `loccN` & `hiccN`
+/// - `on_loccN` & `on_hiccN`
+/// - `set_ccN` & `set_hdccN`
+/// - `xfin_loccN`, `xfin_hiccN`, `xfout_loccN`, `xfout_hiccN`, `xf_cccurve`
+/// - `effect1` & `effect2` (reverb/chorus send, averaged per channel program)
 ///
 /// ## SF2 specification support
 /// ### Generators
@@ -153,24 +220,38 @@ pub(super) struct SoundfontInstrument {
 /// - `keynumToVolEnvDecay`
 ///
 /// ### Modulators
-/// XSynth intentionally supports a baked subset of SF2 modulators so note-on
-/// articulation can be resolved at soundfont load time without adding runtime
-/// voice stages. Currently supported:
-/// - sources: key number and note-on velocity
+/// Key/velocity modulators are baked at soundfont load time. Modulators with
+/// MIDI CC, channel pressure or pitch wheel sources are evaluated live, using
+/// the same voice stages as unmodulated voices. Currently supported:
+/// - sources: key number, note-on velocity, MIDI CCs, channel pressure, pitch wheel
 /// - curves: linear, concave, convex, and switch
 /// - transforms: linear and absolute
-/// - destinations: attenuation, filter cutoff, pan, volume envelope timings,
-///   and static pitch offsets
+/// - destinations: attenuation, filter cutoff/Q, pan, volume envelope timings,
+///   and pitch offsets
+///
+/// The default CC7, CC10, CC11, pitch wheel, CC91 and CC93 modulators are
+/// implemented per channel.
 ///
 /// The following SF2 features are intentionally not supported in the runtime
 /// engine because they would add significant hot-path and binary-size cost:
 /// - modulation envelope generators and destinations
 /// - modulation LFO / vibrato LFO generators and destinations
-/// - generic CC / aftertouch / pitch-wheel-driven SF2 modulators
-/// - chorus and reverb send behavior
+/// - per-region chorus and reverb send generators
 pub struct SampleSoundfont {
     instruments: Vec<SoundfontInstrument>,
     stream_params: AudioStreamParams,
+    default_controllers: Vec<(u8, u8)>,
+}
+
+fn region_modulation_params(
+    modulation: RegionModulation,
+) -> (Option<Arc<RegionModulation>>, ControllerMask) {
+    if modulation.is_empty() {
+        (None, ControllerMask::EMPTY)
+    } else {
+        let mask = modulation.realtime_controllers();
+        (Some(Arc::new(modulation)), mask)
+    }
 }
 
 /// Errors that can be generated when loading an SFZ soundfont.
@@ -268,17 +349,47 @@ impl SampleSoundfont {
             spawner_params_list.push(Vec::new());
         }
 
+        let mut cc_triggered = Vec::new();
+        let mut default_controllers = Vec::<(u8, u8)>::new();
+
         // Write region params
         for region in regions {
             let params = sample_cache_from_region_params(&region);
 
-            // Key value -1 is used for CC triggered regions which are not supported by XSynth
-            if region.keyrange.contains(&-1) {
+            for &(cc, value) in &region.set_cc {
+                default_controllers.retain(|(c, _)| *c != cc);
+                default_controllers.push((cc, value));
+            }
+
+            let cc_trigger = region.cc_triggers.first().copied();
+
+            // Key value -1 is used for regions that are only triggered by controllers
+            if region.keyrange.contains(&-1) && cc_trigger.is_none() {
                 continue;
             }
 
-            for key in region.keyrange.clone() {
-                for vel in region.velrange.clone() {
+            let has_amplitude_mod = region
+                .modulation
+                .has_destination(|d| *d == ModDestination::AmplitudePercent);
+            let amplitude_mult = if has_amplitude_mod {
+                1.0
+            } else {
+                region.amplitude / 100.0
+            };
+            let (modulation, used_controllers) =
+                region_modulation_params(region.modulation.clone());
+            let cc_conditions: Arc<[CcRange]> = region.cc_conditions.clone().into();
+
+            // Controller-triggered regions play once on their key center, at full velocity.
+            let (keyrange, velrange) = if cc_trigger.is_some() {
+                let key = region.pitch_keycenter.clamp(0, 127);
+                (key..=key, 127..=127)
+            } else {
+                (region.keyrange.clone(), region.velrange.clone())
+            };
+
+            for key in keyrange {
+                for vel in velrange.clone() {
                     let index = key_vel_to_index(key as u8, vel);
                     let speed_mult =
                         get_speed_mult_from_keys(key as u8, region.pitch_keycenter as u8)
@@ -287,12 +398,11 @@ impl SampleSoundfont {
                     let mut envelope = region.ampeg_envelope.clone();
                     envelope.ampeg_release +=
                         (vel as f32 / 127.0) * region.ampeg_envelope.ampeg_vel2release;
-                    let envelope_params = Arc::new(
-                        envelope_descriptor_from_region_params(&envelope).to_envelope_params(
-                            stream_params.sample_rate,
-                            options.vol_envelope_options,
-                        ),
-                    );
+                    let envelope_descriptor = envelope_descriptor_from_region_params(&envelope);
+                    let envelope_params = Arc::new(envelope_descriptor.to_envelope_params(
+                        stream_params.sample_rate,
+                        options.vol_envelope_options,
+                    ));
 
                     let mut cutoff = None;
                     if options.use_effects {
@@ -328,7 +438,7 @@ impl SampleSoundfont {
                     let vol_db_add =
                         (key as f32 - region.amp_keycenter as f32) * region.amp_keytrack;
                     let vol_db = (region.volume as f32 + vol_db_add).clamp(-96.0, 12.0);
-                    let volume = vol_mult * db_to_amp(vol_db);
+                    let volume = vol_mult * db_to_amp(vol_db) * amplitude_mult;
 
                     let sample_rate = samples[&params].1;
 
@@ -363,6 +473,13 @@ impl SampleSoundfont {
                     }
 
                     let spawner_params = Arc::new(SampleVoiceSpawnerParams {
+                        envelope_descriptor,
+                        envelope_options: options.vol_envelope_options,
+                        modulation: modulation.clone(),
+                        cc_conditions: cc_conditions.clone(),
+                        used_controllers,
+                        reverb_send: region.reverb_send.map(|v| v / 100.0),
+                        chorus_send: region.chorus_send.map(|v| v / 100.0),
                         pan,
                         volume,
                         envelope: envelope_params,
@@ -376,7 +493,12 @@ impl SampleSoundfont {
                         exclusive_class: None,
                     });
 
-                    spawner_params_list[index].push(spawner_params.clone());
+                    match cc_trigger {
+                        Some(trigger) => {
+                            cc_triggered.push((trigger, key as u8, spawner_params));
+                        }
+                        None => spawner_params_list[index].push(spawner_params),
+                    }
                 }
             }
         }
@@ -386,8 +508,10 @@ impl SampleSoundfont {
                 bank: options.bank.unwrap_or(0),
                 preset: options.preset.unwrap_or(0),
                 spawner_params_list,
+                cc_triggered,
             }],
             stream_params,
+            default_controllers,
         })
     }
 
@@ -429,11 +553,28 @@ impl SampleSoundfont {
             let mut unique_envelope_params =
                 Vec::<(EnvelopeDescriptor, Arc<EnvelopeParameters>)>::new();
 
+            let mut last_modulation =
+                None::<(RegionModulation, Arc<RegionModulation>, ControllerMask)>;
+            let no_conditions: Arc<[CcRange]> = Arc::new([]);
+
             for region in preset.regions {
                 for key in region.keyrange.clone() {
                     for vel in region.velrange.clone() {
                         let index = key_vel_to_index(key, vel);
                         let note_params = region.note_params(key, vel);
+                        let runtime = region.runtime_modulation(key, vel);
+                        let (modulation, used_controllers) = match &last_modulation {
+                            Some((last, arc, mask)) if *last == runtime => {
+                                (Some(arc.clone()), *mask)
+                            }
+                            _ => {
+                                let (arc, mask) = region_modulation_params(runtime.clone());
+                                if let Some(arc) = &arc {
+                                    last_modulation = Some((runtime, arc.clone(), mask));
+                                }
+                                (arc, mask)
+                            }
+                        };
                         let envelope =
                             envelope_descriptor_from_region_params(&note_params.ampeg_envelope);
                         let envelope_params = if let Some((_, params)) = unique_envelope_params
@@ -493,6 +634,13 @@ impl SampleSoundfont {
                         }
 
                         let spawner_params = Arc::new(SampleVoiceSpawnerParams {
+                            envelope_descriptor: envelope,
+                            envelope_options: options.vol_envelope_options,
+                            modulation,
+                            cc_conditions: no_conditions.clone(),
+                            used_controllers,
+                            reverb_send: None,
+                            chorus_send: None,
                             pan,
                             volume: note_params.volume,
                             envelope: envelope_params,
@@ -515,6 +663,7 @@ impl SampleSoundfont {
                 bank: preset.bank as u8,
                 preset: preset.preset as u8,
                 spawner_params_list,
+                cc_triggered: Vec::new(),
             };
             instruments.push(new);
         }
@@ -522,7 +671,38 @@ impl SampleSoundfont {
         Ok(SampleSoundfont {
             instruments,
             stream_params,
+            default_controllers: Vec::new(),
         })
+    }
+}
+
+fn make_spawner<S: 'static + simdeez::Simd + Send + Sync>(
+    params: &SampleVoiceSpawnerParams,
+    key: u8,
+    vel: u8,
+    stream_params: &AudioStreamParams,
+) -> Box<dyn VoiceSpawner> {
+    match stream_params.channels {
+        ChannelCount::Stereo => Box::new(StereoSampledVoiceSpawner::<S>::new(
+            params,
+            key,
+            vel,
+            *stream_params,
+        )),
+        ChannelCount::Mono => Box::new(MonoSampledVoiceSpawner::<S>::new(
+            params,
+            key,
+            vel,
+            *stream_params,
+        )),
+    }
+}
+
+impl SampleSoundfont {
+    fn find_instrument(&self, bank: u8, preset: u8) -> Option<&SoundfontInstrument> {
+        self.instruments
+            .iter()
+            .find(|i| i.bank == bank && i.preset == preset)
     }
 }
 
@@ -562,32 +742,49 @@ impl SoundfontBase for SampleSoundfont {
                 let index = key_vel_to_index(key, vel);
                 let mut vec = Vec::<Box<dyn VoiceSpawner>>::new();
                 for spawner in &sf.spawner_params_list[index] {
-                    match stream_params.channels {
-                        ChannelCount::Stereo => vec.push(Box::new(
-                            StereoSampledVoiceSpawner::<S>::new(spawner, vel, *stream_params),
-                        )),
-                        ChannelCount::Mono => vec.push(Box::new(
-                            MonoSampledVoiceSpawner::<S>::new(spawner, vel, *stream_params),
-                        )),
-                    }
+                    vec.push(make_spawner::<S>(spawner, key, vel, stream_params));
                 }
                 vec
             }
         );
 
-        let empty = SoundfontInstrument {
-            bank: 0,
-            preset: 0,
-            spawner_params_list: Vec::new(),
-        };
+        match self.find_instrument(bank, preset) {
+            Some(instrument) => get(key, vel, instrument, self.stream_params()),
+            None => Vec::new(),
+        }
+    }
 
-        let instrument = self
-            .instruments
-            .iter()
-            .find(|i| i.bank == bank && i.preset == preset)
-            .unwrap_or(&empty);
+    fn get_cc_triggered_voice_spawners_at(&self, bank: u8, preset: u8) -> Vec<CcTriggeredSpawner> {
+        use simdeez::*; // nuts
 
-        get(key, vel, instrument, self.stream_params())
+        use simdeez::prelude::*;
+
+        simd_runtime_generate!(
+            fn get(
+                sf: &SoundfontInstrument,
+                stream_params: &AudioStreamParams,
+            ) -> Vec<CcTriggeredSpawner> {
+                sf.cc_triggered
+                    .iter()
+                    .map(|(trigger, key, params)| CcTriggeredSpawner {
+                        trigger: *trigger,
+                        key: *key,
+                        spawner: make_spawner::<S>(params, *key, 127, stream_params),
+                    })
+                    .collect()
+            }
+        );
+
+        match self.find_instrument(bank, preset) {
+            Some(instrument) if !instrument.cc_triggered.is_empty() => {
+                get(instrument, self.stream_params())
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    fn default_controllers(&self) -> Vec<(u8, u8)> {
+        self.default_controllers.clone()
     }
 
     fn get_release_voice_spawners_at(

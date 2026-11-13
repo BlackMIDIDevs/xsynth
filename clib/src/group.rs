@@ -121,6 +121,8 @@ pub extern "C" fn XSynth_ChannelGroup_Create(options: XSynth_GroupOptions) -> XS
 ///   params: fine tune value in cents (0-8192, 4096=normal/middle)
 /// - XSYNTH_AUDIO_EVENT_COARSETUNE: Changes the coarse tuning
 ///   params: coarse tune value in semitones (0-128, 64=normal/middle)
+/// - XSYNTH_AUDIO_EVENT_CHANNELPRESSURE: A MIDI channel pressure (aftertouch) event
+///   params: pressure value (0-127)
 #[no_mangle]
 pub extern "C" fn XSynth_ChannelGroup_SendAudioEvent(
     handle: XSynth_ChannelGroup,
@@ -308,10 +310,11 @@ pub extern "C" fn XSynth_ChannelGroup_VoiceCount(handle: XSynth_ChannelGroup) ->
 pub extern "C" fn XSynth_ChannelGroup_GetStreamParams(
     handle: XSynth_ChannelGroup,
 ) -> XSynth_StreamParams {
-    handle.try_as_ref().map_or_else(
-        || XSynth_GenDefault_StreamParams(),
-        |group| convert_streamparams_to_c(group.stream_params()),
-    )
+    handle
+        .try_as_ref()
+        .map_or_else(XSynth_GenDefault_StreamParams, |group| {
+            convert_streamparams_to_c(group.stream_params())
+        })
 }
 
 /// Drops the desired channel group.

@@ -3,6 +3,8 @@ use std::sync::{
     Arc,
 };
 
+use crate::voice::PortamentoControl;
+
 use super::{
     channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer,
     ChannelInitOptions, VoiceControlData,
@@ -57,7 +59,27 @@ impl KeyData {
             KeyNoteEvent::AllKilled => {
                 self.voices.kill_all_voices();
             }
+            KeyNoteEvent::OnGlide {
+                vel,
+                from_key,
+                time,
+            } => {
+                let mut control = *control;
+                control.portamento = Some(PortamentoControl { from_key, time });
+                let voices = channel_sf.spawn_voices_attack(&control, self.key, vel);
+                self.voices.push_voices(voices, max_layers);
+            }
+            KeyNoteEvent::CcTriggered(index) => {
+                if let Some(trig) = channel_sf.cc_triggered().get(index as usize) {
+                    let voice = trig.spawner.spawn_voice(control);
+                    self.voices.push_voices(std::iter::once(voice), max_layers);
+                }
+            }
         }
+    }
+
+    pub fn set_sostenuto(&mut self, sostenuto: bool) {
+        self.voices.set_sostenuto(sostenuto);
     }
 
     pub fn process_controls(&mut self, control: &VoiceControlData) {

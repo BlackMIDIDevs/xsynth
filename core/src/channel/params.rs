@@ -57,10 +57,11 @@ impl VoiceChannelParams {
         }
     }
 
-    pub fn process_config_event(&mut self, event: ChannelConfigEvent) {
+    /// Processes a config event. Returns true if the soundfonts changed.
+    pub fn process_config_event(&mut self, event: ChannelConfigEvent) -> bool {
         match event {
             ChannelConfigEvent::SetSoundfonts(soundfonts) => {
-                self.channel_sf.set_soundfonts(soundfonts)
+                return self.channel_sf.set_soundfonts(soundfonts);
             }
             ChannelConfigEvent::SetLayerCount(count) => {
                 self.layers = count;
@@ -74,6 +75,7 @@ impl VoiceChannelParams {
                 self.channel_sf.change_program(self.program);
             }
         }
+        false
     }
 
     pub fn set_bank(&mut self, bank: u8) {

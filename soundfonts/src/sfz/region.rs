@@ -4,9 +4,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{FilterType, LoopMode};
+use crate::{
+    modulation::{
+        CcCrossfade, CcRange, CrossfadeCurve, ModController, ModDestination, ModSource,
+        RegionModulation, RuntimeModulator,
+    },
+    FilterType, LoopMode,
+};
 
-use super::parse::{SfzAmpegEnvelope, SfzGroupType, SfzOpcode, SfzToken};
+use super::parse::{SfzAmpegEnvelope, SfzCcTarget, SfzGroupType, SfzOpcode, SfzToken};
 
 /// Structure that holds the opcode parameters of the SFZ's AmpEG envelope.
 #[derive(Debug, Clone)]
@@ -80,6 +86,30 @@ pub(crate) struct RegionParamsBuilder {
     filter_type: FilterType,
     ampeg_envelope: AmpegEnvelopeParams,
     tune: i16,
+    amplitude: f32,
+    cc_mods: Vec<(SfzCcTarget, ModController, f32)>,
+    cc_conditions: Vec<CcRange>,
+    cc_triggers: Vec<CcRange>,
+    crossfades: Vec<CcCrossfade>,
+    crossfade_curve: CrossfadeCurve,
+    set_cc: Vec<(u8, u8)>,
+    reverb_send: Option<f32>,
+    chorus_send: Option<f32>,
+}
+
+fn update_range(ranges: &mut Vec<CcRange>, cc: u8, high: bool, value: u8) {
+    let range = match ranges.iter_mut().find(|r| r.cc == cc) {
+        Some(range) => range,
+        None => {
+            ranges.push(CcRange { cc, lo: 0, hi: 127 });
+            ranges.last_mut().unwrap()
+        }
+    };
+    if high {
+        range.hi = value;
+    } else {
+        range.lo = value;
+    }
 }
 
 impl Default for RegionParamsBuilder {
@@ -112,6 +142,15 @@ impl Default for RegionParamsBuilder {
             filter_type: FilterType::default(),
             ampeg_envelope: AmpegEnvelopeParams::default(),
             tune: 0,
+            amplitude: 100.0,
+            cc_mods: Vec::new(),
+            cc_conditions: Vec::new(),
+            cc_triggers: Vec::new(),
+            crossfades: Vec::new(),
+            crossfade_curve: CrossfadeCurve::default(),
+            set_cc: Vec::new(),
+            reverb_send: None,
+            chorus_send: None,
         }
     }
 }
@@ -151,10 +190,113 @@ impl RegionParamsBuilder {
             SfzOpcode::DefaultPath(val) => self.default_path = Some(val),
             SfzOpcode::AmpegEnvelope(flag) => self.ampeg_envelope.update_from_flag(flag),
             SfzOpcode::Tune(val) => self.tune = val,
+            SfzOpcode::Amplitude(val) => self.amplitude = val,
+            SfzOpcode::CcMod {
+                target,
+                controller,
+                value,
+            } => {
+                self.cc_mods
+                    .retain(|(t, c, _)| !(*t == target && *c == controller));
+                self.cc_mods.push((target, controller, value));
+            }
+            SfzOpcode::CcCondition { cc, high, value } => {
+                update_range(&mut self.cc_conditions, cc, high, value)
+            }
+            SfzOpcode::CcTrigger { cc, high, value } => {
+                update_range(&mut self.cc_triggers, cc, high, value)
+            }
+            SfzOpcode::CcCrossfade {
+                cc,
+                fade_in,
+                high,
+                value,
+            } => {
+                let xf = match self
+                    .crossfades
+                    .iter_mut()
+                    .find(|xf| xf.cc == cc && xf.fade_in == fade_in)
+                {
+                    Some(xf) => xf,
+                    None => {
+                        // SFZ defaults: xfin_lo/hi = 0, xfout_lo/hi = 127
+                        let default = if fade_in { 0 } else { 127 };
+                        self.crossfades.push(CcCrossfade {
+                            cc,
+                            lo: default,
+                            hi: default,
+                            fade_in,
+                        });
+                        self.crossfades.last_mut().unwrap()
+                    }
+                };
+                if high {
+                    xf.hi = value;
+                } else {
+                    xf.lo = value;
+                }
+            }
+            SfzOpcode::XfCcCurve(curve) => self.crossfade_curve = curve,
+            SfzOpcode::SetCc(cc, value) => {
+                self.set_cc.retain(|(c, _)| *c != cc);
+                self.set_cc.push((cc, value));
+            }
+            SfzOpcode::ReverbSend(val) => self.reverb_send = Some(val),
+            SfzOpcode::ChorusSend(val) => self.chorus_send = Some(val),
+        }
+    }
+
+    fn build_modulation(&self) -> RegionModulation {
+        let modulators = self
+            .cc_mods
+            .iter()
+            .map(|&(target, controller, value)| {
+                let (destination, amount) = match target {
+                    SfzCcTarget::Amplitude => (ModDestination::AmplitudePercent, value),
+                    SfzCcTarget::Volume => (ModDestination::VolumeDb, value),
+                    SfzCcTarget::Pan => (ModDestination::Pan, value / 100.0),
+                    SfzCcTarget::Pitch => (ModDestination::PitchCents, value),
+                    SfzCcTarget::Cutoff => (ModDestination::CutoffCents, value),
+                    SfzCcTarget::Resonance => (ModDestination::ResonanceDb, value),
+                    SfzCcTarget::Envelope(env) => (ModDestination::EnvelopeLinear(env), value),
+                };
+                let mut source = ModSource::linear(controller);
+                // The extended pitch bend controller is bipolar in SFZ.
+                source.bipolar = controller == ModController::PitchWheel;
+                RuntimeModulator {
+                    source,
+                    amount_source: None,
+                    amount,
+                    absolute: false,
+                    destination,
+                }
+            })
+            .collect();
+
+        // Crossfades that can never attenuate are dropped so they cost nothing.
+        let crossfades = self
+            .crossfades
+            .iter()
+            .copied()
+            .filter(|xf| {
+                if xf.fade_in {
+                    !(xf.lo == 0 && xf.hi == 0)
+                } else {
+                    !(xf.lo == 127 && xf.hi == 127)
+                }
+            })
+            .collect();
+
+        RegionModulation {
+            modulators,
+            crossfades,
+            crossfade_curve: self.crossfade_curve,
+            amplitude_percent: self.amplitude,
         }
     }
 
     fn build(self, base_path: &Path) -> Option<RegionParams> {
+        let modulation = self.build_modulation();
         let relative_sample_path = if let Some(default_path) = self.default_path {
             PathBuf::from(default_path).join(self.sample?)
         } else {
@@ -192,6 +334,13 @@ impl RegionParamsBuilder {
             filter_type: self.filter_type,
             ampeg_envelope: self.ampeg_envelope,
             tune: self.tune,
+            amplitude: self.amplitude,
+            modulation,
+            cc_conditions: self.cc_conditions,
+            cc_triggers: self.cc_triggers,
+            set_cc: self.set_cc,
+            reverb_send: self.reverb_send,
+            chorus_send: self.chorus_send,
         })
     }
 }
@@ -223,6 +372,21 @@ pub struct RegionParams {
     pub filter_type: FilterType,
     pub ampeg_envelope: AmpegEnvelopeParams,
     pub tune: i16,
+    /// Base amplitude in percent (`amplitude`).
+    pub amplitude: f32,
+    /// Controller-driven modulation (`*_onccN`, `xfin_*`/`xfout_*`).
+    pub modulation: RegionModulation,
+    /// Controller ranges required for the region to play (`loccN`/`hiccN`).
+    pub cc_conditions: Vec<CcRange>,
+    /// Controller ranges that trigger the region (`on_loccN`/`on_hiccN`).
+    /// Regions with triggers are not played by notes.
+    pub cc_triggers: Vec<CcRange>,
+    /// Initial controller values (`set_ccN`).
+    pub set_cc: Vec<(u8, u8)>,
+    /// Reverb send in percent (`effect1`).
+    pub reverb_send: Option<f32>,
+    /// Chorus send in percent (`effect2`).
+    pub chorus_send: Option<f32>,
 }
 
 fn get_group_level(group_type: SfzGroupType) -> Option<usize> {

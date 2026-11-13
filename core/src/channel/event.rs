@@ -17,6 +17,12 @@ pub enum KeyNoteEvent {
 
     /// Kills all note voices without decay
     AllKilled,
+
+    /// Starts a new note voice with a velocity, gliding from another key (portamento)
+    OnGlide { vel: u8, from_key: u8, time: f32 },
+
+    /// Starts the controller-triggered voice with the given index in the channel's soundfont
+    CcTriggered(u16),
 }
 
 /// Events to modify parameters of a channel.
@@ -96,4 +102,7 @@ pub enum ControlEvent {
 
     /// Coarse tune value in semitones
     CoarseTune(f32),
+
+    /// Channel pressure (aftertouch), between 0 and 127
+    ChannelPressure(u8),
 }

@@ -1,10 +1,12 @@
 use std::{fs::File, io, path::PathBuf, sync::Arc};
 
-use symphonia::core::formats::FormatOptions;
-use symphonia::core::{audio::AudioBuffer, conv::IntoSample, probe::Hint, sample::Sample};
-use symphonia::core::{audio::AudioBufferRef, meta::MetadataOptions};
-use symphonia::core::{audio::Signal, io::MediaSourceStream};
-use symphonia::core::{codecs::DecoderOptions, errors::Error};
+use symphonia::core::audio::GenericAudioBufferRef;
+use symphonia::core::codecs::audio::AudioDecoderOptions;
+use symphonia::core::errors::Error;
+use symphonia::core::formats::probe::Hint;
+use symphonia::core::formats::{FormatOptions, TrackType};
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::meta::MetadataOptions;
 
 use crate::{AudioStreamParams, ChannelCount};
 use thiserror::Error;
@@ -50,27 +52,34 @@ pub(super) fn load_audio_file(
     // Use the default options when reading and decoding.
     let format_opts: FormatOptions = Default::default();
     let metadata_opts: MetadataOptions = Default::default();
-    let decoder_opts: DecoderOptions = Default::default();
+    let decoder_opts: AudioDecoderOptions = Default::default();
 
     // Probe the media source stream for a format.
-    let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &format_opts, &metadata_opts)
+    let mut format = symphonia::default::get_probe()
+        .probe(&hint, mss, format_opts, metadata_opts)
         .map_err(|x| AudioLoadError::AudioDecodingFailed(path.clone(), x))?;
 
-    // Get the format reader yielded by the probe operation.
-    let mut format = probed.format;
-
-    // Get the default track.
+    // Get the default audio track.
     let track = format
-        .default_track()
+        .default_track(TrackType::Audio)
         .ok_or_else(|| AudioLoadError::NoTracks(path.clone()))?;
 
-    let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
-    let channel_count = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
+    let codec_params = track
+        .codec_params
+        .as_ref()
+        .and_then(|p| p.audio())
+        .ok_or_else(|| AudioLoadError::NoTracks(path.clone()))?;
+
+    let sample_rate = codec_params.sample_rate.unwrap_or(44100);
+    let channel_count = codec_params
+        .channels
+        .as_ref()
+        .map(|c| c.count())
+        .unwrap_or(1);
 
     // Create a decoder for the track.
     let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &decoder_opts)
+        .make_audio_decoder(codec_params, &decoder_opts)
         .map_err(|x| AudioLoadError::AudioDecodingFailed(path.clone(), x))?;
 
     // Store the track identifier, we'll use it to filter packets.
@@ -82,6 +91,7 @@ pub(super) fn load_audio_file(
     loop {
         // Get the next packet from the format reader.
         let packet = match format.next_packet() {
+            Ok(None) => break,
             Err(symphonia::core::errors::Error::IoError(error))
                 if error.kind() == std::io::ErrorKind::UnexpectedEof =>
             {
@@ -89,11 +99,11 @@ pub(super) fn load_audio_file(
                 break;
             }
             Err(error) => return Err(AudioLoadError::AudioDecodingFailed(path.clone(), error)),
-            Ok(packet) => packet,
+            Ok(Some(packet)) => packet,
         };
 
         // If the packet does not belong to the selected track, skip it.
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 
@@ -127,30 +137,12 @@ impl BuilderVecs {
         Self { vecs }
     }
 
-    fn push(&mut self, buffer: AudioBufferRef) {
-        match buffer {
-            AudioBufferRef::U8(buf) => self.push_buffer(&buf),
-            AudioBufferRef::U16(buf) => self.push_buffer(&buf),
-            AudioBufferRef::U24(buf) => self.push_buffer(&buf),
-            AudioBufferRef::U32(buf) => self.push_buffer(&buf),
-            AudioBufferRef::S8(buf) => self.push_buffer(&buf),
-            AudioBufferRef::S16(buf) => self.push_buffer(&buf),
-            AudioBufferRef::S24(buf) => self.push_buffer(&buf),
-            AudioBufferRef::S32(buf) => self.push_buffer(&buf),
-            AudioBufferRef::F32(buf) => self.push_buffer(&buf),
-            AudioBufferRef::F64(buf) => self.push_buffer(&buf),
-        }
-    }
+    fn push(&mut self, buffer: GenericAudioBufferRef) {
+        let mut planes: Vec<Vec<f32>> = Vec::new();
+        buffer.copy_to_vecs_planar(&mut planes);
 
-    fn push_buffer(&mut self, buffer: &AudioBuffer<impl Sample + IntoSample<f32>>) {
-        let channels = buffer.spec().channels.count();
-
-        for c in 0..channels {
-            let channel = buffer.chan(c);
-            self.vecs[c].reserve(channel.len());
-            for &sample in channel.iter() {
-                self.vecs[c].push(sample.into_sample());
-            }
+        for (vec, plane) in self.vecs.iter_mut().zip(planes) {
+            vec.extend(plane);
         }
     }
 

@@ -25,6 +25,9 @@ mod voice_spawner;
 mod event;
 pub use event::*;
 
+#[cfg(test)]
+mod cc_tests;
+
 pub(crate) use control::ValueLerp;
 pub use params::VoiceChannelStatsReader;
 
@@ -75,19 +78,40 @@ impl Default for ChannelInitOptions {
 ///
 /// MIDI CC Support Chart:
 /// - `CC0`: Bank Select
-/// - `CC6`, `CC38`, `CC100`, `CC101`: RPN & NRPN
+/// - `CC1`: Modulation wheel (vibrato, depth set by RPN 5)
+/// - `CC5`: Portamento time
+/// - `CC6`, `CC38`: Data entry MSB/LSB
 /// - `CC7`: Volume
 /// - `CC8`: Balance
 /// - `CC10`: Pan
 /// - `CC11`: Expression
 /// - `CC64`: Damper pedal
+/// - `CC65`: Portamento on/off
+/// - `CC66`: Sostenuto
+/// - `CC67`: Soft pedal
+/// - `CC69`: Hold 2
 /// - `CC71`: Cutoff resonance
 /// - `CC72`: Release time multiplier
 /// - `CC73`: Attack time multiplier
 /// - `CC74`: Cutoff frequency
+/// - `CC75`: Decay time multiplier
+/// - `CC76`: Vibrato rate
+/// - `CC77`: Vibrato depth
+/// - `CC84`: Portamento control
+/// - `CC91`: Reverb send (rendered by `ChannelGroup`)
+/// - `CC93`: Chorus send (rendered by `ChannelGroup`)
+/// - `CC96`, `CC97`: Data increment/decrement
+/// - `CC98`, `CC99`: NRPN select (GS/XG vibrato, filter and envelope NRPNs)
+/// - `CC100`, `CC101`: RPN select (pitch bend range, fine/coarse tune,
+///   modulation depth range, null)
 /// - `CC120`: All sounds off
 /// - `CC121`: Reset all controllers
-/// - `CC123`: All notes off
+/// - `CC123`, `CC124`, `CC125`: All notes off
+/// - `CC126`, `CC127`: Mono / poly mode
+///
+/// Every controller value, the pitch wheel and channel pressure are also
+/// tracked so soundfonts can use them: SFZ `*_onccN`, `loccN`/`hiccN`,
+/// `on_loccN`/`on_hiccN`, `xfin_*`/`xfout_*` and SF2 CC modulators.
 pub struct VoiceChannel {
     key_voices: Vec<Key>,
 
@@ -189,9 +213,39 @@ impl VoiceChannel {
         }
     }
 
+    /// Returns the (reverb, chorus) send levels of the channel, between 0 and 1.
+    ///
+    /// The sends follow CC91 and CC93, scaled by the send levels requested by the
+    /// active soundfont regions (SFZ `effect1`/`effect2`). They are consumed by
+    /// `ChannelGroup`, which owns the shared reverb and chorus effects.
+    pub fn effect_sends(&self) -> (f32, f32) {
+        let (reverb_scale, chorus_scale) = self.params.channel_sf.effect_scale();
+        (
+            self.control_event_data.reverb * reverb_scale,
+            self.control_event_data.chorus * chorus_scale,
+        )
+    }
+
     fn push_key_events_and_render(&mut self, out: &mut [f32]) {
         self.params.load_program();
 
+        if self.vibrato_active() {
+            // The vibrato LFO modulates the channel pitch, so render in short blocks
+            // and update the pitch between them.
+            let channels = self.stream_params.channels.count() as usize;
+            let block = control::VIBRATO_BLOCK_FRAMES * channels;
+            for chunk in out.chunks_mut(block) {
+                self.advance_vibrato(chunk.len() / channels);
+                self.render_keys(chunk);
+            }
+        } else {
+            self.render_keys(out);
+        }
+
+        self.apply_channel_effects(out);
+    }
+
+    fn render_keys(&mut self, out: &mut [f32]) {
         out.fill(0.0);
         match self.threadpool.as_ref() {
             Some(pool) => {
@@ -230,8 +284,6 @@ impl VoiceChannel {
                 }
             }
         }
-
-        self.apply_channel_effects(out);
     }
 
     fn propagate_voice_controls(&mut self) {
@@ -258,6 +310,9 @@ impl VoiceChannel {
             match e {
                 ChannelEvent::Audio(audio) => match audio {
                     ChannelAudioEvent::NoteOn { key, vel } => {
+                        if key > 127 {
+                            continue;
+                        }
                         let classes: Vec<_> = self
                             .params
                             .channel_sf
@@ -266,10 +321,23 @@ impl VoiceChannel {
                         for class in classes {
                             self.kill_voices_in_exclusive_class(class);
                         }
-                        if let Some(key) = self.key_voices.get_mut(key as usize) {
-                            let ev = KeyNoteEvent::On(vel);
-                            key.event_cache.push(ev);
+                        let last_note = self.control_event_data.last_note;
+                        if self.control_event_data.mono {
+                            if let Some(last) = last_note.filter(|last| *last != key) {
+                                self.key_voices[last as usize]
+                                    .event_cache
+                                    .push(KeyNoteEvent::AllOff);
+                            }
                         }
+                        let ev = match self.take_portamento(key) {
+                            Some((from_key, time)) => KeyNoteEvent::OnGlide {
+                                vel,
+                                from_key,
+                                time,
+                            },
+                            None => KeyNoteEvent::On(vel),
+                        };
+                        self.key_voices[key as usize].event_cache.push(ev);
                     }
                     ChannelAudioEvent::NoteOff { key } => {
                         if let Some(key) = self.key_voices.get_mut(key as usize) {
@@ -307,7 +375,11 @@ impl VoiceChannel {
                         self.reset_program();
                     }
                 },
-                ChannelEvent::Config(config) => self.params.process_config_event(config),
+                ChannelEvent::Config(config) => {
+                    if self.params.process_config_event(config) {
+                        self.apply_default_controllers();
+                    }
+                }
             }
         }
     }

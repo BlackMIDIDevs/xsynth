@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use rand::Rng;
+use rand::RngExt;
 use xsynth_core::{
     channel::{ChannelAudioEvent, ChannelConfigEvent, ChannelEvent, VoiceChannel},
     soundfont::{SampleSoundfont, SoundfontBase},
@@ -125,9 +125,9 @@ fn bench_random_rendering(make_new_channel: impl FnMut() -> VoiceChannel) {
             for _ in 0..100 {
                 for _ in 0..1000 {
                     let note_on_chance = 1.0 / (off_events.len() as f64 / halflife + 1.0);
-                    if random.gen_bool(note_on_chance) {
-                        let key = random.gen_range(0u8..=127u8);
-                        let vel = random.gen_range(1u8..=127u8);
+                    if random.random_bool(note_on_chance) {
+                        let key = random.random_range(0u8..=127u8);
+                        let vel = random.random_range(1u8..=127u8);
 
                         channel.process_event(ChannelEvent::Audio(ChannelAudioEvent::NoteOn {
                             key,
@@ -136,13 +136,13 @@ fn bench_random_rendering(make_new_channel: impl FnMut() -> VoiceChannel) {
 
                         off_events.push(key);
                     } else {
-                        let key = off_events.swap_remove(random.gen_range(0..off_events.len()));
+                        let key = off_events.swap_remove(random.random_range(0..off_events.len()));
                         channel
                             .process_event(ChannelEvent::Audio(ChannelAudioEvent::NoteOff { key }));
                     }
                 }
 
-                let buffer_len = random.gen_range(1..=(buffer.len() / 2)) * 2;
+                let buffer_len = random.random_range(1..=(buffer.len() / 2)) * 2;
                 channel.read_samples(&mut buffer[..buffer_len]);
             }
         },

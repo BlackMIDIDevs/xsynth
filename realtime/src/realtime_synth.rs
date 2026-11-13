@@ -10,8 +10,8 @@ use std::{
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    BuildStreamError, DefaultStreamConfigError, Device, PauseStreamError, PlayStreamError,
-    SizedSample, Stream, SupportedStreamConfig,
+    Device, Error as CpalError, ErrorKind as CpalErrorKind, SizedSample, Stream,
+    SupportedStreamConfig,
 };
 use crossbeam_channel::{bounded, unbounded};
 use thiserror::Error;
@@ -20,7 +20,7 @@ use xsynth_core::{
     buffered_renderer::{BufferedRenderer, BufferedRendererStatsReader},
     channel::{ChannelConfigEvent, ChannelEvent, VoiceChannel},
     channel_group::SynthFormat,
-    effects::VolumeLimiter,
+    effects::{SendEffects, VolumeLimiter},
     helpers::{prepapre_cache_vec, sum_simd},
     AudioPipe, AudioStreamParams, FunctionAudioPipe,
 };
@@ -35,7 +35,7 @@ pub enum RealtimeSynthError {
     NoOutputDevice,
 
     #[error("failed to get default output config: {0}")]
-    DefaultOutputConfig(#[from] DefaultStreamConfigError),
+    DefaultOutputConfig(#[source] CpalError),
 
     #[error("failed to build thread pool: {0}")]
     ThreadPoolBuild(#[from] rayon::ThreadPoolBuildError),
@@ -56,10 +56,10 @@ pub enum RealtimeSynthError {
     BufferedRendererThreadSpawn(#[source] io::Error),
 
     #[error("failed to create audio stream: {0}")]
-    BuildStream(#[from] BuildStreamError),
+    BuildStream(#[from] CpalError),
 
     #[error("failed to start audio stream: {0}")]
-    PlayStream(#[from] PlayStreamError),
+    PlayStream(#[source] CpalError),
 
     #[error("unsupported sample format: {0:?}")]
     UnsupportedSampleFormat(cpal::SampleFormat),
@@ -122,7 +122,7 @@ struct PreparedRealtimeChannels {
     senders: Vec<crossbeam_channel::Sender<ChannelEvent>>,
     command_senders: Vec<crossbeam_channel::Sender<Vec<f32>>>,
     join_handles: Vec<thread::JoinHandle<()>>,
-    output_receiver: crossbeam_channel::Receiver<Vec<f32>>,
+    output_receiver: crossbeam_channel::Receiver<ChannelOutput>,
 }
 
 /// A realtime MIDI synthesizer using an audio device for output.
@@ -137,8 +137,8 @@ pub struct RealtimeSynth {
 }
 
 enum StreamCommand {
-    Pause(crossbeam_channel::Sender<Result<(), PauseStreamError>>),
-    Resume(crossbeam_channel::Sender<Result<(), PlayStreamError>>),
+    Pause(crossbeam_channel::Sender<Result<(), CpalError>>),
+    Resume(crossbeam_channel::Sender<Result<(), CpalError>>),
     Shutdown,
 }
 
@@ -151,11 +151,11 @@ impl RealtimeSynth {
         let device = host
             .default_output_device()
             .ok_or(RealtimeSynthError::NoOutputDevice)?;
-        if let Ok(name) = device.name() {
-            println!("Output device: {name}");
-        }
+        println!("Output device: {device}");
 
-        let stream_config = device.default_output_config()?;
+        let stream_config = device
+            .default_output_config()
+            .map_err(RealtimeSynthError::DefaultOutputConfig)?;
 
         RealtimeSynth::open(Default::default(), &device, stream_config)
     }
@@ -172,11 +172,11 @@ impl RealtimeSynth {
         let device = host
             .default_output_device()
             .ok_or(RealtimeSynthError::NoOutputDevice)?;
-        if let Ok(name) = device.name() {
-            println!("Output device: {name}");
-        }
+        println!("Output device: {device}");
 
-        let stream_config = device.default_output_config()?;
+        let stream_config = device
+            .default_output_config()
+            .map_err(RealtimeSynthError::DefaultOutputConfig)?;
 
         RealtimeSynth::open(config, &device, stream_config)
     }
@@ -191,7 +191,7 @@ impl RealtimeSynth {
         device: &Device,
         stream_config: SupportedStreamConfig,
     ) -> Result<Self, RealtimeSynthError> {
-        let sample_rate = stream_config.sample_rate().0;
+        let sample_rate = stream_config.sample_rate();
         let stream_params = AudioStreamParams::new(sample_rate, stream_config.channels().into());
         let channel_pool = build_channel_pool(config.multithreading)?;
         let channel_count = channel_count(config.format);
@@ -300,7 +300,7 @@ impl RealtimeSynth {
     }
 
     /// Pauses the playback of the audio output device.
-    pub fn pause(&mut self) -> Result<(), PauseStreamError> {
+    pub fn pause(&mut self) -> Result<(), CpalError> {
         let data = self.data.as_ref().unwrap();
         let (sender, receiver) = bounded(1);
         if data
@@ -308,15 +308,15 @@ impl RealtimeSynth {
             .send(StreamCommand::Pause(sender))
             .is_err()
         {
-            return Err(PauseStreamError::DeviceNotAvailable);
+            return Err(CpalError::new(CpalErrorKind::DeviceNotAvailable));
         }
         receiver
             .recv()
-            .unwrap_or(Err(PauseStreamError::DeviceNotAvailable))
+            .unwrap_or_else(|_| Err(CpalError::new(CpalErrorKind::DeviceNotAvailable)))
     }
 
     /// Resumes the playback of the audio output device.
-    pub fn resume(&mut self) -> Result<(), PlayStreamError> {
+    pub fn resume(&mut self) -> Result<(), CpalError> {
         let data = self.data.as_ref().unwrap();
         let (sender, receiver) = bounded(1);
         if data
@@ -324,11 +324,11 @@ impl RealtimeSynth {
             .send(StreamCommand::Resume(sender))
             .is_err()
         {
-            return Err(PlayStreamError::DeviceNotAvailable);
+            return Err(CpalError::new(CpalErrorKind::DeviceNotAvailable));
         }
         receiver
             .recv()
-            .unwrap_or(Err(PlayStreamError::DeviceNotAvailable))
+            .unwrap_or_else(|_| Err(CpalError::new(CpalErrorKind::DeviceNotAvailable)))
     }
 
     /// Changes the length of the buffer reader.
@@ -368,14 +368,14 @@ fn prepare_channels(
     channel_pool: Option<Arc<rayon::ThreadPool>>,
     format: SynthFormat,
 ) -> Result<PreparedRealtimeChannels, RealtimeSynthError> {
-    let (output_sender, output_receiver) = bounded::<Vec<f32>>(channel_count as usize);
+    let (output_sender, output_receiver) = bounded::<ChannelOutput>(channel_count as usize);
 
     let mut channel_stats = Vec::new();
     let mut senders = Vec::new();
     let mut command_senders = Vec::new();
     let mut join_handles = Vec::new();
 
-    for _ in 0..channel_count {
+    for index in 0..channel_count {
         let channel = VoiceChannel::new(init_options, stream_params, channel_pool.clone());
         channel_stats.push(channel.get_channel_stats());
 
@@ -386,8 +386,13 @@ fn prepare_channels(
         command_senders.push(command_sender);
 
         let output_sender = output_sender.clone();
-        let join_handle =
-            spawn_channel_thread(channel, event_receiver, command_receiver, output_sender)?;
+        let join_handle = spawn_channel_thread(
+            index as usize,
+            channel,
+            event_receiver,
+            command_receiver,
+            output_sender,
+        )?;
         join_handles.push(join_handle);
     }
 
@@ -406,11 +411,15 @@ fn prepare_channels(
     })
 }
 
+/// A rendered channel block: (channel index, samples, reverb/chorus sends)
+type ChannelOutput = (usize, Vec<f32>, (f32, f32));
+
 fn spawn_channel_thread(
+    index: usize,
     mut channel: VoiceChannel,
     event_receiver: crossbeam_channel::Receiver<ChannelEvent>,
     command_receiver: crossbeam_channel::Receiver<Vec<f32>>,
-    output_sender: crossbeam_channel::Sender<Vec<f32>>,
+    output_sender: crossbeam_channel::Sender<ChannelOutput>,
 ) -> Result<thread::JoinHandle<()>, RealtimeSynthError> {
     thread::Builder::new()
         .name("xsynth_channel_handler".to_string())
@@ -422,7 +431,10 @@ fn spawn_channel_thread(
             };
             channel.push_events_iter(event_receiver.try_iter());
             channel.read_samples(&mut vec);
-            if output_sender.send(vec).is_err() {
+            if output_sender
+                .send((index, vec, channel.effect_sends()))
+                .is_err()
+            {
                 break;
             }
         })
@@ -433,7 +445,7 @@ fn build_render_pipe(
     stream_params: AudioStreamParams,
     channel_count: u32,
     command_senders: Vec<crossbeam_channel::Sender<Vec<f32>>>,
-    output_receiver: crossbeam_channel::Receiver<Vec<f32>>,
+    output_receiver: crossbeam_channel::Receiver<ChannelOutput>,
     channel_stats: Vec<xsynth_core::channel::VoiceChannelStatsReader>,
     stats: &RealtimeSynthStats,
 ) -> FunctionAudioPipe<impl FnMut(&mut [f32]) + Send> {
@@ -443,6 +455,7 @@ fn build_render_pipe(
     }
 
     let total_voice_count = stats.voice_count.clone();
+    let mut send_effects = SendEffects::new(stream_params);
 
     FunctionAudioPipe::new(stream_params, move |out| {
         for sender in &command_senders {
@@ -451,11 +464,14 @@ fn build_render_pipe(
             sender.send(buf).unwrap();
         }
 
+        send_effects.begin(out.len());
         for _ in 0..channel_count {
-            let buf = output_receiver.recv().unwrap();
+            let (index, buf, sends) = output_receiver.recv().unwrap();
             sum_simd(&buf, out);
+            send_effects.add_channel(index, &buf, sends);
             vec_cache.push_front(buf);
         }
+        send_effects.finish(out);
 
         let total_voices = channel_stats.iter().map(|c| c.voice_count()).sum();
         total_voice_count.store(total_voices, Ordering::SeqCst);
@@ -487,7 +503,7 @@ fn build_output_stream_for<T: SizedSample + ConvertSample>(
     let mut limiter = VolumeLimiter::new(stream_config.channels());
 
     Ok(device.build_output_stream(
-        &stream_config.into(),
+        stream_config.into(),
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
             output_vec.resize(data.len(), 0.0);
             buffered.lock().unwrap().read(&mut output_vec);
@@ -524,7 +540,7 @@ fn spawn_stream_thread(
                 }
             };
             if let Err(err) = stream.play() {
-                let _ = ready_sender.send(Err(err.into()));
+                let _ = ready_sender.send(Err(RealtimeSynthError::PlayStream(err)));
                 return;
             }
             if ready_sender.send(Ok(())).is_err() {

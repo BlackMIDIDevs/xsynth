@@ -11,7 +11,9 @@ fn voice_iter_from_vec<'a>(
     vec: &'a [Box<dyn VoiceSpawner>],
     control: &'a VoiceControlData,
 ) -> impl Iterator<Item = Box<dyn Voice>> + 'a {
-    vec.iter().map(move |voice| voice.spawn_voice(control))
+    vec.iter()
+        .filter(move |voice| voice.can_spawn(control))
+        .map(move |voice| voice.spawn_voice(control))
 }
 
 fn exclusive_classes_from_vec<'a>(

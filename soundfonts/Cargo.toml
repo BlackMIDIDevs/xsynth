@@ -7,17 +7,15 @@ readme = "README.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-encoding_rs = "0.8.34"
-encoding_rs_io = "0.1.7"
-lazy-regex = "3.2.0"
+encoding_rs = "0.8.44"
+encoding_rs_io = "0.1.8"
 regex-bnf = "0.1.2"
 simdeez = "3.0.1"
-thiserror = "1.0.63"
+thiserror = "2.0.21"
 soundfont = "0.1.0"
-rubato = "0.15.0"
+rubato = "5.1.0"

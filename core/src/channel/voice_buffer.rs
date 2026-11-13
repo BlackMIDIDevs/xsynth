@@ -43,6 +43,10 @@ pub struct VoiceBuffer {
     buffer: VecDeque<GroupVoice>,
     damper_held: bool,
     held_by_damper: Vec<usize>,
+    /// Voice groups captured by the sostenuto pedal
+    sostenuto_ids: Vec<usize>,
+    /// Voice groups that were released while held by the sostenuto pedal
+    held_by_sostenuto: Vec<usize>,
 }
 
 impl VoiceBuffer {
@@ -53,6 +57,8 @@ impl VoiceBuffer {
             buffer: VecDeque::new(),
             damper_held: false,
             held_by_damper: Vec::new(),
+            sostenuto_ids: Vec::new(),
+            held_by_sostenuto: Vec::new(),
         }
     }
 
@@ -72,8 +78,7 @@ impl VoiceBuffer {
         let mut quietest_index = 0;
         let mut quietest_id = 0;
         let mut count = 0;
-        for i in 0..self.buffer.len() {
-            let voice = &self.buffer[i];
+        for (i, voice) in self.buffer.iter().enumerate() {
             if voice.id == ignored_id || voice.is_killed() {
                 continue;
             }
@@ -110,6 +115,8 @@ impl VoiceBuffer {
     }
 
     pub fn kill_all_voices(&mut self) {
+        self.sostenuto_ids.clear();
+        self.held_by_sostenuto.clear();
         if self.options.fade_out_killing {
             for i in 0..self.buffer.len() {
                 self.kill_voice_fade_out(i);
@@ -129,13 +136,10 @@ impl VoiceBuffer {
     }
 
     fn get_active_count(&mut self) -> usize {
-        let mut active = 0;
-        for i in 0..self.buffer.len() {
-            if !self.buffer[i].deref().is_killed() {
-                active += 1;
-            }
-        }
-        active
+        self.buffer
+            .iter()
+            .filter(|voice| !voice.voice.is_killed())
+            .count()
     }
 
     /// Pushes a new set of voices for a single note on event. Multiple voices can be part of the same group
@@ -170,13 +174,27 @@ impl VoiceBuffer {
 
     /// Releases the next voice, and all subsequent voices that have the same ID.
     pub fn release_next_voice(&mut self) -> Option<u8> {
+        if !self.sostenuto_ids.is_empty() && !self.damper_held {
+            // Voices captured by the sostenuto pedal keep playing until it is lifted.
+            for voice in self.buffer.iter() {
+                if voice.is_releasing() || self.held_by_sostenuto.contains(&voice.id) {
+                    continue;
+                }
+                if self.sostenuto_ids.contains(&voice.id) {
+                    self.held_by_sostenuto.push(voice.id);
+                    return None;
+                }
+                break;
+            }
+        }
+
         if !self.damper_held {
             let mut id: Option<usize> = None;
             let mut vel = None;
 
             // Find the first non releasing voice, get its id and release all voices with that id
             for voice in self.buffer.iter_mut() {
-                if voice.is_releasing() {
+                if voice.is_releasing() || self.held_by_sostenuto.contains(&voice.id) {
                     continue;
                 }
 
@@ -200,7 +218,9 @@ impl VoiceBuffer {
                     continue;
                 }
 
-                if self.held_by_damper.contains(&voice.id) {
+                if self.held_by_damper.contains(&voice.id)
+                    || self.held_by_sostenuto.contains(&voice.id)
+                {
                     continue;
                 }
 
@@ -241,14 +261,48 @@ impl VoiceBuffer {
 
     pub fn set_damper(&mut self, damper: bool) {
         if self.damper_held && !damper {
-            // Release all voices that are held by the damper
-            for voice in self.buffer.iter_mut() {
-                if self.held_by_damper.contains(&voice.id) {
-                    voice.signal_release(ReleaseType::Standard);
+            // Release all voices that are held by the damper, except the ones
+            // the sostenuto pedal still holds
+            for id in self.held_by_damper.drain(..) {
+                if self.sostenuto_ids.contains(&id) {
+                    self.held_by_sostenuto.push(id);
+                    continue;
+                }
+                for voice in self.buffer.iter_mut() {
+                    if voice.id == id {
+                        voice.signal_release(ReleaseType::Standard);
+                    }
                 }
             }
-            self.held_by_damper.clear();
         }
         self.damper_held = damper;
+    }
+
+    pub fn set_sostenuto(&mut self, sostenuto: bool) {
+        if sostenuto {
+            // Capture the voice groups that are currently held down
+            self.sostenuto_ids.clear();
+            for voice in self.buffer.iter() {
+                if !voice.is_releasing()
+                    && !self.held_by_damper.contains(&voice.id)
+                    && !self.sostenuto_ids.contains(&voice.id)
+                {
+                    self.sostenuto_ids.push(voice.id);
+                }
+            }
+        } else {
+            self.sostenuto_ids.clear();
+            for id in self.held_by_sostenuto.drain(..) {
+                if self.damper_held {
+                    self.held_by_damper.push(id);
+                    continue;
+                }
+                for voice in self.buffer.iter_mut() {
+                    if voice.id == id {
+                        voice.signal_release(ReleaseType::Standard);
+                    }
+                }
+            }
+        }
     }
 }

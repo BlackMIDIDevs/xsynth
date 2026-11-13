@@ -9,7 +9,6 @@ default-run = "xsynth-render"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
@@ -23,9 +22,9 @@ path = "src/main.rs"
 
 [dependencies]
 xsynth-core = { workspace = true }
-crossbeam-channel = "0.5.13"
+crossbeam-channel = "0.5.17"
 hound = "3.5.1"
-midi-toolkit-rs = "0.1.0"
-atomic_float = "1.0.0"
-thiserror = "1.0.63"
-clap = { version = "4.5.16", features = ["cargo"] }
+midi-toolkit-rs = "0.3.1"
+atomic_float = "1.1.0"
+thiserror = "2.0.21"
+clap = { version = "4.6.7", features = ["cargo"] }

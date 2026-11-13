@@ -5,35 +5,52 @@ use simdeez::Simd;
 use crate::{
     effects::BiQuadFilter,
     voice::{
-        BufferSampler, SIMDSample, SIMDSampleGrabber, SIMDSampleMono, SIMDSampleStereo,
-        SIMDStereoVoiceCutoff, SIMDVoiceGenerator,
+        gain_ramp_frames, modulate_envelope, BufferSampler, CutoffModulation, GainModulation,
+        SIMDSample, SIMDSampleGrabber, SIMDSampleMono, SIMDSampleStereo, SIMDStereoVoiceCutoff,
+        SIMDVoiceGainStereo, SIMDVoiceGenerator, SIMDVoicePitch,
     },
     AudioStreamParams,
 };
 use crate::{
     voice::VoiceControlData,
     voice::{
-        BufferSamplers, EnvelopeParameters, SIMDConstant, SIMDConstantStereo,
-        SIMDLinearSampleGrabber, SIMDNearestSampleGrabber, SIMDStereoVoice, SIMDStereoVoiceSampler,
-        SIMDVoiceControl, SIMDVoiceEnvelope, SampleReader, SampleReaderLoop,
+        BufferSamplers, EnvelopeParameters, SIMDLinearSampleGrabber, SIMDNearestSampleGrabber,
+        SIMDStereoVoice, SIMDStereoVoiceSampler, SIMDVoiceEnvelope, SampleReader, SampleReaderLoop,
         SampleReaderLoopSustain, SampleReaderNoLoop, Voice, VoiceBase, VoiceCombineSIMD,
     },
 };
 
-use xsynth_soundfonts::LoopMode;
+use xsynth_soundfonts::{
+    modulation::{CcRange, ControllerMask, RegionModulation},
+    FilterType, LoopMode,
+};
 
-use crate::soundfont::{Interpolator, LoopParams, SampleVoiceSpawnerParams, VoiceSpawner};
+use crate::soundfont::{
+    EnvelopeOptions, Interpolator, LoopParams, SampleVoiceSpawnerParams, VoiceSpawner,
+};
+
+use crate::voice::EnvelopeDescriptor;
 
 pub struct StereoSampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
     filter: Option<BiQuadFilter>,
+    filter_type: FilterType,
+    cutoff: f32,
+    resonance: f32,
     loop_params: LoopParams,
     amp: f32,
     pan: f32,
     volume_envelope_params: Arc<EnvelopeParameters>,
+    envelope_descriptor: EnvelopeDescriptor,
+    envelope_options: EnvelopeOptions,
+    modulation: Option<Arc<RegionModulation>>,
+    cc_conditions: Arc<[CcRange]>,
+    used_controllers: ControllerMask,
+    effect_sends: (Option<f32>, Option<f32>),
     samples: Arc<[Arc<[f32]>]>,
     interpolator: Interpolator,
     exclusive_class: Option<u8>,
+    key: u8,
     vel: u8,
     stream_params: AudioStreamParams,
     _s: PhantomData<S>,
@@ -42,6 +59,7 @@ pub struct StereoSampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
 impl<S: Simd + Send + Sync> StereoSampledVoiceSpawner<S> {
     pub fn new(
         params: &SampleVoiceSpawnerParams,
+        key: u8,
         vel: u8,
         stream_params: AudioStreamParams,
     ) -> Self {
@@ -59,13 +77,23 @@ impl<S: Simd + Send + Sync> StereoSampledVoiceSpawner<S> {
         Self {
             speed_mult: params.speed_mult,
             filter,
+            filter_type: params.filter_type,
+            cutoff: params.cutoff.unwrap_or(0.0),
+            resonance: params.resonance,
             loop_params: params.loop_params.clone(),
             amp,
             pan: params.pan,
             volume_envelope_params: params.envelope.clone(),
+            envelope_descriptor: params.envelope_descriptor,
+            envelope_options: params.envelope_options,
+            modulation: params.modulation.clone(),
+            cc_conditions: params.cc_conditions.clone(),
+            used_controllers: params.used_controllers,
+            effect_sends: (params.reverb_send, params.chorus_send),
             samples: params.sample.clone(),
             interpolator: params.interpolator,
             exclusive_class: params.exclusive_class,
+            key,
             vel,
             stream_params,
             _s: PhantomData,
@@ -125,41 +153,38 @@ impl<S: Simd + Send + Sync> StereoSampledVoiceSpawner<S> {
         self.apply_voice_params(sampler, control)
     }
 
-    fn apply_velocity<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
-    where
-        Sample: SIMDSample<S>,
-        SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
-        Gen: SIMDVoiceGenerator<S, Sample>,
-    {
-        let amp = SIMDConstant::<S>::new(self.amp);
-        let amp = VoiceCombineSIMD::mult(amp, gen);
-        amp
-    }
-
-    fn apply_pan<Gen, Sample>(&self, gen: Gen) -> impl SIMDVoiceGenerator<S, Sample>
+    fn apply_gain<Gen, Sample>(
+        &self,
+        gen: Gen,
+        control: &VoiceControlData,
+    ) -> impl SIMDVoiceGenerator<S, Sample>
     where
         Sample: SIMDSample<S>,
         SIMDSampleStereo<S>: Mul<Sample, Output = Sample>,
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
-        let pan = self.pan * std::f32::consts::PI / 2.0;
-        let leftg = (pan.cos() * 1.42).min(1.0);
-        let rightg = (pan.sin() * 1.42).min(1.0);
-
-        let gains = SIMDConstantStereo::<S>::new(leftg, rightg);
-
-        let panned = VoiceCombineSIMD::mult(gains, gen);
-        panned
+        let gains = SIMDVoiceGainStereo::<S>::new(
+            self.amp * control.note_gain,
+            self.pan,
+            self.modulation.clone().map(GainModulation::new),
+            control,
+            gain_ramp_frames::<S>(self.stream_params.sample_rate),
+        );
+        let gen = VoiceCombineSIMD::mult(gains, gen);
+        gen
     }
 
     fn create_pitch_fac(
         &self,
         control: &VoiceControlData,
     ) -> impl SIMDVoiceGenerator<S, SIMDSampleMono<S>> {
-        let pitch_fac = SIMDConstant::<S>::new(self.speed_mult);
-        let pitch_multiplier = SIMDVoiceControl::new(control, |vc| vc.voice_pitch_multiplier);
-        let pitch_fac = VoiceCombineSIMD::mult(pitch_fac, pitch_multiplier);
-        pitch_fac
+        let glide = control.portamento.map(|p| {
+            (
+                (p.from_key as f32 - self.key as f32) * 100.0,
+                p.time * self.stream_params.sample_rate as f32,
+            )
+        });
+        SIMDVoicePitch::<S>::new(self.speed_mult, self.modulation.clone(), control, glide)
     }
 
     fn apply_envelope<Gen, Sample>(
@@ -172,8 +197,16 @@ impl<S: Simd + Send + Sync> StereoSampledVoiceSpawner<S> {
         SIMDSampleMono<S>: Mul<Sample, Output = Sample>,
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
+        let base_params = match &self.modulation {
+            Some(m) if m.has_note_on_envelope() => {
+                modulate_envelope(self.envelope_descriptor, m, &control.controllers)
+                    .to_envelope_params(self.stream_params.sample_rate, self.envelope_options)
+            }
+            _ => *self.volume_envelope_params,
+        };
+
         let modified_params = SIMDVoiceEnvelope::<S>::get_modified_envelope(
-            *self.volume_envelope_params.clone(),
+            base_params,
             control.envelope,
             self.stream_params.sample_rate as f32,
         );
@@ -181,7 +214,7 @@ impl<S: Simd + Send + Sync> StereoSampledVoiceSpawner<S> {
         let allow_release = self.loop_params.mode != LoopMode::OneShot;
 
         let volume_envelope = SIMDVoiceEnvelope::new(
-            *self.volume_envelope_params.clone(),
+            base_params,
             modified_params,
             allow_release,
             self.stream_params.sample_rate as f32,
@@ -205,19 +238,28 @@ impl<S: Simd + Send + Sync> StereoSampledVoiceSpawner<S> {
     where
         Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
     {
-        let gen = self.apply_velocity(gen);
-        let gen = self.apply_pan(gen);
+        let gen = self.apply_gain(gen, control);
         let gen = self.apply_envelope(gen, control);
 
-        self.apply_cutoff_effect(gen)
+        self.apply_cutoff_effect(gen, control)
     }
 
     fn apply_cutoff_effect(
         &self,
         gen: impl 'static + SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
+        control: &VoiceControlData,
     ) -> Box<dyn Voice> {
         if let Some(filter) = &self.filter {
-            let gen = SIMDStereoVoiceCutoff::new(gen, filter);
+            let modulation = self.modulation.clone().and_then(|m| {
+                CutoffModulation::new(
+                    m,
+                    self.filter_type,
+                    self.cutoff,
+                    self.resonance,
+                    self.stream_params.sample_rate as f32,
+                )
+            });
+            let gen = SIMDStereoVoiceCutoff::new_modulated(gen, filter, modulation, control);
             self.convert_to_voice(gen)
         } else {
             self.convert_to_voice(gen)
@@ -232,5 +274,19 @@ impl<S: 'static + Sync + Send + Simd> VoiceSpawner for StereoSampledVoiceSpawner
 
     fn exclusive_class(&self) -> Option<u8> {
         self.exclusive_class
+    }
+
+    fn can_spawn(&self, control: &VoiceControlData) -> bool {
+        self.cc_conditions
+            .iter()
+            .all(|range| range.contains(control.controllers.cc[range.cc as usize]))
+    }
+
+    fn used_controllers(&self) -> ControllerMask {
+        self.used_controllers
+    }
+
+    fn effect_sends(&self) -> (Option<f32>, Option<f32>) {
+        self.effect_sends
     }
 }

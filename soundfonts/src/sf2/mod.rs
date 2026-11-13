@@ -12,7 +12,8 @@ mod zone;
 
 pub use modulator::Sf2NoteParams;
 pub(crate) use modulator::{
-    default_note_modulators, default_raw_envelope, Sf2NoteModulator, Sf2RawEnvelope,
+    concave_lookup, convex_lookup, default_note_modulators, default_raw_envelope, Sf2NoteModulator,
+    Sf2RawEnvelope,
 };
 
 /// Errors that can be generated when loading an SF2 file.
@@ -29,10 +30,10 @@ pub enum Sf2ParseError {
 ///
 /// XSynth's SF2 support is intentionally performance-first. Static region data
 /// and a practical subset of note-on modulators are resolved during load so the
-/// realtime engine can keep using pre-specialized voice paths. Runtime SF2
-/// modulation features such as modulation envelopes, LFO-driven modulation,
-/// CC/aftertouch-driven modulators, and chorus/reverb sends are intentionally
-/// omitted.
+/// realtime engine can keep using pre-specialized voice paths. Modulators
+/// driven by MIDI CCs, channel pressure or the pitch wheel are exposed through
+/// `Sf2Region::runtime_modulation`. Modulation envelopes, LFO-driven modulation
+/// and per-region chorus/reverb sends are intentionally omitted.
 #[derive(Clone, Debug)]
 pub struct Sf2Region {
     pub sample: Arc<[Arc<[f32]>]>,
@@ -95,8 +96,8 @@ pub struct Sf2Preset {
 ///
 /// Supported behavior includes sample offsets/loops, stereo links, static
 /// filter and tuning generators, volume envelope generators, exclusive class,
-/// key/velocity ranges, and a baked subset of key/velocity note-on modulators.
-/// Full runtime SF2 modulation is intentionally outside scope.
+/// key/velocity ranges, a baked subset of key/velocity note-on modulators, and
+/// controller-driven modulators for attenuation, pan, filter, tuning and envelopes.
 pub fn load_soundfont(
     sf2_path: impl Into<PathBuf>,
     sample_rate: u32,
