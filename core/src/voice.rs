@@ -156,10 +156,32 @@ pub trait VoiceGeneratorBase: Sync + Send {
     fn ended(&self) -> bool;
     fn signal_release(&mut self, rel_type: ReleaseType);
     fn process_controls(&mut self, control: &VoiceControlData);
+
+    /// Hints the CPU to load the data the next render of `frames` samples
+    /// will read.
+    #[inline(always)]
+    fn prefetch(&self, _frames: usize) {}
+
+    /// The approximate playback speed, for pitch generators.
+    #[inline(always)]
+    fn speed_hint(&self) -> f32 {
+        1.0
+    }
 }
 
 pub trait VoiceSampleGenerator: VoiceGeneratorBase {
     fn render_to(&mut self, buffer: &mut [f32]);
+
+    /// Adds the output to separate channel buffers of equal length instead of
+    /// an interleaved one. Mono voices only write to `left`.
+    fn render_planar(&mut self, left: &mut [f32], right: &mut [f32]);
+}
+
+/// A filter that is applied to the output of a voice by its key, on a bus
+/// shared with the other voices of the key that use the same filter.
+#[derive(Clone)]
+pub(crate) struct VoiceFilter {
+    pub filter: std::sync::Arc<dyn crate::effects::SharedFilter>,
 }
 
 pub trait Voice: VoiceSampleGenerator + Send + Sync {
@@ -168,4 +190,18 @@ pub trait Voice: VoiceSampleGenerator + Send + Sync {
 
     fn velocity(&self) -> u8;
     fn exclusive_class(&self) -> Option<u8>;
+
+    /// Renders like `render_planar` and returns whether the voice ended, in
+    /// one dynamic call.
+    #[inline(always)]
+    fn render_block(&mut self, left: &mut [f32], right: &mut [f32]) -> bool {
+        self.render_planar(left, right);
+        self.ended()
+    }
+
+    /// The filter the key applies to the output of `render_to`, if any.
+    #[allow(private_interfaces)]
+    fn shared_filter(&self) -> Option<&std::sync::Arc<VoiceFilter>> {
+        None
+    }
 }

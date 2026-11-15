@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use simdeez::prelude::*;
 
 use crate::soundfont::{EnvelopeCurveType, EnvelopeOptions};
@@ -39,7 +41,7 @@ impl EnvelopeStage {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EnvelopePart {
     Lerp {
         target: f32,   // Target value by the end of the envelope part
@@ -151,7 +153,7 @@ impl EnvelopeDescriptor {
 /// The raw envelope parameters used to generate the envelope.
 /// Is a separate struct to EnvelopeDescriptor for performance reasons.
 /// Use EnvelopeDescriptor to generate the EnvelopeParameters struct.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EnvelopeParameters {
     start: f32,
     pub parts: [EnvelopePart; 7],
@@ -163,7 +165,7 @@ impl EnvelopeParameters {
         stage: EnvelopeStage,
         start_amp: f32,
     ) -> VoiceEnvelopeState<T> {
-        simd_invoke!(T, {
+        simd_block!(T, {
             let stage_info = &self.parts[stage.as_usize()];
             match stage_info {
                 EnvelopePart::Lerp { target, duration } => {
@@ -215,7 +217,7 @@ impl EnvelopeParameters {
                     }
                 }
                 EnvelopePart::Hold(value) => {
-                    let data = StageData::Constant(T::Vf32::set1(*value));
+                    let data = StageData::Constant(*value);
                     VoiceEnvelopeState {
                         current_stage: stage,
                         stage_data: data,
@@ -253,7 +255,7 @@ enum StageData<T: Simd> {
     Lerp(SIMDLerper<T>, StageTime<T>),
     LerpConcave(SIMDLerperConcave<T>, StageTime<T>),
     LerpConvex(SIMDLerperConvex<T>, StageTime<T>),
-    Constant(T::Vf32),
+    Constant(f32),
 }
 
 struct VoiceEnvelopeState<T: Simd> {
@@ -262,8 +264,10 @@ struct VoiceEnvelopeState<T: Simd> {
 }
 
 pub struct SIMDVoiceEnvelope<T: Simd> {
-    original_params: EnvelopeParameters,
-    params: EnvelopeParameters,
+    original_params: Arc<EnvelopeParameters>,
+    /// The parameters in use. Shares `original_params` unless controllers or
+    /// a kill changed them, to keep the voice state small.
+    params: Arc<EnvelopeParameters>,
     allow_release: bool,
     state: VoiceEnvelopeState<T>,
     sample_rate: f32,
@@ -273,12 +277,13 @@ pub struct SIMDVoiceEnvelope<T: Simd> {
 
 impl<T: Simd> SIMDVoiceEnvelope<T> {
     pub fn new(
-        original_params: EnvelopeParameters,
+        original_params: Arc<EnvelopeParameters>,
         params: EnvelopeParameters,
         allow_release: bool,
         sample_rate: f32,
     ) -> Self {
         let state = params.get_stage_data(EnvelopeStage::Delay, params.start);
+        let params = Self::share_params(&original_params, params);
 
         SIMDVoiceEnvelope {
             original_params,
@@ -302,7 +307,18 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
             StageData::LerpConvex(lerper, stage_time) => {
                 lerper.lerp(stage_time.simd_array_start_f32() / stage_time.stage_end_time_f32())
             }
-            StageData::Constant(constant) => constant[0],
+            StageData::Constant(constant) => *constant,
+        }
+    }
+
+    fn share_params(
+        original: &Arc<EnvelopeParameters>,
+        params: EnvelopeParameters,
+    ) -> Arc<EnvelopeParameters> {
+        if **original == params {
+            original.clone()
+        } else {
+            Arc::new(params)
         }
     }
 
@@ -338,7 +354,7 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
     }
 
     fn manually_build_simd_sample(&mut self) -> SIMDSampleMono<T> {
-        simd_invoke!(T, {
+        simd_block!(T, {
             let mut values = T::Vf32::set1(0.0);
             for i in 0..T::Vf32::WIDTH {
                 let sample = self.get_value_at_current_time();
@@ -436,8 +452,9 @@ impl<T: Simd> SIMDVoiceEnvelope<T> {
         }
         self.last_control = Some(envelope);
         if !self.killed {
-            self.params =
-                Self::get_modified_envelope(self.original_params, envelope, self.sample_rate);
+            let params =
+                Self::get_modified_envelope(*self.original_params, envelope, self.sample_rate);
+            self.params = Self::share_params(&self.original_params, params);
             self.update_stage();
         }
     }
@@ -452,7 +469,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
     #[inline(always)]
     fn signal_release(&mut self, rel_type: ReleaseType) {
         if rel_type == ReleaseType::Kill {
-            self.params.modify_stage_data(
+            Arc::make_mut(&mut self.params).modify_stage_data(
                 5,
                 EnvelopePart::lerp(0.0, (0.001 * self.sample_rate) as u32),
             );
@@ -474,7 +491,7 @@ impl<T: Simd> VoiceGeneratorBase for SIMDVoiceEnvelope<T> {
 impl<T: Simd> SIMDVoiceGenerator<T, SIMDSampleMono<T>> for SIMDVoiceEnvelope<T> {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<T> {
-        simd_invoke!(T, {
+        simd_block!(T, {
             match &mut self.state.stage_data {
                 StageData::Lerp(lerper, stage_time) => {
                     if stage_time.is_ending() {
@@ -523,7 +540,7 @@ impl<T: Simd> SIMDVoiceGenerator<T, SIMDSampleMono<T>> for SIMDVoiceEnvelope<T> 
                         SIMDSampleMono(values)
                     }
                 }
-                StageData::Constant(constant) => SIMDSampleMono(*constant),
+                StageData::Constant(constant) => SIMDSampleMono(T::Vf32::set1(*constant)),
             }
         })
     }
@@ -584,7 +601,7 @@ mod tests {
                 let end_simd = S::Vf32::set1(20.0);
 
                 assert_vf32_equal::<S>(
-                    *time.raw_simd_array(),
+                    time.raw_simd_array(),
                     simd_from_range::<S>(5..(5 + S::Vf32::WIDTH)),
                 );
                 assert_vf32_equal::<S>(
@@ -595,7 +612,7 @@ mod tests {
                 let mut i = 5;
                 while time.simd_array_start() + S::Vf32::WIDTH as u32 <= 20 {
                     assert_vf32_equal::<S>(
-                        *time.raw_simd_array(),
+                        time.raw_simd_array(),
                         simd_from_range::<S>(i..(i + S::Vf32::WIDTH)),
                     );
                     assert_vf32_equal::<S>(
@@ -672,7 +689,8 @@ mod tests {
                     } if target == 0.4 && duration == 17
                 ));
 
-                let mut env = SIMDVoiceEnvelope::<S>::new(params, params, true, 1.0);
+                let mut env =
+                    SIMDVoiceEnvelope::<S>::new(std::sync::Arc::new(params), params, true, 1.0);
 
                 let mut i = 0;
                 while i < 48 {

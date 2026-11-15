@@ -4,7 +4,7 @@
 //! has no controller-driven modulation they cost the same as a constant: the
 //! value is only recomputed when the channel broadcasts a control change.
 
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use simdeez::prelude::*;
 use xsynth_soundfonts::modulation::{
@@ -208,16 +208,23 @@ pub(crate) fn gain_ramp_frames<S: Simd>(sample_rate: u32) -> u32 {
     ((sample_rate as f32 * 0.005) / S::Vf32::WIDTH as f32).max(1.0) as u32
 }
 
-/// Stereo gain stage: velocity/volume, pan and controller modulation.
-pub struct SIMDVoiceGainStereo<S: Simd> {
-    left: S::Vf32,
-    right: S::Vf32,
+/// Controller-driven state of a gain stage, only allocated for voices whose
+/// gain follows controllers so that plain voices stay small.
+struct GainDynamics {
     ramp_left: Ramp,
     ramp_right: Ramp,
     ramp_frames: u32,
     amp: f32,
     pan: f32,
-    modulation: Option<GainModulation>,
+    modulation: GainModulation,
+}
+
+/// Stereo gain stage: velocity/volume, pan and controller modulation.
+pub struct SIMDVoiceGainStereo<S: Simd> {
+    left: f32,
+    right: f32,
+    dynamics: Option<Box<GainDynamics>>,
+    _s: PhantomData<S>,
 }
 
 impl<S: Simd> SIMDVoiceGainStereo<S> {
@@ -230,18 +237,21 @@ impl<S: Simd> SIMDVoiceGainStereo<S> {
     ) -> Self {
         let modulation = modulation.filter(|m| m.is_active());
         let (l, r) = Self::compute(amp, pan, modulation.as_ref(), &control.controllers);
-        simd_invoke!(S, {
-            Self {
-                left: S::Vf32::set1(l),
-                right: S::Vf32::set1(r),
-                ramp_left: Ramp::new(l),
-                ramp_right: Ramp::new(r),
-                ramp_frames,
-                amp,
-                pan,
-                modulation,
-            }
-        })
+        Self {
+            left: l,
+            right: r,
+            dynamics: modulation.map(|modulation| {
+                Box::new(GainDynamics {
+                    ramp_left: Ramp::new(l),
+                    ramp_right: Ramp::new(r),
+                    ramp_frames,
+                    amp,
+                    pan,
+                    modulation,
+                })
+            }),
+            _s: PhantomData,
+        }
     }
 
     fn compute(
@@ -270,10 +280,10 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceGainStereo<S> {
 
     #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
-        if let Some(m) = &self.modulation {
-            let (l, r) = Self::compute(self.amp, self.pan, Some(m), &control.controllers);
-            self.ramp_left.set(l, self.ramp_frames);
-            self.ramp_right.set(r, self.ramp_frames);
+        if let Some(d) = self.dynamics.as_mut() {
+            let (l, r) = Self::compute(d.amp, d.pan, Some(&d.modulation), &control.controllers);
+            d.ramp_left.set(l, d.ramp_frames);
+            d.ramp_right.set(r, d.ramp_frames);
         }
     }
 }
@@ -281,25 +291,23 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceGainStereo<S> {
 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for SIMDVoiceGainStereo<S> {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-        if self.ramp_left.remaining > 0 {
-            let l = self.ramp_left.next();
-            let r = self.ramp_right.next();
-            simd_invoke!(S, {
-                self.left = S::Vf32::set1(l);
-                self.right = S::Vf32::set1(r);
-            })
+        if let Some(d) = self.dynamics.as_mut() {
+            if d.ramp_left.remaining > 0 {
+                self.left = d.ramp_left.next();
+                self.right = d.ramp_right.next();
+            }
         }
-        SIMDSampleStereo(self.left, self.right)
+        simd_block!(S, {
+            SIMDSampleStereo(S::Vf32::set1(self.left), S::Vf32::set1(self.right))
+        })
     }
 }
 
 /// Mono gain stage: velocity/volume and controller modulation.
 pub struct SIMDVoiceGainMono<S: Simd> {
-    value: S::Vf32,
-    ramp: Ramp,
-    ramp_frames: u32,
-    amp: f32,
-    modulation: Option<GainModulation>,
+    value: f32,
+    dynamics: Option<Box<GainDynamics>>,
+    _s: PhantomData<S>,
 }
 
 impl<S: Simd> SIMDVoiceGainMono<S> {
@@ -311,15 +319,20 @@ impl<S: Simd> SIMDVoiceGainMono<S> {
     ) -> Self {
         let modulation = modulation.filter(|m| m.is_active());
         let value = Self::compute(amp, modulation.as_ref(), &control.controllers);
-        simd_invoke!(S, {
-            Self {
-                value: S::Vf32::set1(value),
-                ramp: Ramp::new(value),
-                ramp_frames,
-                amp,
-                modulation,
-            }
-        })
+        Self {
+            value,
+            dynamics: modulation.map(|modulation| {
+                Box::new(GainDynamics {
+                    ramp_left: Ramp::new(value),
+                    ramp_right: Ramp::new(value),
+                    ramp_frames,
+                    amp,
+                    pan: 0.5,
+                    modulation,
+                })
+            }),
+            _s: PhantomData,
+        }
     }
 
     fn compute(amp: f32, modulation: Option<&GainModulation>, c: &ControllerState) -> f32 {
@@ -341,9 +354,9 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceGainMono<S> {
 
     #[inline(always)]
     fn process_controls(&mut self, control: &VoiceControlData) {
-        if let Some(m) = &self.modulation {
-            let value = Self::compute(self.amp, Some(m), &control.controllers);
-            self.ramp.set(value, self.ramp_frames);
+        if let Some(d) = self.dynamics.as_mut() {
+            let value = Self::compute(d.amp, Some(&d.modulation), &control.controllers);
+            d.ramp_left.set(value, d.ramp_frames);
         }
     }
 }
@@ -351,26 +364,32 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoiceGainMono<S> {
 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for SIMDVoiceGainMono<S> {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<S> {
-        if self.ramp.remaining > 0 {
-            let v = self.ramp.next();
-            simd_invoke!(S, {
-                self.value = S::Vf32::set1(v);
-            })
+        if let Some(d) = self.dynamics.as_mut() {
+            if d.ramp_left.remaining > 0 {
+                self.value = d.ramp_left.next();
+            }
         }
-        SIMDSampleMono(self.value)
+        simd_block!(S, SIMDSampleMono(S::Vf32::set1(self.value)))
     }
 }
 
 /// Pitch (playback speed) stage: base speed, channel pitch (bend/tuning/vibrato),
 /// controller-driven pitch modulation and portamento.
 pub struct SIMDVoicePitch<S: Simd> {
-    value: S::Vf32,
+    value: f32,
     base: f32,
     channel_mult: f32,
     mod_mult: f32,
     modulation: Option<Arc<RegionModulation>>,
-    glide_cents: f32,
-    glide_step: f32,
+    /// Portamento in progress, kept out of line to keep voices small
+    glide: Option<Box<Glide>>,
+    _s: PhantomData<S>,
+}
+
+/// A pitch glide: the remaining offset in cents and its change per vector.
+struct Glide {
+    cents: f32,
+    step: f32,
 }
 
 impl<S: Simd> SIMDVoicePitch<S> {
@@ -390,17 +409,20 @@ impl<S: Simd> SIMDVoicePitch<S> {
             }
             _ => (0.0, 0.0),
         };
-        let mut pitch = simd_invoke!(S, {
-            Self {
-                value: S::Vf32::set1(base),
-                base,
-                channel_mult: control.voice_pitch_multiplier,
-                mod_mult: 1.0,
-                modulation,
-                glide_cents,
-                glide_step,
-            }
-        });
+        let mut pitch = Self {
+            value: base,
+            base,
+            channel_mult: control.voice_pitch_multiplier,
+            mod_mult: 1.0,
+            modulation,
+            glide: (glide_cents != 0.0).then(|| {
+                Box::new(Glide {
+                    cents: glide_cents,
+                    step: glide_step,
+                })
+            }),
+            _s: PhantomData,
+        };
         pitch.update_modulation(&control.controllers);
         pitch.refresh();
         pitch
@@ -416,16 +438,19 @@ impl<S: Simd> SIMDVoicePitch<S> {
     #[inline(always)]
     fn refresh(&mut self) {
         let mut value = self.base * self.channel_mult * self.mod_mult;
-        if self.glide_cents != 0.0 {
-            value *= cents_factor(self.glide_cents);
+        if let Some(glide) = &self.glide {
+            value *= cents_factor(glide.cents);
         }
-        simd_invoke!(S, {
-            self.value = S::Vf32::set1(value);
-        })
+        self.value = value;
     }
 }
 
 impl<S: Simd> VoiceGeneratorBase for SIMDVoicePitch<S> {
+    #[inline(always)]
+    fn speed_hint(&self) -> f32 {
+        self.value
+    }
+
     #[inline(always)]
     fn ended(&self) -> bool {
         false
@@ -443,16 +468,21 @@ impl<S: Simd> VoiceGeneratorBase for SIMDVoicePitch<S> {
 }
 
 impl<S: Simd> SIMDVoiceGenerator<S, SIMDSampleMono<S>> for SIMDVoicePitch<S> {
+    const UNIFORM: bool = true;
+
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<S> {
-        if self.glide_cents != 0.0 {
-            if self.glide_cents > 0.0 {
-                self.glide_cents = (self.glide_cents - self.glide_step).max(0.0);
+        if let Some(glide) = self.glide.as_mut() {
+            if glide.cents > 0.0 {
+                glide.cents = (glide.cents - glide.step).max(0.0);
             } else {
-                self.glide_cents = (self.glide_cents + self.glide_step).min(0.0);
+                glide.cents = (glide.cents + glide.step).min(0.0);
+            }
+            if glide.cents == 0.0 {
+                self.glide = None;
             }
             self.refresh();
         }
-        SIMDSampleMono(self.value)
+        simd_block!(S, SIMDSampleMono(S::Vf32::set1(self.value)))
     }
 }

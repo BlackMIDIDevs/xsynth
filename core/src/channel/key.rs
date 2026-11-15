@@ -6,13 +6,16 @@ use std::sync::{
 use crate::voice::PortamentoControl;
 
 use super::{
-    channel_sf::ChannelSoundfont, event::KeyNoteEvent, voice_buffer::VoiceBuffer,
+    channel_sf::ChannelSoundfont,
+    event::KeyNoteEvent,
+    voice_buffer::{FilterBuses, VoiceBuffer},
     ChannelInitOptions, VoiceControlData,
 };
 
 pub struct KeyData {
     key: u8,
     voices: VoiceBuffer,
+    filter_buses: FilterBuses,
     last_voice_count: usize,
     shared_voice_counter: Arc<AtomicU64>,
 }
@@ -22,10 +25,12 @@ impl KeyData {
         key: u8,
         shared_voice_counter: Arc<AtomicU64>,
         options: ChannelInitOptions,
+        channels: usize,
     ) -> KeyData {
         KeyData {
             key,
             voices: VoiceBuffer::new(options),
+            filter_buses: FilterBuses::new(channels),
             last_voice_count: 0,
             shared_voice_counter,
         }
@@ -90,22 +95,30 @@ impl KeyData {
 
     pub fn render_to(&mut self, out: &mut [f32]) {
         if self.has_voices() {
-            for voice in &mut self.voices.iter_voices_mut() {
-                voice.render_to(out);
-            }
-            self.voices.remove_ended_voices();
+            self.voices.render_voices(out, &mut self.filter_buses);
+        } else {
+            self.filter_buses.reset();
         }
 
+        // The counter is shared by every key of the channel, so only touch it
+        // when the count changed.
         let voice_count = self.voices.voice_count();
-        let change = voice_count as i64 - self.last_voice_count as i64;
-        if change < 0 {
-            self.shared_voice_counter
-                .fetch_sub((-change) as u64, Ordering::SeqCst);
-        } else {
-            self.shared_voice_counter
-                .fetch_add(change as u64, Ordering::SeqCst);
+        if voice_count > self.last_voice_count {
+            self.shared_voice_counter.fetch_add(
+                (voice_count - self.last_voice_count) as u64,
+                Ordering::Relaxed,
+            );
+        } else if voice_count < self.last_voice_count {
+            self.shared_voice_counter.fetch_sub(
+                (self.last_voice_count - voice_count) as u64,
+                Ordering::Relaxed,
+            );
         }
         self.last_voice_count = voice_count;
+    }
+
+    pub fn voice_count(&self) -> usize {
+        self.voices.voice_count()
     }
 
     pub fn has_voices(&self) -> bool {

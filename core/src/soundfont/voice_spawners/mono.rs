@@ -3,7 +3,7 @@ use std::{marker::PhantomData, ops::Mul, sync::Arc};
 use simdeez::Simd;
 
 use crate::{
-    effects::BiQuadFilter,
+    effects::{BiQuadFilter, SIMDBiQuadCoeffs},
     voice::{
         gain_ramp_frames, modulate_envelope, BufferSampler, CutoffModulation, GainModulation,
         SIMDMonoVoiceCutoff, SIMDSample, SIMDSampleGrabber, SIMDSampleMono, SIMDVoiceGainMono,
@@ -17,7 +17,7 @@ use crate::{
         BufferSamplers, EnvelopeParameters, SIMDLinearSampleGrabber, SIMDMonoVoice,
         SIMDMonoVoiceSampler, SIMDNearestSampleGrabber, SIMDVoiceEnvelope, SampleReader,
         SampleReaderLoop, SampleReaderLoopSustain, SampleReaderNoLoop, Voice, VoiceBase,
-        VoiceCombineSIMD,
+        VoiceCombineSIMD, VoiceFilter,
     },
 };
 
@@ -34,7 +34,9 @@ use crate::voice::EnvelopeDescriptor;
 
 pub struct MonoSampledVoiceSpawner<S: 'static + Simd + Send + Sync> {
     speed_mult: f32,
-    filter: Option<BiQuadFilter>,
+    filter: Option<Arc<SIMDBiQuadCoeffs<S>>>,
+    /// The filter handle given to voices without cutoff modulation
+    shared_filter: Option<Arc<VoiceFilter>>,
     filter_type: FilterType,
     cutoff: f32,
     resonance: f32,
@@ -66,17 +68,24 @@ impl<S: Simd + Send + Sync> MonoSampledVoiceSpawner<S> {
         let amp = params.volume;
 
         let filter = params.cutoff.map(|cutoff| {
-            BiQuadFilter::new(
+            Arc::new(SIMDBiQuadCoeffs::new(BiQuadFilter::get_coeffs(
                 params.filter_type,
                 cutoff,
                 stream_params.sample_rate as f32,
                 Some(params.resonance),
-            )
+            )))
+        });
+
+        let shared_filter = filter.as_ref().map(|filter| {
+            Arc::new(VoiceFilter {
+                filter: filter.clone(),
+            })
         });
 
         Self {
             speed_mult: params.speed_mult,
             filter,
+            shared_filter,
             filter_type: params.filter_type,
             cutoff: params.cutoff.unwrap_or(0.0),
             resonance: params.resonance,
@@ -195,15 +204,15 @@ impl<S: Simd + Send + Sync> MonoSampledVoiceSpawner<S> {
         Gen: SIMDVoiceGenerator<S, Sample>,
     {
         let base_params = match &self.modulation {
-            Some(m) if m.has_note_on_envelope() => {
+            Some(m) if m.has_note_on_envelope() => Arc::new(
                 modulate_envelope(self.envelope_descriptor, m, &control.controllers)
-                    .to_envelope_params(self.stream_params.sample_rate, self.envelope_options)
-            }
-            _ => *self.volume_envelope_params,
+                    .to_envelope_params(self.stream_params.sample_rate, self.envelope_options),
+            ),
+            _ => self.volume_envelope_params.clone(),
         };
 
         let modified_params = SIMDVoiceEnvelope::<S>::get_modified_envelope(
-            base_params,
+            *base_params,
             control.envelope,
             self.stream_params.sample_rate as f32,
         );
@@ -221,12 +230,12 @@ impl<S: Simd + Send + Sync> MonoSampledVoiceSpawner<S> {
         amp
     }
 
-    fn convert_to_voice<Gen>(&self, gen: Gen) -> Box<dyn Voice>
+    fn convert_to_voice<Gen>(&self, gen: Gen, filter: Option<Arc<VoiceFilter>>) -> Box<dyn Voice>
     where
         Gen: 'static + SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
     {
         let flattened = SIMDMonoVoice::new(gen);
-        let base = VoiceBase::new(self.vel, self.exclusive_class(), flattened);
+        let base = VoiceBase::new(self.vel, self.exclusive_class(), flattened).with_filter(filter);
 
         Box::new(base)
     }
@@ -256,10 +265,17 @@ impl<S: Simd + Send + Sync> MonoSampledVoiceSpawner<S> {
                     self.stream_params.sample_rate as f32,
                 )
             });
-            let gen = SIMDMonoVoiceCutoff::new_modulated(gen, filter, modulation, control);
-            self.convert_to_voice(gen)
+            match modulation {
+                Some(modulation) => {
+                    let gen =
+                        SIMDMonoVoiceCutoff::new_modulated(gen, filter, Some(modulation), control);
+                    self.convert_to_voice(gen, None)
+                }
+                // A fixed filter runs on the key's shared filter bus.
+                None => self.convert_to_voice(gen, self.shared_filter.clone()),
+            }
         } else {
-            self.convert_to_voice(gen)
+            self.convert_to_voice(gen, None)
         }
     }
 }

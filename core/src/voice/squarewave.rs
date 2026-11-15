@@ -62,7 +62,7 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<S> {
-        simd_invoke!(S, {
+        simd_block!(S, {
             let mut values = S::Vf32::zeroes();
             let pitch_step = self.pitch_gen.next_sample().0;
             for i in 0..S::Vf32::WIDTH {

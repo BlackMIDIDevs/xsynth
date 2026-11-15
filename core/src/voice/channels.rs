@@ -46,6 +46,11 @@ where
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.generator.process_controls(control)
     }
+
+    #[inline(always)]
+    fn prefetch(&self, frames: usize) {
+        self.generator.prefetch(frames)
+    }
 }
 
 impl<S, G> SIMDVoiceGenerator<S, SIMDSampleStereo<S>> for SIMDVoiceMonoToStereo<S, G>
@@ -55,7 +60,7 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-        simd_invoke!(S, {
+        simd_block!(S, {
             let sample = self.generator.next_sample();
             SIMDSampleStereo(sample.0, sample.0)
         })

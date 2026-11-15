@@ -29,19 +29,31 @@ pub use event::*;
 mod cc_tests;
 
 pub(crate) use control::ValueLerp;
+
+/// Minimum amount of work (voices and events times samples) in one block for
+/// the keys of a channel to be rendered on the thread pool.
+const PARALLEL_MIN_WORK: usize = 512 * 64 * 2;
 pub use params::VoiceChannelStatsReader;
 
 struct Key {
     data: KeyData,
     audio_cache: Vec<f32>,
+    /// Whether `audio_cache` holds this key's output for the current block
+    rendered: bool,
     event_cache: Vec<KeyNoteEvent>,
 }
 
 impl Key {
-    pub fn new(key: u8, shared_voice_counter: Arc<AtomicU64>, options: ChannelInitOptions) -> Self {
+    pub fn new(
+        key: u8,
+        shared_voice_counter: Arc<AtomicU64>,
+        options: ChannelInitOptions,
+        channels: usize,
+    ) -> Self {
         Key {
-            data: KeyData::new(key, shared_voice_counter, options),
+            data: KeyData::new(key, shared_voice_counter, options, channels),
             audio_cache: Vec::new(),
+            rendered: false,
             event_cache: Vec::new(),
         }
     }
@@ -156,7 +168,14 @@ impl VoiceChannel {
 
         VoiceChannel {
             params,
-            key_voices: fill_key_array(|i| Key::new(i, shared_voice_counter.clone(), options)),
+            key_voices: fill_key_array(|i| {
+                Key::new(
+                    i,
+                    shared_voice_counter.clone(),
+                    options,
+                    stream_params.channels.count() as usize,
+                )
+            }),
 
             threadpool,
 
@@ -247,29 +266,53 @@ impl VoiceChannel {
 
     fn render_keys(&mut self, out: &mut [f32]) {
         out.fill(0.0);
+
+        // Handing work to the thread pool costs tens of microseconds, more than
+        // rendering a few voices for a short buffer, so small blocks are
+        // rendered on the calling thread.
+        let mut work = 0;
+        for key in self.key_voices.iter_mut() {
+            key.rendered = false;
+            work += key.data.voice_count() + key.event_cache.len();
+        }
+        let work = work * out.len();
+
         match self.threadpool.as_ref() {
-            Some(pool) => {
+            Some(pool) if work >= PARALLEL_MIN_WORK => {
                 let len = out.len();
                 let key_voices = &mut self.key_voices;
                 let params = &self.params;
                 let control_data = &self.voice_control_data;
                 pool.install(|| {
-                    key_voices.par_iter_mut().for_each(move |key| {
-                        for e in key.event_cache.drain(..) {
-                            key.data
-                                .send_event(e, control_data, &params.channel_sf, params.layers);
-                        }
+                    key_voices
+                        .par_iter_mut()
+                        .filter(|key| key.data.has_voices() || !key.event_cache.is_empty())
+                        .for_each(move |key| {
+                            for e in key.event_cache.drain(..) {
+                                key.data.send_event(
+                                    e,
+                                    control_data,
+                                    &params.channel_sf,
+                                    params.layers,
+                                );
+                            }
 
-                        prepapre_cache_vec(&mut key.audio_cache, len, 0.0);
-                        key.data.render_to(&mut key.audio_cache);
-                    });
+                            // Silent keys skip clearing and summing their buffer.
+                            key.rendered = key.data.has_voices();
+                            if key.rendered {
+                                prepapre_cache_vec(&mut key.audio_cache, len, 0.0);
+                                key.data.render_to(&mut key.audio_cache);
+                            } else {
+                                key.data.render_to(&mut []);
+                            }
+                        });
                 });
 
-                for key in self.key_voices.iter() {
+                for key in self.key_voices.iter().filter(|key| key.rendered) {
                     sum_simd(&key.audio_cache, out);
                 }
             }
-            None => {
+            _ => {
                 for key in self.key_voices.iter_mut() {
                     for e in key.event_cache.drain(..) {
                         key.data.send_event(

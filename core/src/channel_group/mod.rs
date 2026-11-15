@@ -23,7 +23,7 @@ const MAX_EVENT_CACHE_SIZE: u32 = 1024 * 1024;
 /// The group also owns the reverb and chorus effects fed by each channel's
 /// CC91/CC93 sends. They only run while a channel sends signal to them.
 pub struct ChannelGroup {
-    thread_pool: Option<rayon::ThreadPool>,
+    thread_pool: Option<Arc<rayon::ThreadPool>>,
     cached_event_count: u32,
     channel_events_cache: Box<[Vec<ChannelAudioEvent>]>,
     sample_cache_vecs: Box<[Vec<f32>]>,
@@ -40,28 +40,28 @@ impl ChannelGroup {
         let mut channel_events_cache = Vec::new();
         let mut sample_cache_vecs = Vec::new();
 
-        // Thread pool for individual channels to split between keys
-        let channel_pool = match config.parallelism.key {
-            ThreadCount::None => None,
-            ThreadCount::Auto => Some(Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap())),
-            ThreadCount::Manual(threads) => Some(Arc::new(
-                rayon::ThreadPoolBuilder::new()
-                    .num_threads(threads)
-                    .build()
-                    .unwrap(),
-            )),
-        };
+        fn build_pool(threads: ThreadCount) -> Option<Arc<rayon::ThreadPool>> {
+            let builder = match threads {
+                ThreadCount::None => return None,
+                ThreadCount::Auto => rayon::ThreadPoolBuilder::new(),
+                ThreadCount::Manual(threads) => {
+                    rayon::ThreadPoolBuilder::new().num_threads(threads)
+                }
+            };
+            Some(Arc::new(builder.build().unwrap()))
+        }
 
-        // Thread pool for splitting channels between threads
-        let group_pool = match config.parallelism.channel {
-            ThreadCount::None => None,
-            ThreadCount::Auto => Some(rayon::ThreadPoolBuilder::new().build().unwrap()),
-            ThreadCount::Manual(threads) => Some(
-                rayon::ThreadPoolBuilder::new()
-                    .num_threads(threads)
-                    .build()
-                    .unwrap(),
-            ),
+        // Thread pool for individual channels to split between keys
+        let channel_pool = build_pool(config.parallelism.key);
+
+        // Thread pool for splitting channels between threads. When it matches
+        // the key pool, one pool serves both: the key jobs of a channel then
+        // nest inside its channel job instead of blocking that thread while a
+        // second pool renders them.
+        let group_pool = if config.parallelism.channel == config.parallelism.key {
+            channel_pool.clone()
+        } else {
+            build_pool(config.parallelism.channel)
         };
 
         let channel_count = match config.format {

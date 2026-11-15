@@ -7,7 +7,7 @@ use xsynth_soundfonts::{
 };
 
 use crate::{
-    effects::BiQuadFilter,
+    effects::{BiQuadFilter, SIMDBiQuadCoeffs, SIMDBiQuadState},
     helpers::db_to_amp,
     voice::{modulation_sum, ReleaseType, SIMDVoiceGenerator, VoiceControlData},
 };
@@ -63,11 +63,33 @@ impl CutoffModulation {
         }
     }
 
-    /// Applies the current controller values to a filter.
-    pub fn apply_initial(&mut self, control: &VoiceControlData, filter: &mut BiQuadFilter) {
-        self.last = (f32::NAN, f32::NAN);
-        if let Some((freq, q)) = self.update(control) {
-            filter.set_params(self.filter_type, freq, self.sample_rate, Some(q));
+    fn coeffs<S: Simd>(&self, freq: f32, q: f32) -> Arc<SIMDBiQuadCoeffs<S>> {
+        Arc::new(SIMDBiQuadCoeffs::new(BiQuadFilter::get_coeffs(
+            self.filter_type,
+            freq,
+            self.sample_rate,
+            Some(q),
+        )))
+    }
+
+    /// Returns new filter coefficients if the controllers changed them.
+    fn updated_coeffs<S: Simd>(
+        &mut self,
+        control: &VoiceControlData,
+    ) -> Option<Arc<SIMDBiQuadCoeffs<S>>> {
+        self.update(control).map(|(freq, q)| self.coeffs(freq, q))
+    }
+
+    /// Returns the filter coefficients for the initial controller values.
+    fn initial_coeffs<S: Simd>(
+        &mut self,
+        control: &VoiceControlData,
+        base: &Arc<SIMDBiQuadCoeffs<S>>,
+    ) -> Arc<SIMDBiQuadCoeffs<S>> {
+        let initial = self.last;
+        match self.update(control) {
+            Some((freq, q)) if (freq, q) != initial => self.coeffs(freq, q),
+            _ => base.clone(),
         }
     }
 }
@@ -80,8 +102,9 @@ where
     V: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
 {
     v: V,
-    cutoff: BiQuadFilter,
-    modulation: Option<CutoffModulation>,
+    coeffs: Arc<SIMDBiQuadCoeffs<S>>,
+    state: SIMDBiQuadState,
+    modulation: Option<Box<CutoffModulation>>,
     _s: PhantomData<S>,
 }
 
@@ -90,29 +113,21 @@ where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleMono<S>>,
 {
-    pub fn new(v: V, filter: &BiQuadFilter) -> Self {
-        SIMDMonoVoiceCutoff {
-            v,
-            cutoff: filter.clone(),
-            modulation: None,
-            _s: PhantomData,
-        }
-    }
-
     pub(crate) fn new_modulated(
         v: V,
-        filter: &BiQuadFilter,
+        coeffs: &Arc<SIMDBiQuadCoeffs<S>>,
         modulation: Option<CutoffModulation>,
         control: &VoiceControlData,
     ) -> Self {
-        let mut cutoff = filter.clone();
-        let mut modulation = modulation;
-        if let Some(m) = modulation.as_mut() {
-            m.apply_initial(control, &mut cutoff);
-        }
+        let mut modulation = modulation.map(Box::new);
+        let coeffs = match modulation.as_mut() {
+            Some(m) => m.initial_coeffs(control, coeffs),
+            None => coeffs.clone(),
+        };
         SIMDMonoVoiceCutoff {
             v,
-            cutoff,
+            coeffs,
+            state: Default::default(),
             modulation,
             _s: PhantomData,
         }
@@ -138,11 +153,15 @@ where
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.v.process_controls(control);
         if let Some(m) = self.modulation.as_mut() {
-            if let Some((freq, q)) = m.update(control) {
-                self.cutoff
-                    .set_params(m.filter_type, freq, m.sample_rate, Some(q));
+            if let Some(coeffs) = m.updated_coeffs(control) {
+                self.coeffs = coeffs;
             }
         }
+    }
+
+    #[inline(always)]
+    fn prefetch(&self, frames: usize) {
+        self.v.prefetch(frames)
     }
 }
 
@@ -153,11 +172,9 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleMono<S> {
-        simd_invoke!(S, {
-            let mut next_sample = self.v.next_sample();
-            next_sample.0 = self.cutoff.process_simd::<S>(next_sample.0);
-            next_sample
-        })
+        let mut next_sample = self.v.next_sample();
+        next_sample.0 = self.coeffs.process(&mut self.state, next_sample.0);
+        next_sample
     }
 }
 
@@ -167,9 +184,10 @@ where
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
     v: V,
-    cutoff1: BiQuadFilter,
-    cutoff2: BiQuadFilter,
-    modulation: Option<CutoffModulation>,
+    coeffs: Arc<SIMDBiQuadCoeffs<S>>,
+    state_left: SIMDBiQuadState,
+    state_right: SIMDBiQuadState,
+    modulation: Option<Box<CutoffModulation>>,
     _s: PhantomData<S>,
 }
 
@@ -178,31 +196,22 @@ where
     S: Simd,
     V: SIMDVoiceGenerator<S, SIMDSampleStereo<S>>,
 {
-    pub fn new(v: V, filter: &BiQuadFilter) -> Self {
-        SIMDStereoVoiceCutoff {
-            v,
-            cutoff1: filter.clone(),
-            cutoff2: filter.clone(),
-            modulation: None,
-            _s: PhantomData,
-        }
-    }
-
     pub(crate) fn new_modulated(
         v: V,
-        filter: &BiQuadFilter,
+        coeffs: &Arc<SIMDBiQuadCoeffs<S>>,
         modulation: Option<CutoffModulation>,
         control: &VoiceControlData,
     ) -> Self {
-        let mut cutoff = filter.clone();
-        let mut modulation = modulation;
-        if let Some(m) = modulation.as_mut() {
-            m.apply_initial(control, &mut cutoff);
-        }
+        let mut modulation = modulation.map(Box::new);
+        let coeffs = match modulation.as_mut() {
+            Some(m) => m.initial_coeffs(control, coeffs),
+            None => coeffs.clone(),
+        };
         SIMDStereoVoiceCutoff {
             v,
-            cutoff1: cutoff.clone(),
-            cutoff2: cutoff,
+            coeffs,
+            state_left: Default::default(),
+            state_right: Default::default(),
             modulation,
             _s: PhantomData,
         }
@@ -228,13 +237,15 @@ where
     fn process_controls(&mut self, control: &VoiceControlData) {
         self.v.process_controls(control);
         if let Some(m) = self.modulation.as_mut() {
-            if let Some((freq, q)) = m.update(control) {
-                self.cutoff1
-                    .set_params(m.filter_type, freq, m.sample_rate, Some(q));
-                self.cutoff2
-                    .set_params(m.filter_type, freq, m.sample_rate, Some(q));
+            if let Some(coeffs) = m.updated_coeffs(control) {
+                self.coeffs = coeffs;
             }
         }
+    }
+
+    #[inline(always)]
+    fn prefetch(&self, frames: usize) {
+        self.v.prefetch(frames)
     }
 }
 
@@ -245,11 +256,9 @@ where
 {
     #[inline(always)]
     fn next_sample(&mut self) -> SIMDSampleStereo<S> {
-        simd_invoke!(S, {
-            let mut next_sample = self.v.next_sample();
-            next_sample.0 = self.cutoff1.process_simd::<S>(next_sample.0);
-            next_sample.1 = self.cutoff2.process_simd::<S>(next_sample.1);
-            next_sample
-        })
+        let mut next_sample = self.v.next_sample();
+        next_sample.0 = self.coeffs.process(&mut self.state_left, next_sample.0);
+        next_sample.1 = self.coeffs.process(&mut self.state_right, next_sample.1);
+        next_sample
     }
 }
